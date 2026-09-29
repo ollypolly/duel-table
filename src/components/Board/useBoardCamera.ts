@@ -1,6 +1,7 @@
-// The 2D board's camera: pans and zooms the world to frame a focus area, or,
-// in free mode, lets you drag to pan and wheel/pinch to zoom. Offsets are px
-// with the world's transform origin at its top-left.
+// The 2D board's camera: pans and zooms the world to frame a focus area. You
+// can always drag to pan and wheel/pinch to zoom; doing so outside free mode
+// calls onManual, so the owner can switch to free mode. Offsets are px with
+// the world's transform origin at its top-left.
 import { animate, useMotionValue } from 'motion/react'
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { BOUNDS, focusRegion, type FocusArea } from '../../view/layout'
@@ -44,7 +45,7 @@ function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number) 
   return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -73,13 +74,19 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.x, target?.y, target?.scale])
 
-  // Free mode: drag to pan, wheel or pinch to zoom around the pointer.
-  const free = mode === 'free'
+  // Drag to pan, wheel or pinch to zoom around the pointer.
+  const manual = useRef(() => {})
+  manual.current = () => {
+    if (mode === 'free') return
+    for (const mv of [x, y, scale]) mv.stop() // don't fight a focus animation in flight
+    onManual?.()
+  }
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const dragged = useRef(false)
   const pinch = useRef<number>(undefined)
 
   const zoomAt = (px: number, py: number, factor: number) => {
+    manual.current()
     const s = scale.get()
     const next = Math.min(FREE_ZOOM.max, Math.max(FREE_ZOOM.min, s * factor))
     x.jump(px - (px - x.get()) * (next / s))
@@ -89,7 +96,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
 
   useEffect(() => {
     const el = ref.current
-    if (!el || !free) return
+    if (!el) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
@@ -98,7 +105,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     el.addEventListener('wheel', onWheel, { passive: false }) // React's onWheel is passive
     return () => el.removeEventListener('wheel', onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, free])
+  }, [ref])
 
   const local = (e: React.PointerEvent) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -109,52 +116,53 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }
   }
 
-  const handlers = free
-    ? {
-        onPointerDown: (e: React.PointerEvent) => {
-          if (e.button !== 0) return
-          pointers.current.set(e.pointerId, local(e))
-          if (pointers.current.size === 1) dragged.current = false
-          if (pointers.current.size === 2) pinch.current = spread().d
-        },
-        onPointerMove: (e: React.PointerEvent) => {
-          const prev = pointers.current.get(e.pointerId)
-          if (!prev) return
-          const p = local(e)
-          if (pointers.current.size === 2) {
-            const before = spread()
-            pointers.current.set(e.pointerId, p)
-            const after = spread()
-            x.jump(x.get() + after.mx - before.mx)
-            y.jump(y.get() + after.my - before.my)
-            if (pinch.current) zoomAt(after.mx, after.my, after.d / pinch.current)
-            pinch.current = after.d
-            dragged.current = true
-            return
-          }
-          if (!dragged.current && Math.hypot(p.x - prev.x, p.y - prev.y) < DRAG_THRESHOLD) return
-          if (!dragged.current) e.currentTarget.setPointerCapture(e.pointerId)
-          dragged.current = true
-          x.jump(x.get() + p.x - prev.x)
-          y.jump(y.get() + p.y - prev.y)
-          pointers.current.set(e.pointerId, p)
-        },
-        onPointerUp: (e: React.PointerEvent) => {
-          pointers.current.delete(e.pointerId)
-          pinch.current = undefined
-        },
-        onPointerCancel: (e: React.PointerEvent) => {
-          pointers.current.delete(e.pointerId)
-          pinch.current = undefined
-        },
-        // A drag ends with a click on whatever's under the pointer; swallow it.
-        onClickCapture: (e: React.MouseEvent) => {
-          if (!dragged.current) return
-          e.stopPropagation()
-          dragged.current = false
-        },
-      }
-    : {}
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.button !== 0) return
+      pointers.current.set(e.pointerId, local(e))
+      if (pointers.current.size === 1) dragged.current = false
+      if (pointers.current.size === 2) pinch.current = spread().d
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const prev = pointers.current.get(e.pointerId)
+      if (!prev) return
+      const p = local(e)
+      if (pointers.current.size === 2) {
+        const before = spread()
+        pointers.current.set(e.pointerId, p)
+        const after = spread()
+        x.jump(x.get() + after.mx - before.mx)
+        y.jump(y.get() + after.my - before.my)
+        if (pinch.current) zoomAt(after.mx, after.my, after.d / pinch.current)
+        pinch.current = after.d
+        dragged.current = true
+        return
+  }
+      if (!dragged.current && Math.hypot(p.x - prev.x, p.y - prev.y) < DRAG_THRESHOLD) return
+      if (!dragged.current) {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        manual.current()
+  }
+      dragged.current = true
+      x.jump(x.get() + p.x - prev.x)
+      y.jump(y.get() + p.y - prev.y)
+      pointers.current.set(e.pointerId, p)
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      pointers.current.delete(e.pointerId)
+      pinch.current = undefined
+    },
+    onPointerCancel: (e: React.PointerEvent) => {
+      pointers.current.delete(e.pointerId)
+      pinch.current = undefined
+    },
+    // A drag ends with a click on whatever's under the pointer; swallow it.
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!dragged.current) return
+      e.stopPropagation()
+      dragged.current = false
+    },
+  }
 
   const reset = () => size && worldW && goTo(frame(size, worldW, 'all', insetLeft), false)
 

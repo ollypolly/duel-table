@@ -19,6 +19,7 @@ export type BoardRendererProps = {
   // Px along the left covered by an overlay (the scene panel). The camera
   // frames the rest when there's room.
   insetLeft?: number
+  onCameraMove?: () => void // the viewer panned or zoomed by hand
   onCardClick?: (iid: Iid) => void
   onCardHover?: (iid: Iid | undefined) => void
   onZoneClick?: (ref: ZoneRef) => void

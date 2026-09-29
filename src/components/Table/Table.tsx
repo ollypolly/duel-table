@@ -107,6 +107,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           selected={freePlay ? selected : undefined}
           focus={focus}
           insetLeft={SCENE_PANEL_PX}
+          onCameraMove={() => setFollowFocus(false)}
           onCardClick={(iid) => (freePlay ? fp.clickCard(iid) : inspect(inspected === iid ? undefined : iid))}
           onCardHover={hover}
           onZoneClick={(ref) => {
@@ -172,7 +173,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
 
         <label
           className="panel absolute right-3 top-3 z-10 flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs text-muted hover:text-ink"
-          title="On: the camera follows each step. Off: drag to pan, scroll or pinch to zoom"
+          title="On: the camera follows each step. Dragging or zooming the board turns it off"
         >
           <input type="checkbox" className="accent-gold" checked={followFocus} onChange={(e) => setFollowFocus(e.target.checked)} />
           Focus

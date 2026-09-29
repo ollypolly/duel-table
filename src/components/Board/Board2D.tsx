@@ -21,14 +21,14 @@ const box = (p: Point, size: { w: number; h: number } = CARD): CSSProperties => 
   height: `${(size.h / BOUNDS.height) * 100}%`,
 })
 
-export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
+export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCameraMove, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const cam = useBoardCamera(ref, focus, insetLeft)
+  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove)
   const cosmetics = useCosmeticsStore((s) => s.cosmetics)
   return (
     <div
       ref={ref}
-      className={`felt relative isolate h-full w-full overflow-hidden ${focus === 'free' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
+      className="felt relative isolate h-full w-full cursor-grab touch-none overflow-hidden active:cursor-grabbing"
       data-testid="board"
       data-focus={focus}
       {...cam.handlers}

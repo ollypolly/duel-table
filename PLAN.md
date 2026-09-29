@@ -350,7 +350,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 
 ### Small fixes
 
-- Dragging the board to pan turns Focus off, so the camera stops snapping back to the next step.
+- Dragging (pan) or zooming (scroll, pinch) the board turns Focus off, so the camera stops snapping back to the next step.
 
 ### Rules for games: OCG Core
 
