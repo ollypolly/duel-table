@@ -227,6 +227,15 @@ Commit `data/cards.json` (small, makes tests and fresh clones work). Gitignore `
 - Scenario files hot-reload in dev (Vite HMR via `import.meta.glob`), so a scenario Claude writes or edits shows up in the open browser without a restart.
 - Desktop-first. Don't break on a narrow screen, but a mobile layout isn't a goal.
 
+### Swappable renderer (2D now, Three.js later)
+
+The board renderer must be replaceable by a 3D one (react-three-fiber) without touching anything else:
+
+- `src/view/boardView.ts` (pure): `BoardState` + card lookup → `BoardView`, a flat description of every zone and card (face, image, position, derived ATK/name, highlighted/revealed flags). Renderers read only this, never the engine or stores.
+- `src/view/layout.ts` (pure): playmat geometry in abstract table units (each zone slot's x/y/rotation). The 2D board positions cards from it, a 3D board places meshes from it, and arrows are drawn from it rather than by measuring the DOM.
+- `BoardRenderer` contract: props `{ view, events, onCardClick, onZoneClick, onCardHover }`, where `events` are the last step's engine events (for animations). `Board2D` is the Level 1 implementation.
+- Panels (detail, narration, step controls, pile viewer, free-play controls) are DOM around whichever renderer is active, so they're shared.
+
 ## Local API
 
 The API owns **sessions**. A session is a board in progress: a setup (usually "scenario X at step N"), plus the list of steps applied since. That makes a session's log the same shape as a scenario, so exporting one is trivial and a good live game can become a scenario file.
