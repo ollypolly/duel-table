@@ -53,16 +53,6 @@ curl -s -X POST $API/sessions/s-1a2b3c/steps -H 'content-type: application/json'
 
 Every step is checked with the table rules first. A physically impossible move (a missing card, an occupied slot) is rejected with `422` and the issues. Warnings, like sending a card to the other player's GY, are returned but still applied unless you pass `"strict": true`.
 
-Other calls:
+The full guide, written for handing to Claude (endpoints, state shape, every action type, validation and conventions), is [docs/API.md](docs/API.md).
 
-| Call | What it does |
-| --- | --- |
-| `GET /sessions/:id/events` | SSE: the whole session after every change |
-| `POST /sessions/:id/undo` | Drop the last step |
-| `POST /sessions/:id/fork` `{"atStep": 2}` | A new session from this one at a position |
-| `POST /sessions/:id/export` `{"id": "my-line", "title": "My line", "write": true}` | Save it as `scenarios/my-line.json` |
-| `POST /sessions` `{"deck": "chazz-armed-ojama", "seed": 7}` | A fresh game from decks instead of a scenario |
-| `GET /scenarios`, `GET /scenarios/:id` | Scenarios and their steps |
-| `GET /cards?name=...`, `GET /cards/:id` | Card text and stats from the local DB |
-
-In the browser, "Go live from here" starts a session at the current step, and free-play moves made there are posted to the session, so both sides act on the same board.
+In the browser, "Go live" starts a session at the current step, and free-play moves made there are posted to the session, so both sides act on the same board.
