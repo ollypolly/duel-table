@@ -317,10 +317,12 @@ Claude runs inside the app, as an opponent first and then as a teacher. The HTTP
 - **Only our tools.** Built-in Claude Code tools (Bash, file edits, web) are disabled. Our tools are an in-process MCP server (`createSdkMcpServer` with Zod tools). Each tool is a thin wrapper over `server/sessions.ts`, alongside the HTTP routes, and reuses their schemas.
 - **Transport.** Existing SSE plus POST, no WebSocket. The session SSE stream already reconnects by itself. The chat gets its own SSE stream (text deltas, tool activity, usage, errors), and the browser sends chat and Stop as POSTs.
 - **Layout.** The app opens on the board as it does now. The scene panel becomes the chat, and Claude's messages take the place of step narration. A compact step bar stays at the top of the panel for scrubbing.
-- **Rules.** The engine still enforces no rules. Claude is the referee: it reads real card text and flags illegal moves, and the viewer can undo them. A real rules engine is a possible later step (see below).
+- **Rules.** Undecided until the OCG Core spike is done (see below). The choice is between OCG Core running games against Claude, and a Claude referee.
 - **Models.** Opus by default, with Sonnet selectable, since Sonnet is quicker for an opponent's turn.
 
 ### Play against Claude (first)
+
+The turn flow below assumes the free-play board with a Claude referee. If OCG Core wins the spike, turn flow and fair play come from the core instead, while the chat, events, Stop, coach toggle and persistence stay the same.
 
 - Start a game by picking your deck and Claude's deck. This uses `POST /sessions` with `deck` + `opponentDeck` + `seed`. You're p1 and Claude is p2.
 - **Fair play is enforced in the tool layer.** Claude's state reads redact:
@@ -352,13 +354,32 @@ Claude runs inside the app, as an opponent first and then as a teacher. The HTTP
    - storage beyond files;
    - card-image terms.
 
-### Later: a real rules engine
+### Rules for games: spike OCG Core first (in progress)
 
-EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compiled to WebAssembly: [ocgcore-wasm](https://github.com/n1xx1/ocgcore-wasm) and [koishipro-core.js](https://github.com/purerosefallen/koishipro-core.js), both MIT wrappers. It isn't drop-in:
-- It's prompt-driven ("select a card", "chain?"), whereas our free-play board lets you move anything anywhere.
-- It needs the card scripts plus a `cards.cdb`, and the upstream core and scripts carry their own licences.
+EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compiled to WebAssembly:
+- [ocgcore-wasm](https://github.com/n1xx1/ocgcore-wasm) (MIT wrapper);
+- [koishipro-core.js](https://github.com/purerosefallen/koishipro-core.js) (MIT wrapper, TypeScript, message parsing via `ygopro-msg-encode`).
 
-It would sit behind the `RulesProvider` seam, or run as an alternative "strict" game mode where Claude answers the engine's prompts instead of refereeing.
+**Spike (about half a day).** Run a duel in Node with `chazz-armed-ojama` against a second deck, making the choices from a script. Answer these:
+- Does a WASM build run with current card scripts and a card database?
+- Do the Chazz cards behave?
+- What does it take to translate core messages into our engine's actions?
+- What are the licences of the core, the scripts and the card database, especially for hosting?
+
+**If the spike works, OCG Core runs games against Claude.**
+- The core owns game state and asks questions (select a card, choose a zone, chain or not).
+- Its messages translate into our `Action`s, so the existing board and animations keep working.
+- A prompt UI covers its question types.
+- Claude picks from the legal options the core offers. Obvious ones (no response possible, a single option) are auto-passed so Claude isn't called for each.
+- Fair play comes free, because each player only gets its own view.
+- Free play, scenarios and lessons stay on our engine.
+
+**If the spike fails, a Claude referee sits behind `RulesProvider`.**
+- Instant checks in code (`basicRules`): one Normal Summon per turn, tribute counts, phase order, zone limits.
+- Claude checks moves that matter (summons, activations, attacks, resolved chains) without blocking: the move applies, and the verdict arrives as a step warning with Undo.
+- It uses a fast model with card text cached.
+- The referee is a separate call from the opponent, because judging legality can need hidden information (your hand, what you searched). The opponent only sees verdicts.
+- A real engine can replace it later behind the same seam.
 
 ### Testing
 
