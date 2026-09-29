@@ -1,6 +1,7 @@
 // The playback screen for one scenario: a header with the game status, the
 // board filling everything else, and a floating scene panel with the
-// narration and playback controls. Free play adds its tools along the bottom.
+// narration and playback controls. Free play adds a header menu, and the
+// selected card's actions float over the board.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step } from '../../engine'
@@ -14,7 +15,7 @@ import { stepFocus } from '../../view/focus'
 import { Board2D } from '../Board/Board2D'
 import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
-import { FreePlayBar } from '../FreePlay/FreePlayBar'
+import { FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
 import { Menu, MenuItem } from '../Menu/Menu'
 import { NarrationPanel } from '../NarrationPanel/NarrationPanel'
 import { PileViewer } from '../PileViewer/PileViewer'
@@ -90,7 +91,14 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
 
   return (
     <>
-      <TopBar nav={nav} status={<StatusBar view={view} lpChanges={lpChanges} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />} />
+      <TopBar
+        nav={
+          <>
+            {nav}
+            {freePlay && <FreePlayMenu fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />}
+          </>
+        }
+        status={<StatusBar view={view} lpChanges={lpChanges} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />} />
 
       <main className="relative min-h-0 flex-1">
         <Renderer
@@ -156,6 +164,12 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           <ChainList view={view} />
         </div>
 
+        {freePlay && (
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center *:pointer-events-auto sm:left-[27rem] sm:right-32">
+            <FreePlayStatus fp={fp} onInspect={() => inspect(selected)} />
+          </div>
+        )}
+
         <label
           className="panel absolute right-3 top-3 z-10 flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs text-muted hover:text-ink"
           title="On: the camera follows each step. Off: drag to pan, scroll or pinch to zoom"
@@ -164,12 +178,6 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           Focus
         </label>
       </main>
-
-      {freePlay && (
-        <footer className="border-t border-line bg-surface/70 px-4 py-2 backdrop-blur">
-          <FreePlayBar fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} onInspect={() => inspect(selected)} />
-        </footer>
-      )}
 
       <CardInspector hovered={face(hovered)} pinned={face(inspected)} materialsOf={materialsOf} onClose={() => inspect(undefined)} />
       {pile && (
