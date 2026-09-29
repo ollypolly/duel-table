@@ -348,6 +348,10 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - storage beyond files;
    - card-image terms.
 
+### Small fixes
+
+- Dragging the board to pan turns Focus off, so the camera stops snapping back to the next step.
+
 ### Rules for games: OCG Core
 
 EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compiled to WebAssembly:
