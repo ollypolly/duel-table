@@ -6,8 +6,12 @@ import { streamSSE } from 'hono/streaming'
 import type { CardDb } from '../src/data/cardDb'
 import { imagePath } from '../src/data/cardDb'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
-import { ScenarioSchema, StepSchema } from '../src/scenarios/schema'
+import { parseDeck } from '../src/scenarios/resolve'
+import { DeckSchema, StepSchema } from '../src/scenarios/schema'
+import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
+import type { WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
+import type { FetchResult } from './ygoprodeck'
 
 const ErrorSchema = z.object({ error: z.string(), details: z.array(z.string()).optional() })
 const IssueSchema = z.object({ severity: z.enum(['error', 'warning']), message: z.string(), action: z.number().optional() })
@@ -22,7 +26,14 @@ const json = <T extends z.ZodType>(schema: T, description: string) => ({ content
 const body = <T extends z.ZodType>(schema: T) => ({ body: { content: { 'application/json': { schema } } } })
 const errors = { 400: json(ErrorSchema, 'Bad request'), 404: json(ErrorSchema, 'Not found'), 422: json(ErrorSchema, "Doesn't resolve") }
 
-export function createApp({ sessions, ctx, writeScenario }: { sessions: SessionService; ctx: () => ResolveContext; writeScenario?: (file: z.infer<typeof ScenarioSchema>, overwrite: boolean) => string }) {
+type AppDeps = {
+  sessions: SessionService
+  ctx: () => ResolveContext
+  writeFile?: WriteRepoFile // without it, nothing is written to the repo
+  addCards?: (names: string[]) => Promise<FetchResult> // without it, unknown cards aren't fetched
+}
+
+export function createApp({ sessions, ctx, writeFile, addCards }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -116,6 +127,115 @@ export function createApp({ sessions, ctx, writeScenario }: { sessions: SessionS
     },
   )
 
+  // Decks ---------------------------------------------------------------------
+
+  const DeckCardSchema = z.object({ count: z.number(), name: z.string() }).passthrough().openapi({ description: 'count plus the card data (id is the passcode)' })
+  const ExpandedDeckSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    size: z.object({ main: z.number(), extra: z.number() }),
+    main: z.array(DeckCardSchema),
+    extra: z.array(DeckCardSchema),
+    warnings: z.array(z.string()),
+  })
+
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/decks',
+      summary: 'List decks',
+      responses: { 200: json(z.array(z.object({ id: z.string(), name: z.string().optional(), size: z.object({ main: z.number(), extra: z.number() }).optional(), errors: z.array(z.string()).optional() })), 'Decks') },
+    }),
+    (c) => {
+      const context = ctx()
+      return c.json(
+        Object.entries(context.decks).map(([id, raw]) => {
+          try {
+            const d = expandDeck(parseDeck(raw, `deck ${id}`), context.db)
+            return { id: d.id, name: d.name, size: d.size }
+          } catch (e) {
+            return { id, errors: [e instanceof Error ? e.message : String(e)] }
+          }
+        }),
+        200,
+      )
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/decks/{id}',
+      summary: 'A deck with every card\'s text and stats',
+      request: { params: IdParam },
+      responses: { 200: json(ExpandedDeckSchema, 'The deck'), ...errors },
+    }),
+    (c) => {
+      const context = ctx()
+      const { id } = c.req.valid('param')
+      const raw = context.decks[id]
+      if (!raw) return c.json({ error: `no deck "${id}"`, details: [`known: ${Object.keys(context.decks).join(', ') || 'none'}`] }, 404)
+      try {
+        return c.json(expandDeck(parseDeck(raw, `deck ${id}`), context.db), 200)
+      } catch (e) {
+        return c.json({ error: e instanceof Error ? e.message : String(e) }, 422)
+      }
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/decks',
+      summary: 'Create a deck from a decklist and save it to decks/<id>.json',
+      description:
+        'Give either list (pasted text, one card per line, e.g. "3 Ash Blossom & Joyous Spring") or cards. Extra Deck cards are sorted out by type. Cards missing from the local DB are fetched from YGOPRODeck unless fetch is false; names that match no real card fail with 422 and suggestions.',
+      request: body(
+        z
+          .object({
+            id: DeckSchema.shape.id,
+            name: z.string().min(1),
+            list: z.string().optional(),
+            cards: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).optional(),
+            fetch: z.boolean().optional(),
+            overwrite: z.boolean().optional(),
+          })
+          .strict()
+          .refine((b) => !!b.list !== !!b.cards, { message: 'give either list or cards' }),
+      ),
+      responses: {
+        201: json(ExpandedDeckSchema.extend({ path: z.string().optional(), fetched: z.array(z.string()), skipped: z.array(z.string()) }), 'The saved deck'),
+        409: json(ErrorSchema, 'Deck exists'),
+        422: json(ErrorSchema.extend({ unknown: z.array(z.object({ name: z.string(), suggestions: z.array(z.string()) })) }), 'Unknown card names'),
+        400: json(ErrorSchema, 'Bad request'),
+      },
+    }),
+    async (c) => {
+      const { id, name, list, cards, fetch = true, overwrite = false } = c.req.valid('json')
+      if (ctx().decks[id] && !overwrite) return c.json({ error: `decks/${id}.json already exists (pass overwrite: true to replace it)` }, 409)
+      const { entries, skipped }: { entries: DeckEntry[]; skipped: string[] } = list ? parseDeckList(list) : { entries: cards!, skipped: [] }
+      if (entries.length === 0) return c.json({ error: 'no cards in the list' }, 400)
+
+      let missing = entries.filter((e) => !ctx().db.byName(e.name)).map((e) => e.name)
+      let fetched: string[] = []
+      let suggestions: Record<string, string[]> = {}
+      if (missing.length && fetch && addCards) {
+        const r = await addCards(missing)
+        fetched = r.added.map((card) => card.name)
+        suggestions = Object.fromEntries(r.unknown.map((u) => [u.name, u.suggestions]))
+      }
+      const db = ctx().db
+      const built = buildDeck(id, name, entries, db)
+      missing = built.unknown
+      if (missing.length) {
+        const unknown = missing.map((n) => ({ name: n, suggestions: suggestions[n] ?? db.closeMatches(n, 5) }))
+        return c.json({ error: `unknown card${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`, unknown }, 422)
+      }
+      const path = writeFile?.('decks', built.file, overwrite)
+      return c.json({ ...expandDeck(built.file, db), ...(path && { path }), fetched, skipped }, 201)
+    },
+  )
+
   // Sessions ------------------------------------------------------------------
 
   app.openapi(
@@ -202,9 +322,9 @@ export function createApp({ sessions, ctx, writeScenario }: { sessions: SessionS
     (c) => {
       const { write, overwrite = false, ...as } = c.req.valid('json')
       const file = sessions.export(c.req.valid('param').id, as)
-      if (!write || !writeScenario) return c.json({ file }, 200)
+      if (!write || !writeFile) return c.json({ file }, 200)
       try {
-        return c.json({ file, path: writeScenario(file, overwrite) }, 200)
+        return c.json({ file, path: writeFile('scenarios', file, overwrite) }, 200)
       } catch (e) {
         return c.json({ error: e instanceof Error ? e.message : String(e) }, 409)
       }

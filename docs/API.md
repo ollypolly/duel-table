@@ -20,7 +20,7 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 
 ## Workflow
 
-1. Create a session, or find the one the human started with the "Go live" button (`GET /sessions`).
+1. Create a session, or find the one the human started with the "Go live" button (`GET /sessions`). To play a deck, read it first with `GET /decks/{id}`, or create it from a decklist with `POST /decks`.
 2. `GET /sessions/{id}` and read `state`: hands, field, LP, turn, phase.
 3. Look up card text with `GET /cards?name=...` before relying on what a card does. Your memory of card text may be wrong.
 4. `POST /sessions/{id}/steps` one step at a time. Check the response: `issues` holds warnings, a `422` means nothing was applied.
@@ -41,13 +41,66 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 | `GET /scenarios`, `GET /scenarios/{id}` | | scenarios, and one scenario's steps |
 | `GET /cards?name=...` | | card data (name matching ignores case and punctuation); `404` with `suggestions` on a miss |
 | `GET /cards/{passcode}` | | card data |
+| `GET /decks` | | `[{ id, name, size: { main, extra } }]` |
+| `GET /decks/{id}` | | the deck with every card's text and stats (see [Decks](#decks)) |
+| `POST /decks` | `{ id, name, list? \| cards?, fetch?, overwrite? }` | `201` the saved deck; `422` unknown names with suggestions; `409` if it exists |
 
 Creating a session:
 
 - From a scenario position: `{ "scenario": "free-table", "atStep": 1 }`. `atStep` defaults to the end of the scenario.
-- From decks: `{ "deck": "chazz-armed-ojama", "opponentDeck": "...", "seed": 7 }` (decks live in `decks/`).
+- From decks: `{ "deck": "chazz-armed-ojama", "opponentDeck": "...", "seed": 7 }`. `opponentDeck` defaults to `deck`. The game starts at the setup: both Decks are in list order and both hands are empty. Your first step should `shuffle` each Deck and `draw` 5 for each player.
 
 Errors look like `{ "error": "...", "details": ["..."] }`. A malformed body is a `400` whose `details` point at the bad field.
+
+## Decks
+
+Decks live in `decks/<id>.json` as card names and counts. Before playing a deck, read it with `GET /decks/{id}`: it has the full text of every card, so you can plan from the real cards rather than from memory.
+
+```jsonc
+{
+  "id": "chazz-armed-ojama", "name": "Chazz: Armed Ojama VWXYZ",
+  "size": { "main": 40, "extra": 9 },
+  "main": [
+    { "count": 3, "id": 90140980, "name": "Ojamatch", "type": "Spell Card", "race": "Normal", "desc": "..." },
+    { "count": 1, "id": 46384672, "name": "Armed Dragon LV5", "type": "Effect Monster", "attribute": "WIND",
+      "race": "Dragon", "level": 5, "atk": 2400, "def": 1700, "desc": "..." }
+  ],
+  "extra": [ ... ],
+  "warnings": []      // e.g. "Main Deck has 38 cards (40 to 60 is legal)"
+}
+```
+
+Each entry is the count plus the card's data; `id` is the passcode. Xyz monsters have `rank` instead of `level`, and Link monsters have `linkval` and no `def`.
+
+### Creating a deck
+
+When the human gives you a decklist, pass it as-is in `list`:
+
+```sh
+curl -s -X POST $API/decks -H 'content-type: application/json' -d '{
+  "id": "my-deck",
+  "name": "My Deck",
+  "list": "Main Deck:\n3 Ash Blossom & Joyous Spring\n2x Maxx \"C\"\nEffect Veiler x1\nExtra Deck:\nAccesscode Talker\nSide Deck:\n3 Nibiru, the Primal Being"
+}'
+```
+
+- **List format:** one card per line, as `3 Name`, `3x Name`, `Name x3` or just `Name` (one copy). Blank lines and `#` or `//` comments are ignored, and so is everything under a "Side Deck" heading. Repeats are added together. Lines that can't be read come back in `skipped`.
+- **Main or Extra:** decided by card type (Fusion, Synchro, Xyz and Link cards go to the Extra Deck), so headings are optional.
+- **Names:** matching ignores case and punctuation. The saved file uses the official spelling.
+- **Structured input:** you can send `"cards": [{ "name": "...", "count": 3 }]` instead of `list`.
+- **Fetching cards:** cards missing from the local card DB are fetched from YGOPRODeck, with their images. For a new deck this can take 10 to 30 seconds. Pass `"fetch": false` to use only local cards.
+- **Unknown names:** if any name matches no real card, nothing is saved and you get a `422`:
+
+  ```json
+  { "error": "unknown card: Pot of Grreed", "unknown": [{ "name": "Pot of Grreed", "suggestions": ["Pot of Greed"] }] }
+  ```
+
+  Fix the names and send the request again. Cards that were already fetched stay in the DB, so the retry is quick. If the right card isn't obvious from the suggestions, ask the human rather than guessing.
+- **Overwriting:** an existing id is a `409` unless you pass `"overwrite": true`.
+- **Response:** `201` with the saved deck in the same shape as `GET /decks/{id}`, plus `path`, `fetched` (names that were added to the DB) and `skipped`.
+- **Warnings:** a deck that breaks deck-building rules (size, more than 3 copies) is still saved, with `warnings`.
+
+Then start a game with it: `POST /sessions { "deck": "my-deck", "opponentDeck": "...", "seed": 7 }`.
 
 ## Reading the state
 

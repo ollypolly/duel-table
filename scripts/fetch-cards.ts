@@ -1,44 +1,16 @@
 // Builds data/cards.json from every card named in decks/ and scenarios/, and
-// downloads their images into public/cards/. YGOPRODeck terms: stay under
-// 20 req/s (we go one request at a time) and never hotlink images.
+// downloads their images into public/cards/ (see server/ygoprodeck.ts).
 //
 // Usage: npm run fetch-cards [-- --force] [-- "Extra Card Name" ...]
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createCardDb, type CardData, type CardDbFile } from '../src/data/cardDb.ts'
+import type { CardDbFile } from '../src/data/cardDb.ts'
+import { fetchByNames, getJson, suggest, trim, writeImages, type ApiCard } from '../server/ygoprodeck.ts'
 
-const API = 'https://db.ygoprodeck.com/api/v7'
 const ROOT = new URL('..', import.meta.url).pathname
 const OUT = join(ROOT, 'data/cards.json')
 const IMG_DIR = join(ROOT, 'public/cards')
-const BATCH = 20
-const DELAY_MS = 150
-
-type ApiCard = {
-  id: number
-  name: string
-  type: string
-  frameType: string
-  desc: string
-  atk?: number
-  def?: number
-  level?: number
-  linkval?: number
-  attribute?: string
-  race: string
-  archetype?: string
-  card_images: { id: number; image_url: string; image_url_small: string }[]
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-async function getJson<T>(url: string): Promise<T> {
-  await sleep(DELAY_MS)
-  const res = await fetch(url)
-  if (!res.ok && res.status !== 400) throw new Error(`${res.status} ${url}`)
-  return (await res.json()) as T
-}
 
 async function readJsonDir(dir: string): Promise<unknown[]> {
   if (!existsSync(dir)) return []
@@ -71,54 +43,6 @@ function collectNames(decks: unknown[], scenarios: unknown[]): Set<string> {
   return names
 }
 
-function trim(c: ApiCard): CardData {
-  const isXyz = c.type.includes('XYZ')
-  const isLink = c.type.includes('Link')
-  return {
-    id: c.id,
-    name: c.name,
-    type: c.type,
-    frameType: c.frameType,
-    desc: c.desc.replace(/\r\n/g, '\n'),
-    ...(c.atk !== undefined && { atk: c.atk }),
-    ...(c.def !== undefined && !isLink && { def: c.def }),
-    ...(c.level !== undefined && !isXyz && { level: c.level }),
-    ...(c.level !== undefined && isXyz && { rank: c.level }),
-    ...(c.linkval !== undefined && { linkval: c.linkval }),
-    ...(c.attribute && { attribute: c.attribute }),
-    race: c.race,
-    ...(c.archetype && { archetype: c.archetype }),
-  }
-}
-
-async function fetchByNames(names: string[]): Promise<ApiCard[]> {
-  const found: ApiCard[] = []
-  for (let i = 0; i < names.length; i += BATCH) {
-    const batch = names.slice(i, i + BATCH)
-    const url = `${API}/cardinfo.php?${new URLSearchParams({ name: batch.join('|') })}`
-    const body = await getJson<{ data?: ApiCard[]; error?: string }>(url)
-    found.push(...(body.data ?? []))
-  }
-  return found
-}
-
-// fname is a substring match, so search on a short prefix of the longest word
-// (survives most typos) and let cardDb rank the results by edit distance.
-async function suggest(name: string): Promise<string[]> {
-  const word = name.split(/[\s-]+/).sort((a, b) => b.length - a.length)[0].slice(0, 5)
-  const body = await getJson<{ data?: ApiCard[] }>(`${API}/cardinfo.php?${new URLSearchParams({ fname: word })}`)
-  return createCardDb({ dbVersion: '', cards: (body.data ?? []).map(trim) }).closeMatches(name, 5)
-}
-
-async function download(url: string, path: string): Promise<boolean> {
-  if (existsSync(path)) return false
-  await sleep(DELAY_MS)
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
-  await writeFile(path, Buffer.from(await res.arrayBuffer()))
-  return true
-}
-
 async function main() {
   const args = process.argv.slice(2)
   const force = args.includes('--force')
@@ -128,7 +52,7 @@ async function main() {
   for (const n of extraNames) names.add(n)
 
   const existing: CardDbFile | null = existsSync(OUT) ? JSON.parse(await readFile(OUT, 'utf8')) : null
-  const [{ database_version }] = await getJson<{ database_version: string }[]>(`${API}/checkDBVer.php`)
+  const [{ database_version }] = await getJson<{ database_version: string }[]>('checkDBVer.php')
   const have = new Set(existing?.cards.map((c) => c.name))
   const missing = [...names].filter((n) => !have.has(n))
 
@@ -137,12 +61,12 @@ async function main() {
     console.log(`Fetching ${names.size} cards (DB ${database_version})`)
     const fetched = await fetchByNames([...names].sort())
     cards = fetched.map(trim)
-    await writeImages(fetched)
+    console.log(`Downloaded ${await writeImages(fetched, ROOT)} images`)
   } else if (missing.length) {
     console.log(`Fetching ${missing.length} new cards`)
     const fetched = await fetchByNames(missing)
     cards = [...cards.filter((c) => names.has(c.name)), ...fetched.map(trim)]
-    await writeImages(fetched)
+    console.log(`Downloaded ${await writeImages(fetched, ROOT)} images`)
   } else {
     console.log(`data/cards.json is up to date (DB ${database_version})`)
   }
@@ -156,9 +80,9 @@ async function main() {
   if (lacking.length) {
     console.log(`Re-downloading images for ${lacking.length} cards`)
     const body = await getJson<{ data?: ApiCard[] }>(
-      `${API}/cardinfo.php?${new URLSearchParams({ id: lacking.map((c) => c.id).join(',') })}`,
+      `cardinfo.php?${new URLSearchParams({ id: lacking.map((c) => c.id).join(',') })}`,
     )
-    await writeImages(body.data ?? [])
+    console.log(`Downloaded ${await writeImages(body.data ?? [], ROOT)} images`)
   }
 
   const got = new Set(cards.map((c) => c.name))
@@ -166,18 +90,6 @@ async function main() {
   for (const n of unknown) console.error(`Unknown card "${n}". Did you mean: ${(await suggest(n)).join(', ') || 'no matches'}`)
   console.log(`Wrote ${cards.length} cards to data/cards.json`)
   if (unknown.length) process.exitCode = 1
-}
-
-// Only the first artwork is used; card ids match the first image id.
-async function writeImages(cards: ApiCard[]) {
-  await mkdir(join(IMG_DIR, 'small'), { recursive: true })
-  let n = 0
-  for (const c of cards) {
-    const img = c.card_images[0]
-    if (await download(img.image_url, join(IMG_DIR, `${c.id}.jpg`))) n++
-    if (await download(img.image_url_small, join(IMG_DIR, 'small', `${c.id}.jpg`))) n++
-  }
-  console.log(`Downloaded ${n} images`)
 }
 
 main().catch((e) => {

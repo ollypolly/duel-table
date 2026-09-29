@@ -1,6 +1,6 @@
 // Node-side file access: the card DB, decks and scenarios from the repo, and
 // the sessions/ directory. Read on demand so edits show up without a restart.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { createCardDb, type CardDbFile } from '../src/data/cardDb'
 import type { ResolveContext } from '../src/scenarios/resolve'
@@ -28,9 +28,16 @@ export function loadCardDb(root = ROOT) {
   return createCardDb(readJson(join(root, 'data/cards.json')) as CardDbFile)
 }
 
+// The card DB is reloaded when data/cards.json changes (POST /decks and
+// `npm run fetch-cards` both add cards).
 export function repoContext(root = ROOT): () => ResolveContext {
-  const db = loadCardDb(root)
-  return () => ({ db, decks: readJsonDir(join(root, 'decks')), scenarios: readJsonDir(join(root, 'scenarios')) })
+  let db = loadCardDb(root)
+  let loadedAt = statSync(join(root, 'data/cards.json')).mtimeMs
+  return () => {
+    const mtime = statSync(join(root, 'data/cards.json')).mtimeMs
+    if (mtime !== loadedAt) [db, loadedAt] = [loadCardDb(root), mtime]
+    return { db, decks: readJsonDir(join(root, 'decks')), scenarios: readJsonDir(join(root, 'scenarios')) }
+  }
 }
 
 export function diskStore(dir: string): SessionStore {
@@ -43,10 +50,15 @@ export function diskStore(dir: string): SessionStore {
   }
 }
 
-// Write an exported session into scenarios/. Refuses to overwrite by default.
-export function writeScenario(file: ScenarioFile, { overwrite = false, root = ROOT } = {}): string {
-  const path = join(root, 'scenarios', `${file.id}.json`)
-  if (existsSync(path) && !overwrite) throw new Error(`scenarios/${file.id}.json already exists (pass overwrite: true to replace it)`)
-  writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`)
-  return relative(root, path)
-}
+// Write a scenario or deck file into the repo. Refuses to overwrite by default.
+export type WriteRepoFile = (dir: 'scenarios' | 'decks', file: { id: string }, overwrite: boolean) => string
+
+export const writeRepoFile =
+  (root = ROOT): WriteRepoFile =>
+  (dir, file, overwrite) => {
+    const path = join(root, dir, `${file.id}.json`)
+    if (existsSync(path) && !overwrite) throw new Error(`${dir}/${file.id}.json already exists (pass overwrite: true to replace it)`)
+    mkdirSync(join(root, dir), { recursive: true })
+    writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`)
+    return relative(root, path)
+  }

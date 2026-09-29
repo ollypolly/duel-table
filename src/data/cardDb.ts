@@ -32,7 +32,7 @@ export const imagePath = (id: number, size: 'full' | 'small' = 'small') =>
 export const isExtraDeckCard = (c: CardData) => /fusion|synchro|xyz|link/.test(c.frameType)
 export const isMonster = (c: CardData) => c.type.includes('Monster')
 
-const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+export const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 export function levenshtein(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i)
