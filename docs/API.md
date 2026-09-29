@@ -252,6 +252,18 @@ done
 
 Keep each `wait` call under your tool's time limit, and react to each event: comment on the viewer's move in the next step's narration, or `undo` and explain if it was illegal.
 
+### Playing a game against the viewer
+
+The same loop runs a real game: you play `p2`, the viewer plays `p1` in the browser.
+
+1. Create the session from decks (`{ "deck": "...", "opponentDeck": "..." }`), then post the setup step: shuffle both Decks, draw 5 each. Tell the viewer the session id so they can open it.
+2. **Their turn:** post a `move` prompt ("Your turn. Click Done when you pass"), then `wait`. Each `step` event is one of their moves; read it as it arrives.
+3. **Response windows:** the browser can't interrupt the viewer, so when one of their moves is something you'd respond to (an activation, a summon that triggers your hand trap), undo nothing. Just post your response as a step once their prompt ends. If the timing matters, give them a `choice` prompt first, e.g. "You're activating Ojamatch: I chain Ash Blossom. Continue?", and resolve the chain in steps.
+4. **Your turn:** post each play as its own step with narration saying what you did and why, pacing with `{ "afterMs": 1500 }` so they can follow. Ask with a `choice` prompt whenever they could respond ("Do you chain anything?" with their plausible options plus "No").
+5. **Their illegal moves:** the table doesn't enforce rules. Explain in a step's narration or an `ack` prompt, and `undo` their step if they agree.
+
+Play fair. `state` shows their hand and Deck order: don't use them. Decide only from what a real opponent would know (public zones, card counts, what they revealed), and don't read your own Deck order before drawing.
+
 ## Playing well
 
 - **Check card text** with `/cards?name=` before a play that depends on it, and say in the narration if you're simplifying a ruling.

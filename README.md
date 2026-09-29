@@ -66,3 +66,5 @@ The full guide, written for handing to Claude (endpoints, state shape, every act
 In the browser, "Go live" starts a session at the current step, and free-play moves made there are posted to the session, so both sides act on the same board.
 
 Sessions can also run as **interactive lessons**: Claude queues steps that show when you click **Next** (or after a delay), points your view at a step or replays a range, and asks you things (a question, a choice, or "your move") in the scene panel. It long-polls `GET /sessions/{id}/wait` to hear what you did. See [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).
+
+**Play against Claude.** The same loop runs a game: Claude plays the top seat through the API and hands you the board with a "your move" prompt each turn. Point a Claude session at [docs/API.md](docs/API.md) and ask it to play you (see [Playing a game against the viewer](docs/API.md#playing-a-game-against-the-viewer)). The table doesn't enforce rules, so both of you are on the honour system, and Claude sees your moves when you click Done rather than as you make them.
