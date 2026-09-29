@@ -305,6 +305,23 @@ Super Quant card names (verify against the API; fall back to custom cards if any
 
 Claude runs inside the app, as an opponent first and then as a teacher. The HTTP API stays as it is, so Claude Code can still drive sessions from outside.
 
+### Bring your own intelligence
+
+The app works fully without AI, and logging in to Claude adds intelligence on top. There are two tiers:
+
+- **Without Claude:**
+  - preset lessons and scenarios;
+  - free play and branches;
+  - games on the rules engine against the random bot.
+
+  Everything here is authored ahead of time or is rules-only.
+- **With Claude (your own login):**
+  - Claude as the opponent;
+  - coaching while you duel against it;
+  - lessons and scenarios made on request, and interactive ones that react to what you do, instead of only the presets.
+
+The server reports whether a Claude login is available. The UI shows the Claude features only when it is, and otherwise offers them as "log in to Claude to…". Nothing AI runs unless you're logged in. Claude features stay additive, so the free tier never depends on them.
+
 ### Decisions
 
 - **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`), not the raw Messages API. It covers several things we'd otherwise build ourselves:
@@ -350,9 +367,6 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - storage beyond files;
    - card-image terms.
 
-### Small fixes
-
-- Dragging (pan) or zooming (scroll, pinch) the board turns Focus off, so the camera stops snapping back to the next step.
 
 ### Rules for games: OCG Core
 
