@@ -8,10 +8,12 @@ export const BASE_STEP_MS = 2500
 
 type PlayerState = {
   scenarioId?: string
+  sessionId?: string // live mode; comes from the URL, not persisted
   position: number
   speed: number
   playing: boolean
   open: (scenarioId: string, position?: number) => void
+  openSession: (sessionId: string | undefined, position?: number) => void
   goTo: (position: number) => void
   setSpeed: (speed: number) => void
   setPlaying: (playing: boolean) => void
@@ -25,7 +27,8 @@ export const usePlayerStore = create<PlayerState>()(
       position: 0,
       speed: 1,
       playing: false,
-      open: (scenarioId, position = 0) => set({ scenarioId, position, playing: false }),
+      open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false }),
+      openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false }),
       goTo: (position) => set({ position }),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),

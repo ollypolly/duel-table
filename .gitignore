@@ -25,3 +25,6 @@ dist-ssr
 
 # Card images are downloaded by `npm run fetch-cards` (never hotlinked)
 public/cards/
+
+# live API sessions
+sessions/

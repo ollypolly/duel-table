@@ -34,9 +34,12 @@ type TableProps = {
   freePlayControls?: ReactNode
   // Start a branch at a position, from anywhere free-play isn't available.
   onBranch?: (position: number) => void
+  branchLabel?: string
+  // Start a live API session at a position (when the server is running).
+  onGoLive?: (position: number) => void
 }
 
-export function Table({ scenario, Renderer = Board2D, onStep, onUndo, freePlayControls, onBranch }: TableProps) {
+export function Table({ scenario, Renderer = Board2D, onStep, onUndo, freePlayControls, onBranch, branchLabel = 'Branch', onGoLive }: TableProps) {
   const { position: rawPosition, playing, speed, goTo, setPlaying, setSpeed } = usePlayerStore()
   const { hovered, selected, openPile, hover, select, openPileViewer } = useUiStore()
   const last = scenario.game.steps.length
@@ -102,7 +105,7 @@ export function Table({ scenario, Renderer = Board2D, onStep, onUndo, freePlayCo
             <div className="flex w-full items-center gap-3 rounded-xl bg-slate-900 px-3 py-2 text-sm text-slate-300">
               {onStep ? (
                 <>
-                  <span>Free play happens at the end of a branch.</span>
+                  <span>Free play happens at the last step.</span>
                   <button type="button" className="rounded-md bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" onClick={() => goTo(last)}>
                     Go to the end
                   </button>
@@ -116,8 +119,18 @@ export function Table({ scenario, Renderer = Board2D, onStep, onUndo, freePlayCo
                 className="rounded-md bg-emerald-700 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-600"
                 onClick={() => onBranch(position)}
               >
-                Branch from {position === 0 ? 'the setup' : `step ${position}`}
+                {branchLabel} from {position === 0 ? 'the setup' : `step ${position}`}
               </button>
+              {onGoLive && (
+                <button
+                  type="button"
+                  className="rounded-md bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
+                  title="Start a session on the local API that Claude can drive with curl"
+                  onClick={() => onGoLive(position)}
+                >
+                  Go live from here
+                </button>
+              )}
               {freePlayControls}
             </div>
           )

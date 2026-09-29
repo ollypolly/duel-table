@@ -6,6 +6,8 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The local API (server/index.ts); npm run dev starts both.
+  server: { proxy: { '/api': `http://127.0.0.1:${process.env.API_PORT ?? 5181}` } },
   test: {
     globals: true,
     environment: 'jsdom',

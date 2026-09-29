@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k -n web,api -c blue,green npm:web npm:api",
+    "web": "vite",
+    "api": "tsx watch server/index.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -14,6 +16,9 @@
     "fetch-cards": "tsx scripts/fetch-cards.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.3",
+    "@hono/zod-openapi": "^1.6.3",
+    "hono": "^4.13.11",
     "motion": "^13.4.5",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -30,6 +35,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
     "jsdom": "^29.1.1",
     "oxlint": "^1.81.0",
     "tailwindcss": "^4.3.3",
