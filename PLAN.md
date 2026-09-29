@@ -301,12 +301,71 @@ Super Quant card names (verify against the API; fall back to custom cards if any
 
 **Accuracy:** the example was reasoned from a deck-profile video transcript, not the real card texts. When porting, read each card's `desc` from the DB and make sure the narration doesn't contradict it. Flag any mismatch in the final summary rather than silently changing the story.
 
-## Future: Level 2 (MCP on top of the API)
+## Level 2: Claude in the app
 
-Not part of this build, but the API is designed so this is a thin layer:
+Claude runs inside the app, as an opponent first and then as a teacher. The HTTP API stays as it is, so Claude Code can still drive sessions from outside.
 
-- MCP tools map roughly 1:1 onto the session endpoints (`create_session`, `get_state`, `apply_step`, `undo`, `fork`, `export_scenario`, `lookup_card`), with input schemas taken from the same Zod schemas / OpenAPI spec.
-- Either mount a streamable-HTTP MCP endpoint on the same Hono server, or ship a tiny stdio MCP that calls the HTTP API. Both call `server/sessions.ts`, never the engine directly.
-- With that, Claude can play both sides turn by turn, pause to ask the owner what they'd do, then shuffle and redeal, while the owner watches the same session live in the browser.
+### Decisions
 
-Concretely for now: keep every state change expressible as an engine `Action`, keep actions serialisable JSON, keep the session service transport-agnostic, and keep `engine/` free of browser, Node and React imports.
+- **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`), not the raw Messages API. It covers several things we'd otherwise build ourselves:
+  - conversation persistence and resume;
+  - context compaction;
+  - streaming input, so viewer events can be queued while a turn is running;
+  - interrupt (the Stop button);
+  - per-run usage and cost.
+- **Auth.** Locally, it uses the owner's Claude Code login. That's allowed for personal use only, so no API key is needed. If the app is hosted, an `ANTHROPIC_API_KEY` from env takes over, because claude.ai login can't be offered to other users. The displayed cost is the API-equivalent figure, labelled as such, since a subscription doesn't charge per call.
+- **Only our tools.** Built-in Claude Code tools (Bash, file edits, web) are disabled. Our tools are an in-process MCP server (`createSdkMcpServer` with Zod tools). Each tool is a thin wrapper over `server/sessions.ts`, alongside the HTTP routes, and reuses their schemas.
+- **Transport.** Existing SSE plus POST, no WebSocket. The session SSE stream already reconnects by itself. The chat gets its own SSE stream (text deltas, tool activity, usage, errors), and the browser sends chat and Stop as POSTs.
+- **Layout.** The app opens on the board as it does now. The scene panel becomes the chat, and Claude's messages take the place of step narration. A compact step bar stays at the top of the panel for scrubbing.
+- **Rules.** The engine still enforces no rules. Claude is the referee: it reads real card text and flags illegal moves, and the viewer can undo them. A real rules engine is a possible later step (see below).
+- **Models.** Opus by default, with Sonnet selectable, since Sonnet is quicker for an opponent's turn.
+
+### Play against Claude (first)
+
+- Start a game by picking your deck and Claude's deck. This uses `POST /sessions` with `deck` + `opponentDeck` + `seed`. You're p1 and Claude is p2.
+- **Fair play is enforced in the tool layer.** Claude's state reads redact:
+  - your hand;
+  - both Decks' order;
+  - face-down cards Claude doesn't own.
+
+  Unit tests prove nothing hidden leaks.
+- **Turn flow.** Your free-play moves, undos, chat messages and phase changes reach the agent as events:
+  - If Claude is idle, an event starts a turn.
+  - If Claude is mid-turn, it queues and is delivered after.
+  - Bursts of moves are debounced.
+  - There's a turn cap per run, and a Stop button.
+
+  On its own turn, Claude posts steps with short `afterMs` delays so you can watch them land.
+- **Response windows.** When you do something Claude could respond to, it either chains or passes. When Claude opens a window for you, it uses a move or choice prompt (the existing lesson prompts).
+- **Coach toggle.** Off: Claude chats as an opponent only. On (the default): it also points out misplays and explains its chains once they resolve. It never reveals its hand either way.
+- **Persistence.** The conversation is stored alongside the session, so a game can resume after a restart.
+- **Opponent decks.** Only `chazz-armed-ojama` exists today. A second deck is imported with the existing `POST /decks` flow for testing.
+
+### Then
+
+1. **Lessons.** Claude sets up an opening hand and paces it with Next. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
+2. **Chat niceties.** Card names in Claude's messages open the inspector. Prompts live in `prompts/*.md`.
+3. **Deck hub.** List decks, a Main/Extra grid with counts, import via decklist (with the 422 suggestions), edit and delete, per-deck sleeves, mat and deck box, plus "Teach me this deck" and "Play with this deck".
+4. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
+   - auth;
+   - spend limits;
+   - storage beyond files;
+   - card-image terms.
+
+### Later: a real rules engine
+
+EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compiled to WebAssembly: [ocgcore-wasm](https://github.com/n1xx1/ocgcore-wasm) and [koishipro-core.js](https://github.com/purerosefallen/koishipro-core.js), both MIT wrappers. It isn't drop-in:
+- It's prompt-driven ("select a card", "chain?"), whereas our free-play board lets you move anything anywhere.
+- It needs the card scripts plus a `cards.cdb`, and the upstream core and scripts carry their own licences.
+
+It would sit behind the `RulesProvider` seam, or run as an alternative "strict" game mode where Claude answers the engine's prompts instead of refereeing.
+
+### Testing
+
+- Unit tests:
+  - the tool layer;
+  - fair-play redaction;
+  - the event queue and agent loop, against a fake agent.
+- E2E in a real browser with the owner's login:
+  - a short game where Claude plays p2 without seeing your hand;
+  - later, a lesson from chat and a deck import.
