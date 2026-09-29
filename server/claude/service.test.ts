@@ -1,0 +1,188 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { cardFace } from '../../src/view/boardView'
+import { repoContext, ROOT } from '../files'
+import { GameService } from '../games'
+import { seededRng } from '../ocg/bot'
+import { ocgDataDir } from '../ocg/lib'
+import { SessionError, SessionService } from '../sessions'
+import type { Agent, AgentEvent, AgentRequest } from './agent'
+import { ClaudeService, memoryClaudeStore } from './service'
+import { seenBy } from './view'
+
+const hasData = existsSync(join(ROOT, ocgDataDir(), 'cards.cdb'))
+const ctx = repoContext()
+
+const lastQuestion = (text: string) => {
+  const m = [...text.matchAll(/Question (\d+): .*\((pick one|pick (\d+)|pick (\d+) to (\d+))\)\n((?: {2}\d+\. .*\n?)*)/g)].at(-1)
+  if (!m) return undefined
+  const options = m[6].trim().split('\n').length
+  const [min, max] = m[2] === 'pick one' ? [1, 1] : m[3] ? [+m[3], +m[3]] : [+m[4], +m[5]]
+  return { id: +m[1], min, max: Math.min(max, options), options }
+}
+
+// Plays like the random bot, through the same tools and text Claude gets.
+// Records every message and tool result it's shown.
+function fakeAgent(seed: number) {
+  const rng = seededRng(seed)
+  const seen: string[] = []
+  const requests: AgentRequest[] = []
+  const agent: Agent = (req) => {
+    requests.push(req)
+    seen.push(req.message)
+    async function* run(): AsyncIterable<AgentEvent> {
+      let text = req.message
+      yield { type: 'text', text: 'Hello from the fake.' }
+      seen.push(req.tools.table())
+      for (let tries = 0; tries < 400; tries++) {
+        const q = lastQuestion(text)
+        if (!q) break
+        const n = q.min + Math.floor(rng() * (q.max - q.min + 1))
+        const choices = [...Array(q.options).keys()].sort(() => rng() - 0.5).slice(0, n)
+        const result = await req.tools.answer(q.id, choices)
+        seen.push(result)
+        if (!result.startsWith('Not accepted')) text = result
+      }
+      yield { type: 'done', sessionId: 'fake-session', costUsd: 0.01 }
+    }
+    return { events: run(), interrupt: async () => {} }
+  }
+  return { agent, seen, requests }
+}
+
+const setup = (agent: Agent) => {
+  const sessions = new SessionService(ctx)
+  const games = new GameService(sessions, ctx)
+  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: (coach) => (coach ? 'coach' : 'play'), store: memoryClaudeStore() })
+  return { sessions, games, claude }
+}
+
+describe.skipIf(!hasData)('Claude as a player', () => {
+  it.each([1, 2])(
+    'seed %i: plays a whole game through its tools, seeing only its side',
+    async (seed) => {
+      const fake = fakeAgent(seed)
+      const { sessions, games, claude } = setup(fake.agent)
+      const db = ctx().db
+      let v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed, claude: 'p2', model: 'sonnet' })
+      const id = v.id
+      const rng = seededRng(seed * 13)
+      const leaks: string[] = []
+      const allIids = Object.keys(v.state.cards)
+      const check = () => {
+        const state = games['games'].get(id)!.game.state
+        const visible = new Set<string>()
+        const hidden = new Set<string>()
+        // Claude knows its own decklist; the person's hidden cards are the secret.
+        for (const iid of Object.keys(state.cards))
+          (seenBy(state, iid, 'p2', db) || state.cards[iid].owner === 'p2' ? visible : hidden).add(cardFace(state, iid, db).name)
+        const secret = [...hidden].filter((n) => !visible.has(n))
+        // Card texts name other cards ("Special Summoned by X"); those aren't leaks.
+      const descs = [...new Set(Object.keys(state.cards).map((iid) => cardFace(state, iid, db).name))].flatMap((n) => db.byName(n)?.desc ?? [])
+      for (const raw of fake.seen.splice(0)) {
+        const text = descs.reduce((t, d) => t.split(d).join(''), raw)
+          for (const n of secret) if (text.includes(n)) leaks.push(`${n} in: ${text}`)
+          for (const iid of allIids) if (text.includes(iid)) leaks.push(`${iid} in: ${text}`)
+        }
+      }
+      for (let i = 0; i < 1500; i++) {
+        await claude.idle(id)
+        check()
+        v = sessions.get(id)
+        if (v.game?.winner) break
+        const p = v.game?.prompt
+        if (!p) {
+          await new Promise((r) => setTimeout(r, 5))
+          continue
+        }
+        expect(p.player).toBe('p1')
+        const n = p.min + Math.floor(rng() * (Math.min(p.max, p.options.length) - p.min + 1))
+        const choices = [...p.options.keys()].sort(() => rng() - 0.5).slice(0, n)
+        try {
+          await games.answer(id, 'p1', { id: p.id, choices })
+        } catch (e) {
+          if (!(e instanceof SessionError) || e.status !== 422) throw e
+        }
+      }
+      expect(v.game?.winner).toBeDefined()
+      expect(leaks).toEqual([])
+      const c = v.game?.claude
+      expect(c).toMatchObject({ player: 'p2', model: 'sonnet', coach: true, status: 'idle' })
+      expect(c!.chat.some((e) => e.from === 'move')).toBe(true)
+      expect(c!.costUsd).toBeGreaterThan(0)
+      expect(fake.requests.at(-1)?.sessionId).toBe('fake-session')
+      expect(fake.requests.every((r) => r.system === 'coach' && r.model === 'sonnet')).toBe(true)
+    },
+    120_000,
+  )
+
+  it('replies to chat, and the browser never sees its question', async () => {
+    const fake = fakeAgent(1)
+    const { sessions, games, claude } = setup(fake.agent)
+    // Claude goes second: the person's first question is open.
+    const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1, claude: 'p2' })
+    await claude.idle(v.id)
+    claude.chat(v.id, 'good luck!')
+    await claude.idle(v.id)
+    const last = fake.requests.at(-1)!
+    expect(last.message).toContain('Your opponent says: good luck!')
+    const chat = sessions.get(v.id).game!.claude!.chat
+    expect(chat.slice(-2)).toEqual([
+      { from: 'you', text: 'good luck!' },
+      { from: 'claude', text: 'Hello from the fake.' },
+    ])
+    expect(sessions.get(v.id).game?.prompt?.player ?? 'p1').toBe('p1')
+    expect(last.message).not.toContain('showing you their hidden cards')
+
+    // Shown the person's cards, Claude gets their side and their question.
+    claude.settings(v.id, { share: true })
+    claude.chat(v.id, 'what should I do?')
+    await claude.idle(v.id)
+    const shared = fake.requests.at(-1)!.message
+    const hand = sessions.get(v.id).state.players.p1.zones.hand.map((iid) => cardFace(sessions.get(v.id).state, iid, ctx().db).name)
+    expect(shared).toContain('showing you their hidden cards')
+    for (const n of hand) expect(shared).toContain(n)
+    expect(shared).toMatch(/Your opponent is being asked/)
+    // Each card's text is given once.
+    expect(fake.requests[0].message).toContain('Card texts')
+    expect(shared.match(/Card texts/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  }, 60_000)
+
+  it('stops mid-run, and a question left unanswered gets a default pick', async () => {
+    let interrupted = 0
+    let release = () => {}
+    const quiet: Agent = () => ({
+      events: (async function* () {
+        await new Promise<void>((r) => (release = r))
+        yield { type: 'done', costUsd: 0 } as AgentEvent
+      })(),
+      interrupt: async () => {
+        interrupted++
+        release()
+      },
+    })
+    const { sessions, games, claude } = setup(quiet)
+    // Claude as p1, which moves first.
+    const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 2, claude: 'p1' })
+    await new Promise((r) => setTimeout(r, 20))
+    expect(sessions.get(v.id).game?.claude?.status).toBe('thinking')
+    await claude.stop(v.id)
+    await claude.idle(v.id)
+    expect(interrupted).toBe(1)
+    expect(sessions.get(v.id).game?.claude?.status).toBe('stopped')
+
+    // Resumed, it ignores the question twice more, then the first option is taken.
+    const asked = (await games.asking(v.id, 'p1'))!.id
+    claude.resume(v.id)
+    const noted = () => sessions.get(v.id).game!.claude!.chat.some((e) => e.from === 'note')
+    for (let i = 0; i < 50 && !noted(); i++) {
+      await new Promise((r) => setTimeout(r, 20))
+      release()
+    }
+    await claude.stop(v.id)
+    await claude.idle(v.id)
+    expect(sessions.get(v.id).game!.claude!.chat.some((e) => e.from === 'note' && e.text.includes(`question ${asked}`))).toBe(true)
+    expect((await games.asking(v.id, 'p1'))?.id).not.toBe(asked)
+  }, 60_000)
+})

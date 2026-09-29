@@ -28,10 +28,34 @@ export const PICK_KINDS: GamePrompt['kind'][] = ['cards', 'tribute', 'unselect',
 export const GameAnswerSchema = z.object({ id: z.int(), choices: z.array(z.int().min(0)) }).strict()
 export type GameAnswer = z.infer<typeof GameAnswerSchema>
 
+export const ChatEntrySchema = z.object({
+  from: z.enum(['you', 'claude', 'move', 'note']).describe('move: an answer Claude gave; note: from the app'),
+  text: z.string(),
+})
+export type ChatEntry = z.infer<typeof ChatEntrySchema>
+
+export const ModelChoiceSchema = z.enum(['opus', 'sonnet'])
+export type ModelChoice = z.infer<typeof ModelChoiceSchema>
+
+export const ClaudeViewSchema = z.object({
+  player: PlayerSchema,
+  model: ModelChoiceSchema,
+  coach: z.boolean().describe('Also points out your misplays and explains its plays'),
+  share: z.boolean().describe('You show Claude your hidden cards (hand, face-down cards, Extra Deck) and your open question, so it can advise you'),
+  status: z.enum(['idle', 'thinking', 'stopped']),
+  chat: z.array(ChatEntrySchema),
+  costUsd: z.number().describe('What the runs so far would cost on the API (a subscription login is not charged per call)'),
+})
+export type ClaudeView = z.infer<typeof ClaudeViewSchema>
+
+export const ClaudeSettingsSchema = z.object({ model: ModelChoiceSchema.optional(), coach: z.boolean().optional(), share: z.boolean().optional() }).strict()
+export type ClaudeSettings = z.infer<typeof ClaudeSettingsSchema>
+
 export const GameViewSchema = z.object({
   waitingFor: PlayerSchema.optional().describe('Whose answer the rules engine is waiting for'),
   winner: z.object({ player: PlayerSchema, reason: z.int() }).optional(),
   bots: z.array(PlayerSchema).describe('Players the random bot answers for'),
   prompt: GamePromptSchema.optional().describe("The open question, when it's for a person"),
+  claude: ClaudeViewSchema.optional().describe('Claude, when it plays one side'),
 })
 export type GameView = z.infer<typeof GameViewSchema>

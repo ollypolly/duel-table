@@ -166,6 +166,7 @@ export const ScenarioSchema = z
       .object({
         responses: z.array(z.string()).describe('Answers given to the rules engine so far (base64); the steps are derived from them'),
         bots: z.array(PlayerSchema).optional().describe('Players the random bot answers for'),
+        claude: PlayerSchema.optional().describe('The player Claude answers for'),
       })
       .strict()
       .optional()

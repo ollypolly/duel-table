@@ -2,7 +2,10 @@
 // (and fetch cards from YGOPRODeck into it).
 import { serve } from '@hono/node-server'
 import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { createApp, WAIT_MAX_S } from './app'
+import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
+import { ClaudeService, diskClaudeStore } from './claude/service'
 import { diskStore, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
@@ -13,7 +16,39 @@ const port = Number(process.env.API_PORT ?? 5181)
 const ctx = repoContext()
 const sessions = new SessionService(ctx, diskStore(join(ROOT, 'sessions')))
 const games = new GameService(sessions, ctx, () => loadOcg(join(ROOT, ocgDataDir())))
-const app = createApp({ sessions, ctx, games, writeFile: writeRepoFile(), addCards: (names) => addCards(names, ROOT) })
+
+// Prompts are read per run, so edits apply to the next one.
+const prompt = (name: string) => readFileSync(join(ROOT, 'prompts', `${name}.md`), 'utf8')
+const service = new ClaudeService({
+  games,
+  sessions,
+  db: () => ctx().db,
+  agent: sdkAgent,
+  system: (coach) => [prompt('game'), coach && prompt('coach')].filter(Boolean).join('\n\n'),
+  store: diskClaudeStore(join(ROOT, 'sessions', 'claude')),
+})
+
+// Checked once at startup (it takes a few seconds), and again when asked if
+// there was no login, in case you've logged in since.
+let account: { at: number; found: Promise<ClaudeAccount | undefined>; none?: boolean } | undefined
+const checkAccount = () => {
+  if (!account || (account.none && Date.now() - account.at > 30_000)) {
+    const check = { at: Date.now(), found: claudeAccount() }
+    void check.found.then((a) => Object.assign(check, { none: !a }))
+    account = check
+  }
+  return account.found
+}
+void checkAccount()
+
+const app = createApp({
+  sessions,
+  ctx,
+  games,
+  claude: { service, account: checkAccount },
+  writeFile: writeRepoFile(),
+  addCards: (names) => addCards(names, ROOT),
+})
 
 // Node's default 5-minute request timeout would cut long-polls (/wait) short.
 serve({ fetch: app.fetch, hostname: '127.0.0.1', port, serverOptions: { requestTimeout: (WAIT_MAX_S + 60) * 1000 } }, (info) => {

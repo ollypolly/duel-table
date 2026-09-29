@@ -9,10 +9,12 @@ import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
 import { DeckSchema, StepSchema } from '../src/scenarios/schema'
 import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
-import { GameAnswerSchema, GameViewSchema } from '../src/api/game'
+import { ClaudeSettingsSchema, GameAnswerSchema, GameViewSchema, ModelChoiceSchema } from '../src/api/game'
 import { PlayerSchema } from '../src/scenarios/schema'
+import type { ClaudeService } from './claude/service'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
+import type { ClaudeAccount } from './claude/agent'
 import type { WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
 import type { FetchResult } from './ygoprodeck'
@@ -42,9 +44,11 @@ type AppDeps = {
   writeFile?: WriteRepoFile // without it, nothing is written to the repo
   addCards?: (names: string[]) => Promise<FetchResult> // without it, unknown cards aren't fetched
   games?: GameService // without it, there are no games on the rules engine
+  // Claude as a player; account says whether a Claude login is available.
+  claude?: { service: ClaudeService; account: () => Promise<ClaudeAccount | undefined> }
 }
 
-export function createApp({ sessions, ctx, writeFile, addCards, games }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, addCards, games, claude }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -369,15 +373,105 @@ export function createApp({ sessions, ctx, writeFile, addCards, games }: AppDeps
             opponentDeck: z.string().optional(),
             seed: z.int().optional(),
             bots: z.array(PlayerSchema).optional(),
+            claude: PlayerSchema.optional().describe('Claude plays this side instead of the bot (needs a Claude login)'),
+            model: ModelChoiceSchema.optional().describe("Claude's model (default opus)"),
+            coach: z.boolean().optional().describe('Claude also coaches you (default true)'),
             title: z.string().optional(),
           })
           .strict(),
       ),
-      responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+      responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, 'No rules engine, or no Claude login'), ...errors },
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.create(c.req.valid('json')), 201)
+      const opts = c.req.valid('json')
+      if (opts.claude && !(claude && (await claude.account()))) return c.json({ error: 'playing Claude needs a Claude login (run `claude` and log in)' }, 501)
+      return c.json(await games.create(opts), 201)
+    },
+  )
+
+  // Claude ---------------------------------------------------------------------
+
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/claude',
+      summary: 'Whether a Claude login is available for the Claude features',
+      description: "The app works without one; with one, Claude can play and coach. It's the Claude Code login on this machine.",
+      responses: { 200: json(z.object({ available: z.boolean(), email: z.string().optional(), plan: z.string().optional() }), 'Login status') },
+    }),
+    async (c) => {
+      const a = claude && (await claude.account())
+      return c.json({ available: !!a, ...a }, 200)
+    },
+  )
+
+  const needClaude = () => {
+    if (!claude) throw new SessionError(409, 'Claude is not set up here')
+    return claude.service
+  }
+  const claudeResponses = { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, "Claude isn't playing in this session"), ...errors }
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/claude/chat',
+      summary: 'Say something to Claude',
+      description: "It replies (and plays, if it's asked something) on its next run. Sent while it's thinking, it waits for that run to end.",
+      request: { params: IdParam, ...body(z.object({ text: z.string().min(1) }).strict()) },
+      responses: claudeResponses,
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      needClaude().chat(id, c.req.valid('json').text)
+      return c.json(sessions.get(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/claude/stop',
+      summary: "Stop Claude's current run",
+      description: 'Claude then waits until you chat or resume, even if the rules engine is asking it something.',
+      request: { params: IdParam },
+      responses: claudeResponses,
+    }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      await needClaude().stop(id)
+      return c.json(sessions.get(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/claude/resume',
+      summary: 'Let Claude carry on after Stop',
+      request: { params: IdParam },
+      responses: claudeResponses,
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      needClaude().resume(id)
+      return c.json(sessions.get(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/claude/settings',
+      summary: "Change Claude's model or coaching",
+      description: 'Applies from its next run.',
+      request: { params: IdParam, ...body(ClaudeSettingsSchema) },
+      responses: claudeResponses,
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      needClaude().settings(id, c.req.valid('json'))
+      return c.json(sessions.get(id), 200)
     },
   )
 
