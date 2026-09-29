@@ -1,4 +1,4 @@
-import type { Player } from '../../engine'
+import type { Phase, Player } from '../../engine'
 import type { BoardView } from '../../view/boardView'
 
 const PHASES = [
@@ -11,8 +11,8 @@ const PHASES = [
 ] as const
 
 // LP, turn, phase and the current chain. DOM around the board, so it's shared
-// by any renderer.
-export function PlayersPanel({ view }: { view: BoardView }) {
+// by any renderer. With onPhase (free-play), the phase chips are buttons.
+export function PlayersPanel({ view, onPhase }: { view: BoardView; onPhase?: (phase: Phase) => void }) {
   const row = (p: Player) => (
     <div
       className={`flex items-baseline justify-between rounded-lg px-3 py-2 ${view.activePlayer === p ? 'bg-sky-900/60 ring-1 ring-sky-400/50' : 'bg-slate-800/60'}`}
@@ -32,12 +32,15 @@ export function PlayersPanel({ view }: { view: BoardView }) {
         </p>
         <div className="mt-1 flex justify-center gap-1">
           {PHASES.map(([phase, short]) => (
-            <span
+            <button
+              type="button"
               key={phase}
-              className={`rounded px-1.5 py-0.5 font-mono text-xs ${view.phase === phase ? 'bg-sky-500 text-white' : 'text-slate-500'}`}
+              disabled={!onPhase || view.phase === phase}
+              onClick={() => onPhase?.(phase)}
+              className={`rounded px-1.5 py-0.5 font-mono text-xs ${view.phase === phase ? 'bg-sky-500 text-white' : 'text-slate-500'} ${onPhase ? 'enabled:hover:bg-slate-700 enabled:hover:text-slate-200' : ''}`}
             >
               {short}
-            </span>
+            </button>
           ))}
         </div>
       </div>

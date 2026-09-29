@@ -1,10 +1,13 @@
+import type { ReactNode } from 'react'
+
 // Shown when a scenario file fails validation. Claude writes these files, so
-// the errors are meant to be read and acted on, not hidden.
-export function ScenarioErrors({ id, errors }: { id: string; errors: string[] }) {
+// the errors are meant to be read and acted on, not hidden. A broken branch
+// (say its scenario changed underneath it) passes its actions as children.
+export function ScenarioErrors({ id, errors, children }: { id: string; errors: string[]; children?: ReactNode }) {
   return (
     <div className="mx-auto mt-12 max-w-3xl rounded-xl border border-red-500/40 bg-red-950/40 p-6" role="alert">
       <h2 className="text-lg font-semibold text-red-200">
-        <code>scenarios/{id}.json</code> can't be loaded
+        {children ? <>Branch <code>{id}</code></> : <code>scenarios/{id}.json</code>} can't be loaded
       </h2>
       <ul className="mt-4 space-y-2 font-mono text-sm text-red-100">
         {errors.map((e) => (
@@ -13,7 +16,11 @@ export function ScenarioErrors({ id, errors }: { id: string; errors: string[] })
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-sm text-slate-400">Fix the file and save; it reloads automatically.</p>
+      {children ? (
+        <div className="mt-4 flex items-center gap-2 text-sm">{children}</div>
+      ) : (
+        <p className="mt-4 text-sm text-slate-400">Fix the file and save; it reloads automatically.</p>
+      )}
     </div>
   )
 }
