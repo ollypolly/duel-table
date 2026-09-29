@@ -317,31 +317,25 @@ Claude runs inside the app, as an opponent first and then as a teacher. The HTTP
 - **Only our tools.** Built-in Claude Code tools (Bash, file edits, web) are disabled. Our tools are an in-process MCP server (`createSdkMcpServer` with Zod tools). Each tool is a thin wrapper over `server/sessions.ts`, alongside the HTTP routes, and reuses their schemas.
 - **Transport.** Existing SSE plus POST, no WebSocket. The session SSE stream already reconnects by itself. The chat gets its own SSE stream (text deltas, tool activity, usage, errors), and the browser sends chat and Stop as POSTs.
 - **Layout.** The app opens on the board as it does now. The scene panel becomes the chat, and Claude's messages take the place of step narration. A compact step bar stays at the top of the panel for scrubbing.
-- **Rules.** Undecided until the OCG Core spike is done (see below). The choice is between OCG Core running games against Claude, and a Claude referee.
+- **Rules.** Games against Claude run on OCG Core (spiked, see below). Free play, scenarios and lessons stay on our own engine.
 - **Models.** Opus by default, with Sonnet selectable, since Sonnet is quicker for an opponent's turn.
 
 ### Play against Claude (first)
 
-The turn flow below assumes the free-play board with a Claude referee. If OCG Core wins the spike, turn flow and fair play come from the core instead, while the chat, events, Stop, coach toggle and persistence stay the same.
+OCG Core owns the rules, turn flow and hidden information. It asks each player what to do, and your answers come from clicking legal options on the board. Claude answers its own prompts with tools. The chat, events, Stop, coach toggle and persistence work as described below.
 
-- Start a game by picking your deck and Claude's deck. This uses `POST /sessions` with `deck` + `opponentDeck` + `seed`. You're p1 and Claude is p2.
-- **Fair play is enforced in the tool layer.** Claude's state reads redact:
-  - your hand;
-  - both Decks' order;
-  - face-down cards Claude doesn't own.
-
-  Unit tests prove nothing hidden leaks.
-- **Turn flow.** Your free-play moves, undos, chat messages and phase changes reach the agent as events:
-  - If Claude is idle, an event starts a turn.
-  - If Claude is mid-turn, it queues and is delivered after.
-  - Bursts of moves are debounced.
-  - There's a turn cap per run, and a Stop button.
-
-  On its own turn, Claude posts steps with short `afterMs` delays so you can watch them land.
-- **Response windows.** When you do something Claude could respond to, it either chains or passes. When Claude opens a window for you, it uses a move or choice prompt (the existing lesson prompts).
+- **Starting a game.** Pick your deck and Claude's deck. The server creates a session backed by a core duel (seed + both decks). You're p1 and Claude is p2.
+- **State.** The duel is the seed plus the list of responses given so far. That list is persisted with the session, and a restart rebuilds the duel by replaying it, the same way `.yrp` replays work. Each batch of core messages between prompts is translated into a step on the session, so the existing board, SSE stream and timeline show the game.
+- **Your turn.** When the core is waiting on you, the browser gets your prompt through the session stream (your view only):
+  - legal actions are highlighted on the board, and clicking a card offers its options (Summon, Set, Activate…);
+  - card choices, yes/no, "chain?" and phase changes appear as small dialogs;
+  - obvious prompts are auto-answered: no chainable cards, one legal option, zone placement.
+- **Claude's turn.** When the core is waiting on Claude, the agent gets its prompt (its view only) and answers with a tool that picks one of the listed options. Its tools can only read Claude's own view (`playerView(1)` and queries restricted to what p2 can see), so fair play is structural, not a filter. Tests check that nothing hidden leaks. Its steps are revealed with short `afterMs` delays so you can watch them land.
+- **Chat.** You can talk to Claude at any time. A message sent mid-turn is queued and delivered after the current turn. Stop interrupts, and there's a cap on agent turns per run.
+- **Undo.** Games have no undo by default. A takeback (replay minus your last decision) might be added later, offered by the coach.
 - **Coach toggle.** Off: Claude chats as an opponent only. On (the default): it also points out misplays and explains its chains once they resolve. It never reveals its hand either way.
 - **Persistence.** The conversation is stored alongside the session, so a game can resume after a restart.
-- **Opponent decks.** Only `chazz-armed-ojama` exists today. A second deck is imported with the existing `POST /decks` flow for testing.
+- **Opponent decks.** Only `chazz-armed-ojama` exists today. A second deck is imported with the existing `POST /decks` flow for testing. Deck names are resolved to core card codes through the card database.
 
 ### Then
 
@@ -354,27 +348,49 @@ The turn flow below assumes the free-play board with a Claude referee. If OCG Co
    - storage beyond files;
    - card-image terms.
 
-### Rules for games: spike OCG Core first (in progress)
+### Rules for games: OCG Core
 
 EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compiled to WebAssembly:
 - [ocgcore-wasm](https://github.com/n1xx1/ocgcore-wasm) (MIT wrapper);
 - [koishipro-core.js](https://github.com/purerosefallen/koishipro-core.js) (MIT wrapper, TypeScript, message parsing via `ygopro-msg-encode`).
 
-**Spike (about half a day).** Run a duel in Node with `chazz-armed-ojama` against a second deck, making the choices from a script. Answer these:
-- Does a WASM build run with current card scripts and a card database?
-- Do the Chazz cards behave?
-- What does it take to translate core messages into our engine's actions?
-- What are the licences of the core, the scripts and the card database, especially for hosting?
+**Spike result (2026-09-29): it works.**
+- **Setup:** `koishipro-core.js` 1.5.5, which is MyCard's WASM build of the YGOPro core, updated September 2026. It uses the Fluorohydride `ygopro-scripts` and MyCard's `ygopro-database` `en-US/cards.cdb`. It runs in Node from CommonJS; its ESM WASM loader breaks under Node.
+- **Test:** two random bots picking from the core's legal options played 50 seeded duels of the Chazz deck against itself.
+- **Results:**
+  - All 50 finished, averaging 19 turns, with zero script errors.
+  - About 105ms per *whole duel*, so the engine adds no meaningful latency.
+  - Every Chazz card name resolves to a card code, and 27 of 32 cards activated or were summoned. The other five need setups random bots rarely reach: VWXYZ, Armed Dragon Catapult Cannon, Ojama King, Ojama Knight, Triple Tactics Talent.
+- **Fair play is built in:** each message has `playerView(player)`, which masks what that player can't see, and each prompt says who must answer it.
+- **Answering prompts is simple:** every prompt type has a `prepareResponse(...)` builder. Invalid answers come back as `MSG_RETRY`.
+- **Translation looks direct:**
 
-**If the spike works, OCG Core runs games against Claude.**
-- The core owns game state and asks questions (select a card, choose a zone, chain or not).
-- Its messages translate into our `Action`s, so the existing board and animations keep working.
-- A prompt UI covers its question types.
-- Claude picks from the legal options the core offers. Obvious ones (no response possible, a single option) are auto-passed so Claude isn't called for each.
-- Fair play comes free, because each player only gets its own view.
-- Free play, scenarios and lessons stay on our engine.
+  | Core message | Our action |
+  | --- | --- |
+  | `Move` | `move` |
+  | `Draw` | `draw` |
+  | `ShuffleDeck` | `shuffle` |
+  | `LpUpdate` / `Damage` / `Recover` / `PayLpCost` | `lp` |
+  | `NewPhase` | `phase` |
+  | `NewTurn` | `nextTurn` |
+  | `PosChange` | `position` / `flip` |
+  | `ConfirmCards` | `reveal` |
+  | `Chaining` / `ChainSolved` | `chainPush` / `chainResolve` |
+  | `Summoning` etc. | step `intent` |
 
-**If the spike fails, a Claude referee sits behind `RulesProvider`.**
+  The core identifies cards by controller + location + sequence, not stable ids, so the translator keeps a location→`Iid` map updated on every move. ATK/DEF changes are read back with card queries.
+- **Licences:**
+  - core: MIT;
+  - scripts: GPL-2.0 (only matters if we distribute them);
+  - the card database: no licence file, and the card text itself is Konami's.
+
+  These need care before hosting; they're fine locally.
+
+**Recommendation: OCG Core runs games against Claude.** The Claude referee below is no longer needed unless something goes wrong while integrating.
+
+**Design for games on OCG Core:** see "Play against Claude" above. Free play, scenarios and lessons stay on our engine.
+
+**Fallback (not planned): a Claude referee behind `RulesProvider`.**
 - Instant checks in code (`basicRules`): one Normal Summon per turn, tribute counts, phase order, zone limits.
 - Claude checks moves that matter (summons, activations, attacks, resolved chains) without blocking: the move applies, and the verdict arrives as a step warning with Undo.
 - It uses a fast model with card text cached.
