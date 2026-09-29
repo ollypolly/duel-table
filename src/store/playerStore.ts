@@ -12,7 +12,7 @@ type PlayerState = {
   position: number
   speed: number
   playing: boolean
-  followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom
+  followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; on at each page load
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
   goTo: (position: number) => void
@@ -21,7 +21,7 @@ type PlayerState = {
   setFollowFocus: (followFocus: boolean) => void
 }
 
-type Persisted = Pick<PlayerState, 'position' | 'speed' | 'followFocus'> & { scenarioId: string | undefined }
+type Persisted = Pick<PlayerState, 'position' | 'speed'> & { scenarioId: string | undefined }
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -39,11 +39,17 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: 'duel-table/player',
-      version: 1,
-      partialize: ({ scenarioId, position, speed, followFocus }): Persisted => ({ scenarioId, position, speed, followFocus }),
-      // Only called when the stored version differs. No older versions exist
-      // yet, so anything unrecognised starts fresh.
-      migrate: (): Persisted => ({ scenarioId: undefined, position: 0, speed: 1, followFocus: true }),
+      version: 2,
+      partialize: ({ scenarioId, position, speed }): Persisted => ({ scenarioId, position, speed }),
+      // Only called when the stored version differs. Version 1 also saved
+      // followFocus; anything else unrecognised starts fresh.
+      migrate: (old, version): Persisted => {
+        if (version === 1) {
+          const { scenarioId, position, speed } = old as Persisted
+          return { scenarioId, position, speed }
+        }
+        return { scenarioId: undefined, position: 0, speed: 1 }
+      },
     },
   ),
 )
