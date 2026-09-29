@@ -45,9 +45,10 @@ type TableProps = {
   branchLabel?: string
   // Start a live API session at a position (when the server is running).
   onGoLive?: (position: number) => void
+  lesson?: ReactNode // live lesson controls (Next, prompts), under the playback controls
 }
 
-export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive }: TableProps) {
+export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
   const { hovered, inspected, selected, openPile, hover, inspect, select, openPileViewer } = useUiStore()
   // Open by default unless the screen is phone-sized, where it would cover the board.
@@ -138,6 +139,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
                 )}
               </StepControls>
             </div>
+            {lesson && <div className="shrink-0 space-y-2.5 border-b border-line px-3 py-2.5">{lesson}</div>}
             <div className="min-h-0 overflow-y-auto">
               <NarrationPanel
                 step={step}

@@ -2,9 +2,10 @@
 // uses. Everything is optional: playback works without the server.
 import type { Issue, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
+import type { Answer, LessonView } from './lesson'
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
-export type SessionUpdate = SessionSummary & { file: ScenarioFile }
+export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView }
 
 class ApiError extends Error {
   readonly status: number
@@ -30,8 +31,11 @@ export const api = {
   // undefined when the server isn't running.
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),
   createSession: (opts: { scenario: string; atStep: number }) => call<SessionSummary>('POST', '/sessions', opts),
-  applyStep: (id: string, step: Step) => call<{ position: number }>('POST', `/sessions/${id}/steps`, step),
-  undo: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/undo`),
+  // The viewer's own moves, so Claude can tell them from its steps.
+  applyStep: (id: string, step: Step) => call<{ position: number }>('POST', `/sessions/${id}/steps`, { ...step, author: 'user' }),
+  undo: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/undo`, { author: 'user' }),
+  next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
+  answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
 }
 
