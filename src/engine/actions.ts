@@ -54,7 +54,10 @@ export function applyAction(prev: BoardState, action: Action): ActionResult {
     case 'lp': {
       const p = state.players[action.player]
       const from = p.lp
-      p.lp = 'set' in action ? action.set : Math.max(0, p.lp + action.delta)
+      if ((action.set === undefined) === (action.delta === undefined)) {
+        throw new EngineError('lp needs exactly one of delta or set')
+      }
+      p.lp = action.set ?? Math.max(0, p.lp + action.delta!)
       events.push({ type: 'lpChanged', player: action.player, from, to: p.lp, cause: action.cause })
       break
     }

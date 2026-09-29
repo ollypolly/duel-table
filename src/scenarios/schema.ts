@@ -1,0 +1,172 @@
+// Zod schemas for scenario and deck files, and for engine actions/steps (the
+// API validates requests with these too). Pure: shared by browser and server.
+import { z } from 'zod'
+import type { Action, Intent, Modifier, Step, ZoneRef } from '../engine/types'
+
+export const PlayerSchema = z.enum(['p1', 'p2'])
+export const PositionSchema = z.enum(['atk', 'def'])
+export const PhaseSchema = z.enum(['draw', 'standby', 'main1', 'battle', 'main2', 'end'])
+export const PileZoneSchema = z.enum(['deck', 'hand', 'extraDeck', 'gy', 'banished'])
+export const PlayerZoneSchema = z.enum(['deck', 'hand', 'extraDeck', 'gy', 'banished', 'monster', 'spellTrap', 'fieldSpell'])
+export const ZoneNameSchema = z.enum([...PlayerZoneSchema.options, 'extraMonster'])
+export const SummonMethodSchema = z.enum(['normal', 'tribute', 'flip', 'special', 'fusion', 'synchro', 'xyz', 'link', 'ritual'])
+
+const iid = z.string().min(1)
+
+export const ZoneRefSchema = z
+  .object({ player: PlayerSchema.optional(), zone: ZoneNameSchema, slot: z.int().min(0).optional() })
+  .strict()
+  .refine((r) => r.zone === 'extraMonster' || r.player, { message: 'player is required for this zone' })
+
+export const CauseSchema = z
+  .object({ card: iid.optional(), reason: z.enum(['cost', 'effect', 'battle', 'rule', 'manual']) })
+  .strict()
+
+export const ModifierSchema = z
+  .object({
+    id: z.string().min(1),
+    target: iid,
+    kind: z.string().min(1),
+    value: z.union([z.number(), z.string(), z.boolean()]).optional(),
+    op: z.enum(['add', 'set', 'multiply']).optional(),
+    label: z.string().optional(),
+    source: iid.optional(),
+    until: z.enum(['endOfTurn', 'endOfNextTurn', 'permanent', 'leavesField']),
+  })
+  .strict()
+
+const action = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
+  z.object({ type: z.literal(type), cause: CauseSchema.optional(), ...shape }).strict()
+
+export const ActionSchema = z.discriminatedUnion('type', [
+  action('move', {
+    card: iid,
+    to: ZoneRefSchema,
+    faceUp: z.boolean().optional(),
+    position: PositionSchema.optional(),
+    index: z.int().min(0).optional(),
+    summon: SummonMethodSchema.optional(),
+  }),
+  action('draw', { player: PlayerSchema, count: z.int().min(1).optional() }),
+  action('shuffle', { player: PlayerSchema, zone: PileZoneSchema }),
+  action('lp', { player: PlayerSchema, delta: z.number().optional(), set: z.number().optional() }),
+  action('phase', { phase: PhaseSchema }),
+  action('nextTurn', {}),
+  action('attach', { card: iid, to: iid }),
+  action('detach', { card: iid, to: ZoneRefSchema.optional() }),
+  action('flip', { card: iid }),
+  action('position', { card: iid, position: PositionSchema }),
+  action('reveal', { cards: z.array(iid) }),
+  action('highlight', { cards: z.array(iid) }),
+  action('arrow', { from: iid, to: iid }),
+  action('modify', { modifier: ModifierSchema }),
+  action('unmodify', { id: z.string() }),
+  action('chainPush', { card: iid, label: z.string().optional(), player: PlayerSchema.optional() }),
+  action('chainResolve', {}),
+])
+
+export const IntentSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('activate'), card: iid, effect: z.string().optional() }).strict(),
+  z.object({ type: z.literal('normalSummon'), card: iid }).strict(),
+  z.object({ type: z.literal('tributeSummon'), card: iid, tributes: z.array(iid).optional() }).strict(),
+  z.object({ type: z.literal('specialSummon'), card: iid, method: SummonMethodSchema.optional() }).strict(),
+  z.object({ type: z.literal('set'), card: iid }).strict(),
+  z.object({ type: z.literal('attack'), attacker: iid, target: iid.optional() }).strict(),
+  z.object({ type: z.literal('declarePhase'), phase: PhaseSchema }).strict(),
+  z.object({ type: z.literal('endTurn') }).strict(),
+])
+
+export const StepSchema = z
+  .object({
+    label: z.string().optional(),
+    narration: z.string().optional(),
+    intent: IntentSchema.optional(),
+    actions: z.array(ActionSchema),
+  })
+  .strict()
+
+// Keep the Zod schemas and the engine's hand-written types in lockstep.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+const assert = <T extends true>() => undefined as unknown as T
+assert<Same<z.infer<typeof ActionSchema>, Action>>()
+assert<Same<z.infer<typeof StepSchema>, Step>>()
+assert<Same<z.infer<typeof IntentSchema>, Intent>>()
+assert<Same<z.infer<typeof ModifierSchema>, Omit<Modifier, 'turn'>>>()
+assert<Same<z.infer<typeof ZoneRefSchema>, ZoneRef>>()
+
+export const CustomCardSchema = z
+  .object({
+    name: z.string().min(1),
+    text: z.string(),
+    kind: z.enum(['monster', 'spell', 'trap', 'extra']).optional(),
+    atk: z.number().optional(),
+    def: z.number().optional(),
+  })
+  .strict()
+
+export const CardRefSchema = z.union([z.string().min(1), z.object({ custom: CustomCardSchema }).strict()])
+
+export const PlacementSchema = z.union([
+  z.string().min(1),
+  z
+    .object({
+      name: z.string().min(1),
+      faceUp: z.boolean().optional(),
+      position: PositionSchema.optional(),
+      materials: z.array(z.string()).optional(),
+    })
+    .strict(),
+  z.null(),
+])
+
+export const ScenarioPlayerSchema = z
+  .object({
+    name: z.string().min(1),
+    lp: z.number().optional(),
+    deck: z.string().optional().describe('id of a file in decks/'),
+    cards: z.array(CardRefSchema).optional().describe('cards owned in addition to the deck'),
+  })
+  .strict()
+  .refine((p) => p.deck || p.cards?.length, { message: 'give a deck, cards, or both' })
+
+export const ScenarioSchema = z
+  .object({
+    $schema: z.string().optional(),
+    id: z.string().regex(/^[a-z0-9-]+$/, 'ids are lowercase-with-dashes'),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    seed: z.int().optional(),
+    extends: z.object({ scenario: z.string(), atStep: z.int().min(-1) }).strict().optional(),
+    players: z.object({ p1: ScenarioPlayerSchema, p2: ScenarioPlayerSchema }).strict().optional(),
+    setup: z
+      .object({
+        p1: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
+        p2: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
+        extraMonster: z
+          .array(z.union([z.null(), z.object({ player: PlayerSchema, name: z.string(), position: PositionSchema.optional(), materials: z.array(z.string()).optional() }).strict()]))
+          .max(2)
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    start: z.object({ turn: z.int().min(1).optional(), activePlayer: PlayerSchema.optional(), phase: PhaseSchema.optional() }).strict().optional(),
+    steps: z.array(StepSchema).default([]),
+  })
+  .strict()
+  .refine((s) => s.extends || s.players, { message: 'a scenario needs players (or extends another scenario)', path: ['players'] })
+  .refine((s) => !(s.extends && (s.players || s.setup || s.start || s.seed !== undefined)), {
+    message: 'a fork inherits players, setup, start and seed from its parent; remove them',
+    path: ['extends'],
+  })
+
+export const DeckSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]+$/),
+    name: z.string().min(1),
+    main: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()),
+    extra: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).default([]),
+  })
+  .strict()
+
+export type ScenarioFile = z.infer<typeof ScenarioSchema>
+export type DeckFile = z.infer<typeof DeckSchema>

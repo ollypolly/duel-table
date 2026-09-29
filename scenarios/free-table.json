@@ -1,0 +1,34 @@
+{
+  "id": "free-table",
+  "title": "Free table: Armed Ojama vs Super Quant",
+  "description": "Both decks shuffled, opening hands drawn. Switch to free-play and try things out.",
+  "seed": 7,
+  "players": {
+    "p1": { "name": "You", "deck": "chazz-armed-ojama" },
+    "p2": {
+      "name": "Friend",
+      "cards": [
+        "Super Quantum Blue Layer",
+        "Super Quantum Blue Layer",
+        "Super Quantum Black Layer",
+        "Super Quantum Red Layer",
+        "Super Quantum Red Layer",
+        "Super Quantal Mech Ship Magnacarrier",
+        "Super Quantal Mech Beast Magnaliger",
+        "Super Quantal Mech Beast Grampulse",
+        "Super Quantal Mech King Great Magnus"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "label": "Opening hands",
+      "narration": "Both players draw **5 cards**. You're going first, so you don't draw again on turn 1.",
+      "actions": [
+        { "type": "draw", "player": "p1", "count": 5 },
+        { "type": "draw", "player": "p2", "count": 5 },
+        { "type": "phase", "phase": "main1" }
+      ]
+    }
+  ]
+}

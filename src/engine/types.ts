@@ -119,8 +119,7 @@ export type Action = WithCause<
     }
   | { type: 'draw'; player: Player; count?: number }
   | { type: 'shuffle'; player: Player; zone: PileZone }
-  | { type: 'lp'; player: Player; delta: number }
-  | { type: 'lp'; player: Player; set: number }
+  | { type: 'lp'; player: Player; delta?: number; set?: number } // exactly one of delta/set
   | { type: 'phase'; phase: Phase }
   | { type: 'nextTurn' }
   | { type: 'attach'; card: Iid; to: Iid }
