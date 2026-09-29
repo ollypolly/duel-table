@@ -28,3 +28,6 @@ public/cards/
 
 # live API sessions
 sessions/
+
+# rules core data, downloaded by `npm run fetch-ocg`
+data/ocg/

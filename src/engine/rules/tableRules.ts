@@ -3,7 +3,7 @@
 // are things a table allows but that are probably a mistake.
 import { applyAction, getCard } from '../actions'
 import type { Action, BoardState, Issue } from '../types'
-import { isOnField, ZONES } from '../zones'
+import { isOnField, ZONES, zoneOf } from '../zones'
 import type { RulesProvider } from './types'
 
 export const tableRules: RulesProvider = {
@@ -31,7 +31,9 @@ function warnings(state: BoardState, action: Action): Issue[] {
   if (action.type === 'move' && action.summon && !['monster', 'extraMonster'].includes(action.to.zone)) {
     warn(`${action.card} is summoned into ${ZONES[action.to.zone].label}, not a Monster Zone`)
   }
-  if (action.type === 'attach' && !isOnField(state, action.to)) {
+  // Materials go under a monster on the field, or one about to be summoned
+  // from the Extra Deck (you gather them before placing it).
+  if (action.type === 'attach' && !isOnField(state, action.to) && zoneOf(state, action.to)?.zone !== 'extraDeck') {
     warn(`${action.to} isn't on the field, so it can't hold materials`)
   }
   return issues

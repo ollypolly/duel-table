@@ -13,6 +13,7 @@ import type { ScenarioFile } from '../src/scenarios/schema'
 import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { Lesson } from './lesson'
+import type { GameView } from '../src/api/game'
 
 export { SessionError }
 
@@ -33,7 +34,8 @@ export type CreateOptions = {
 }
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
-export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView }
+export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView }
+type Duel = NonNullable<ScenarioFile['duel']>
 export type ApplyResult =
   | { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number }
   | { ok: false; issues: Issue[] }
@@ -46,6 +48,8 @@ export class SessionService {
   private listeners = new Map<string, Set<Listener>>()
   private ctx: () => ResolveContext
   private store: SessionStore
+  // Live game state for sessions on the rules engine (set by GameService).
+  gameView?: (id: string) => GameView | undefined
 
   // ctx is a function so edits to scenarios/ and decks/ are picked up.
   constructor(ctx: () => ResolveContext, store: SessionStore = memoryStore()) {
@@ -63,7 +67,8 @@ export class SessionService {
 
   get(id: string): SessionView {
     const s = this.live(id)
-    return { ...summary(s.file, s.resolved), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view() }
+    const game = s.file.duel && this.gameView?.(id)
+    return { ...summary(s.file, s.resolved), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view(), ...(game && { game }) }
   }
 
   create(opts: CreateOptions): SessionView {
@@ -98,6 +103,7 @@ export class SessionService {
   // viewer's own steps (author "user") can't jump the queue.
   apply(id: string, step: Step, { strict = false, reveal }: { strict?: boolean; reveal?: Reveal } = {}): ApplyResult {
     const s = this.live(id)
+    if (s.file.duel) throw new SessionError(409, "this is a game on the rules engine: answer its prompts instead of posting steps")
     if (step.author === 'user' && s.lesson.view().queued) throw new SessionError(409, 'steps are still queued for the viewer')
     const state = s.resolved.timeline.at(-1)!.state
     const issues = validateStep(tableRules, state, step.actions)
@@ -112,6 +118,7 @@ export class SessionService {
 
   undo(id: string, { byUser = false } = {}): SessionView {
     const s = this.live(id)
+    if (s.file.duel) throw new SessionError(409, "games on the rules engine can't be undone")
     if (s.file.steps.length === 0) throw new SessionError(409, 'nothing to undo: the session has no steps of its own')
     this.commit({ ...s.file, steps: s.file.steps.slice(0, -1) })
     s.lesson.removed(byUser)
@@ -130,6 +137,21 @@ export class SessionService {
     else Object.assign(file, { extends: { ...s.file.extends, atStep: at - 1 }, steps: [] })
     this.commit(file)
     return this.get(file.id)
+  }
+
+  // Games: steps translated from the rules engine, with its saved answers.
+  // Each step is paced like a posted one.
+  appendGame(id: string, steps: Step[], duel: Duel, reveal?: (step: Step) => Reveal | undefined): SessionView {
+    const s = this.live(id)
+    this.commit({ ...s.file, steps: [...s.file.steps, ...steps], duel })
+    let position = s.lesson.total
+    for (const step of steps) s.lesson.added(step, ++position, reveal?.(step))
+    return this.notify(id)
+  }
+
+  // Tell listeners something outside the file changed (a game's prompt).
+  touch(id: string): SessionView {
+    return this.notify(id)
   }
 
   // The session as a scenario file, ready for scenarios/.

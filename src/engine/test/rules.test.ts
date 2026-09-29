@@ -30,6 +30,10 @@ describe('tableRules', () => {
     expect(issues[0]).toMatchObject({ severity: 'warning' })
   })
 
+  it('lets a card in the Extra Deck hold materials, for an Xyz about to be summoned', () => {
+    expect(tableRules.validate(s, { type: 'attach', card: 'p1-ojama-yellow-1', to: 'p1-xyz-dragon-cannon-1' })).toEqual([])
+  })
+
   it('validates a step in sequence and stops at the first error', () => {
     const issues = validateStep(tableRules, s, [
       { type: 'move', card: 'p1-ojamatch-1', to: { player: 'p1', zone: 'monster', slot: 0 } },

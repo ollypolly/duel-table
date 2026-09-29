@@ -314,4 +314,18 @@ describe('applyAction', () => {
       expect(() => applyAction(r.state, { type: 'chainResolve' })).toThrow(/chain is empty/)
     })
   })
+
+  describe('create and remove', () => {
+    it('creates a token in a slot and removes it again', () => {
+      const token = { type: 'create', card: 'p2-token-1', cardId: 29843092, owner: 'p2', to: { player: 'p2', zone: 'monster', slot: 1 }, position: 'def' } as const
+      const r = applyAction(s, token)
+      expect(r.state.players.p2.zones.monster[1]).toBe('p2-token-1')
+      expect(r.state.cards['p2-token-1']).toMatchObject({ owner: 'p2', faceUp: true, position: 'def', cardId: 29843092 })
+      expect(() => applyAction(r.state, token)).toThrow(/already exists/)
+      const gone = applyAction(r.state, { type: 'remove', card: 'p2-token-1' })
+      expect(gone.state.cards['p2-token-1']).toBeUndefined()
+      expect(gone.state.players.p2.zones.monster[1]).toBeNull()
+      expect(gone.events).toEqual([{ type: 'removed', card: 'p2-token-1', from: { zone: { player: 'p2', zone: 'monster', slot: 1 }, index: 1 } }])
+    })
+  })
 })

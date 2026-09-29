@@ -175,6 +175,31 @@ export function applyAction(prev: BoardState, action: Action): ActionResult {
       break
     }
 
+    case 'create': {
+      if (state.cards[action.card]) throw new EngineError(`Card "${action.card}" already exists`)
+      state.cards[action.card] = {
+        iid: action.card,
+        ...(action.cardId !== undefined && { cardId: action.cardId }),
+        ...(action.custom && { custom: action.custom }),
+        owner: action.owner,
+        faceUp: action.faceUp ?? ZONES[action.to.zone]?.defaultFaceUp ?? true,
+        position: action.position ?? 'atk',
+        materials: [],
+      }
+      const to = placeInto(state, action.card, action.to)
+      events.push({ type: 'created', card: action.card, to })
+      break
+    }
+
+    case 'remove': {
+      const from = mustLocate(state, action.card)
+      if ('zone' in from && isFieldZone(from.zone.zone)) leftField(state, events, action.card)
+      removeFrom(state, from, action.card)
+      delete state.cards[action.card]
+      events.push({ type: 'removed', card: action.card, from })
+      break
+    }
+
     default: {
       const unknown: never = action
       throw new EngineError(`Unknown action type "${(unknown as { type: string }).type}"`)

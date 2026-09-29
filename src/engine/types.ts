@@ -133,6 +133,9 @@ export type Action = WithCause<
   | { type: 'unmodify'; id: string }
   | { type: 'chainPush'; card: Iid; label?: string; player?: Player }
   | { type: 'chainResolve' }
+  // Cards that aren't in anyone's pool, like tokens, come and go.
+  | { type: 'create'; card: Iid; cardId?: number; custom?: CustomCard; owner: Player; to: ZoneRef; faceUp?: boolean; position?: Position }
+  | { type: 'remove'; card: Iid }
 >
 
 export type ActionType = Action['type']
@@ -144,6 +147,8 @@ export type Location =
 
 export type EngineEvent =
   | { type: 'moved'; card: Iid; from: Location; to: Location; cause?: Cause }
+  | { type: 'created'; card: Iid; to: Location }
+  | { type: 'removed'; card: Iid; from: Location }
   | { type: 'summoned'; card: Iid; method: SummonMethod; player: Player }
   | { type: 'drew'; player: Player; cards: Iid[] }
   | { type: 'shuffled'; player: Player; zone: PileZone }

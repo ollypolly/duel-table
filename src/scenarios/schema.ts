@@ -35,6 +35,16 @@ export const ModifierSchema = z
   })
   .strict()
 
+export const CustomCardSchema = z
+  .object({
+    name: z.string().min(1),
+    text: z.string(),
+    kind: z.enum(['monster', 'spell', 'trap', 'extra']).optional(),
+    atk: z.number().optional(),
+    def: z.number().optional(),
+  })
+  .strict()
+
 const action = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
   z.object({ type: z.literal(type), cause: CauseSchema.optional(), ...shape }).strict()
 
@@ -63,6 +73,16 @@ export const ActionSchema = z.discriminatedUnion('type', [
   action('unmodify', { id: z.string() }),
   action('chainPush', { card: iid, label: z.string().optional(), player: PlayerSchema.optional() }),
   action('chainResolve', {}),
+  action('create', {
+    card: iid,
+    cardId: z.int().optional(),
+    custom: CustomCardSchema.optional(),
+    owner: PlayerSchema,
+    to: ZoneRefSchema,
+    faceUp: z.boolean().optional(),
+    position: PositionSchema.optional(),
+  }),
+  action('remove', { card: iid }),
 ])
 
 export const IntentSchema = z.discriminatedUnion('type', [
@@ -94,16 +114,6 @@ assert<Same<z.infer<typeof StepSchema>, Step>>()
 assert<Same<z.infer<typeof IntentSchema>, Intent>>()
 assert<Same<z.infer<typeof ModifierSchema>, Omit<Modifier, 'turn'>>>()
 assert<Same<z.infer<typeof ZoneRefSchema>, ZoneRef>>()
-
-export const CustomCardSchema = z
-  .object({
-    name: z.string().min(1),
-    text: z.string(),
-    kind: z.enum(['monster', 'spell', 'trap', 'extra']).optional(),
-    atk: z.number().optional(),
-    def: z.number().optional(),
-  })
-  .strict()
 
 export const CardRefSchema = z.union([z.string().min(1), z.object({ custom: CustomCardSchema }).strict()])
 
@@ -152,6 +162,14 @@ export const ScenarioSchema = z
       .optional(),
     start: z.object({ turn: z.int().min(1).optional(), activePlayer: PlayerSchema.optional(), phase: PhaseSchema.optional() }).strict().optional(),
     steps: z.array(StepSchema).default([]),
+    duel: z
+      .object({
+        responses: z.array(z.string()).describe('Answers given to the rules engine so far (base64); the steps are derived from them'),
+        bots: z.array(PlayerSchema).optional().describe('Players the random bot answers for'),
+      })
+      .strict()
+      .optional()
+      .describe('A game on the YGOPro rules engine'),
   })
   .strict()
   .refine((s) => s.extends || s.players, { message: 'a scenario needs players (or extends another scenario)', path: ['players'] })

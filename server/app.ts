@@ -9,6 +9,9 @@ import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
 import { DeckSchema, StepSchema } from '../src/scenarios/schema'
 import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
+import { GameViewSchema } from '../src/api/game'
+import { PlayerSchema } from '../src/scenarios/schema'
+import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
@@ -21,6 +24,7 @@ const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),
   state: z.unknown().openapi({ description: 'BoardState after the last step (queued ones included)' }),
   lesson: LessonViewSchema,
+  game: GameViewSchema.optional().openapi({ description: 'For games on the rules engine' }),
 })
 const IdParam = z.object({ id: z.string().openapi({ param: { name: 'id', in: 'path' } }) })
 
@@ -37,9 +41,10 @@ type AppDeps = {
   ctx: () => ResolveContext
   writeFile?: WriteRepoFile // without it, nothing is written to the repo
   addCards?: (names: string[]) => Promise<FetchResult> // without it, unknown cards aren't fetched
+  games?: GameService // without it, there are no games on the rules engine
 }
 
-export function createApp({ sessions, ctx, writeFile, addCards }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, addCards, games }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -345,6 +350,34 @@ export function createApp({ sessions, ctx, writeFile, addCards }: AppDeps) {
       } catch (e) {
         return c.json({ error: e instanceof Error ? e.message : String(e) }, 409)
       }
+    },
+  )
+
+  // Games ---------------------------------------------------------------------
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/games',
+      summary: 'Start a game on the YGOPro rules engine',
+      description:
+        'A session whose steps come from the rules engine. Players in bots (default ["p2"]) are answered by a random bot, its steps paced so they can be watched. Its steps can\'t be posted or undone.',
+      request: body(
+        z
+          .object({
+            deck: z.string(),
+            opponentDeck: z.string().optional(),
+            seed: z.int().optional(),
+            bots: z.array(PlayerSchema).optional(),
+            title: z.string().optional(),
+          })
+          .strict(),
+      ),
+      responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.create(c.req.valid('json')), 201)
     },
   )
 

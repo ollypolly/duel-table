@@ -1,0 +1,144 @@
+{
+  "id": "super-quant",
+  "name": "Super Quant",
+  "main": [
+    {
+      "name": "Super Quantal Fairy Alphan",
+      "count": 3
+    },
+    {
+      "name": "Super Quantum Red Layer",
+      "count": 3
+    },
+    {
+      "name": "Super Quantum Blue Layer",
+      "count": 3
+    },
+    {
+      "name": "Super Quantum Green Layer",
+      "count": 3
+    },
+    {
+      "name": "Super Quantum White Layer",
+      "count": 2
+    },
+    {
+      "name": "Super Quantum Black Layer",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Fairy Zetan",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Alphan Spike",
+      "count": 3
+    },
+    {
+      "name": "Speedroid Terrortop",
+      "count": 3
+    },
+    {
+      "name": "Emergency Teleport",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 2
+    },
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 2
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 1
+    },
+    {
+      "name": "Crossout Designator",
+      "count": 1
+    },
+    {
+      "name": "Foolish Burial",
+      "count": 1
+    },
+    {
+      "name": "Pot of Desires",
+      "count": 2
+    },
+    {
+      "name": "Super Quantal Mech Ship Magnacarrier",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Super Quantal Mech King Great Magnus",
+      "count": 1
+    },
+    {
+      "name": "Neo Super Quantal Mech King Blaster Magna",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Mech Beast Magnaliger",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Mech Beast Grampulse",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Mech Beast Aeroboros",
+      "count": 1
+    },
+    {
+      "name": "Super Quantal Mech Beast Lusterrex",
+      "count": 1
+    },
+    {
+      "name": "Xyz Armor Fortress",
+      "count": 1
+    },
+    {
+      "name": "Number 41: Bagooska the Terribly Tired Tapir",
+      "count": 1
+    },
+    {
+      "name": "Number 75: Bamboozling Gossip Shadow",
+      "count": 1
+    },
+    {
+      "name": "Worldsea Dragon Zealantis",
+      "count": 1
+    },
+    {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "count": 1
+    },
+    {
+      "name": "Mekk-Knight Crusadia Avramax",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Sunlight Wolf",
+      "count": 1
+    },
+    {
+      "name": "Lyrilusc - Assembled Nightingale",
+      "count": 1
+    }
+  ]
+}
