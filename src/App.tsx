@@ -58,7 +58,7 @@ export default function App() {
 
   const nav = (
     <>
-      <h1 className="shrink-0 font-bold tracking-tight">Duel Table</h1>
+      <h1 className="hidden shrink-0 font-bold tracking-tight sm:block">Duel Table</h1>
       {all.length > 0 && (
         <ScenarioPicker
           scenarios={scenarios}
@@ -68,7 +68,14 @@ export default function App() {
         />
       )}
       {liveSessions && (
-        <Menu label={sessionId ? `Live: ${sessionId}` : "Live"} title="Sessions on the local API">
+        <Menu
+          label={
+            <>
+              Live<span className="hidden sm:inline">{sessionId && `: ${sessionId}`}</span>
+            </>
+          }
+          title="Sessions on the local API"
+        >
           <MenuItem onClick={() => setNewGameOpen(true)}>New game against the bot…</MenuItem>
           <MenuLabel>Open a session</MenuLabel>
           {liveSessions.length === 0 && <MenuItem disabled>No sessions yet</MenuItem>}

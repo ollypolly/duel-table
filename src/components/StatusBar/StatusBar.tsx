@@ -44,7 +44,7 @@ export function StatusBar({
     )
   }
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:gap-5">
       {lp('p2')}
       <div className="flex flex-col items-center gap-1">
         <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted">

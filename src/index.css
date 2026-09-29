@@ -66,9 +66,9 @@
   font-size: 0.75rem;
   line-height: 1rem;
   color: var(--color-ink);
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, filter 0.15s;
   &:hover:not(:disabled) {
-    background: var(--color-raised-hover);
+    background-color: var(--color-raised-hover);
     border-color: color-mix(in oklab, var(--color-accent) 40%, var(--color-line));
   }
   &:disabled {
@@ -78,12 +78,16 @@
 
 @utility btn-primary {
   border-color: var(--color-gold);
-  background: linear-gradient(180deg, var(--color-gold-soft), var(--color-gold));
+  background-color: var(--color-gold);
+  background-image: linear-gradient(180deg, var(--color-gold-soft), var(--color-gold));
   color: var(--color-bg);
   font-weight: 600;
+  /* Brighten rather than swap the gradient: a gradient can't transition,
+     so swapping it flashes the panel through. */
   &:hover:not(:disabled) {
-    background: var(--color-gold-soft);
+    background-color: var(--color-gold);
     border-color: var(--color-gold-soft);
+    filter: brightness(1.12);
   }
 }
 

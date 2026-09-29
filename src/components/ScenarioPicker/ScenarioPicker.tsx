@@ -23,7 +23,7 @@ export function ScenarioPicker({
   const key = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id);
   return (
     <select
-      className="max-w-[20rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink"
+      className="min-w-0 max-w-[20rem] flex-1 rounded-md sm:flex-none border border-line bg-surface px-2 py-1 text-sm text-ink"
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       aria-label="Scenario"

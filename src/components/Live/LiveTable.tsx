@@ -142,12 +142,12 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const liveNav = (
     <>
       {nav}
-      <span className="flex items-center gap-2 text-sm">
+      <span className="flex min-w-0 items-center gap-2 text-sm">
         <span className="relative flex h-2 w-2">
           <span className={`absolute inline-flex h-full w-full rounded-full ${connection ? 'bg-warn' : 'animate-ping bg-ok/70'}`} />
           <span className={`relative inline-flex h-2 w-2 rounded-full ${connection ? 'bg-warn' : 'bg-ok'}`} />
         </span>
-        <span className="text-ok">Live</span>
+        <span className="hidden text-ok sm:inline">Live</span>
         {connection && <span className="text-warn">{connection}</span>}
         {rejected && (
           <span role="alert" className="text-danger">

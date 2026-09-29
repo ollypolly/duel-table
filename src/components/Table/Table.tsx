@@ -2,6 +2,7 @@
 // board filling everything else, and a floating scene panel with the
 // narration and playback controls. Clicking a card opens it with what you can
 // do with it; free play adds a header menu and drag-to-move.
+import { ChevronDown, ChevronUp, Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step, ZoneRef } from '../../engine'
@@ -61,8 +62,9 @@ type TableProps = {
 export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson, choosable, onChoose, cardActions, draggable, onCardDrop }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
   const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
-  // Open by default unless the screen is phone-sized, where it would cover the board.
-  const [narrationOpen, setNarrationOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
+  // The scene panel slides off to the left. Open by default unless the
+  // screen is phone-sized, where it would cover the board.
+  const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
   const last = scenario.game.steps.length
   const position = Math.min(Math.max(0, rawPosition), last)
   const entry = scenario.timeline[position]
@@ -117,7 +119,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           selected={freePlay ? selected : undefined}
           choosable={choosable}
           focus={focus}
-          insetLeft={SCENE_PANEL_PX}
+          insetLeft={panelOpen ? SCENE_PANEL_PX : 0}
           onCameraMove={() => setFollowFocus(false)}
           onCardClick={(iid) => {
             if (freePlay && fp.attachTo(iid)) return
@@ -133,9 +135,27 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           }}
         />
 
-        {/* The scene panel floats top-left: playback controls on top, so they
-            don't move as the narration below changes length or folds away. */}
-        <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-h-[calc(100%-1.5rem)] w-[min(24rem,calc(100%-1.5rem))] flex-col gap-2 *:pointer-events-auto">
+        {/* The scene panel: playback controls on top, so they don't move as
+            the narration below changes length. It floats top-left and slides
+            off to the left; on a phone it's a sheet that slides down off the
+            bottom. Either way its handle stays on screen. */}
+        <div
+          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex max-h-[55%] flex-col gap-2 transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:max-h-[calc(100%-1.5rem)] sm:w-96 ${
+            panelOpen ? '' : 'translate-y-[calc(100%+0.75rem)] sm:translate-y-0 sm:-translate-x-[calc(100%+0.75rem)]'
+          }`}
+          data-testid="scene-panel"
+          data-open={panelOpen}
+        >
+          <button
+            type="button"
+            className="panel absolute bottom-full left-1/2 mb-1.5 grid h-9 w-14 -translate-x-1/2 place-items-center text-muted hover:text-ink sm:bottom-auto sm:left-full sm:top-0 sm:mb-0 sm:ml-1.5 sm:w-9 sm:translate-x-0"
+            onClick={() => setPanelOpen(!panelOpen)}
+            aria-expanded={panelOpen}
+            title={panelOpen ? 'Hide panel' : 'Show panel'}
+          >
+            <span className="sm:hidden">{panelOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}</span>
+            <span className="hidden sm:block">{panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>
+          </button>
           <div className="panel flex min-h-0 flex-col">
             <div className="shrink-0 border-b border-line px-3 py-2.5">
               <StepControls
@@ -170,12 +190,9 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
               <NarrationPanel
                 step={step}
                 position={position}
-                total={last}
                 description={scenario.description}
                 intentCard={face(intentIid)}
                 warnings={stepWarnings}
-                collapsed={!narrationOpen}
-                onToggle={() => setNarrationOpen(!narrationOpen)}
               />
             </div>
           </div>
@@ -191,11 +208,12 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
         )}
 
         <label
-          className="panel absolute right-3 top-3 z-10 flex cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs text-muted hover:text-ink"
-          title="On: the camera follows each step. Dragging or zooming the board turns it off"
+          className="panel absolute right-3 top-3 z-10 flex h-9 cursor-pointer items-center gap-1.5 px-2.5 text-xs text-muted hover:text-ink"
+          title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
         >
-          <input type="checkbox" className="accent-gold" checked={followFocus} onChange={(e) => setFollowFocus(e.target.checked)} />
-          Focus
+          <input type="checkbox" className="accent-gold" checked={followFocus} onChange={(e) => setFollowFocus(e.target.checked)} aria-label="Focus" />
+          <span className="hidden sm:inline">Focus</span>
+          <Crosshair size={14} className="sm:hidden" aria-hidden />
         </label>
       </main>
 
