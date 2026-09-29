@@ -5,10 +5,10 @@ import { CardInspector } from '../CardInspector/CardInspector'
 import { CardView } from '../CardView/CardView'
 
 // Lists a pile's contents, top first. This is a learning tool, so even your
-// Deck and Extra Deck are shown face-up. Cards open the same inspector as the
-// board; it renders inside the dialog because a modal dialog sits above
-// everything outside it. Clicking a card pins it, unless onCardClick takes
-// the click (free play picks the card up).
+// Deck and Extra Deck are shown face-up. Clicking a card opens the same
+// inspector as the board (inside the dialog, because a modal dialog sits
+// above everything outside it), unless onCardClick takes the click (free
+// play picks the card up).
 export function PileViewer({
   zone,
   playerName,
@@ -21,7 +21,6 @@ export function PileViewer({
   onCardClick?: (iid: Iid) => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [hovered, setHovered] = useState<Iid>()
   const [pinned, setPinned] = useState<Iid>()
   useEffect(() => {
     ref.current?.showModal()
@@ -61,8 +60,6 @@ export function PileViewer({
               type="button"
               className="group text-left"
               onClick={() => (onCardClick ? onCardClick(c.iid) : setPinned(c.iid))}
-              onMouseEnter={() => setHovered(c.iid)}
-              onMouseLeave={() => setHovered(undefined)}
             >
               <div className="aspect-[1/1.46] text-base transition group-hover:scale-105">
                 <CardView card={c} showFace={!hidden || c.visible} />
@@ -75,7 +72,7 @@ export function PileViewer({
           ))}
         </div>
       </div>
-      <CardInspector hovered={face(hovered)} pinned={face(pinned)} materialsOf={() => []} onClose={() => setPinned(undefined)} />
+      <CardInspector card={face(pinned)} materialsOf={() => []} onClose={() => setPinned(undefined)} />
     </dialog>
   )
 }

@@ -1,21 +1,18 @@
-// Transient UI state (not persisted): the hovered card, the card open in the
-// inspector, the card selected for a free-play move, and the open pile.
+// Transient UI state (not persisted): the card open in the inspector, the
+// card selected for a free-play move, and the open pile.
 import { create } from 'zustand'
 import type { Iid, ZoneRef } from '../engine'
 
 type UiState = {
-  hovered?: Iid
-  inspected?: Iid // pinned open in the inspector until closed
+  inspected?: Iid // open in the inspector until closed
   selected?: Iid // free-play: the card the next zone click moves
   openPile?: ZoneRef
-  hover: (iid?: Iid) => void
   inspect: (iid?: Iid) => void
   select: (iid?: Iid) => void
   openPileViewer: (ref?: ZoneRef) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
-  hover: (hovered) => set({ hovered }),
   inspect: (inspected) => set({ inspected }),
   select: (selected) => set({ selected }),
   openPileViewer: (openPile) => set({ openPile }),

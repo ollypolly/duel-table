@@ -1,79 +1,104 @@
-// Free-play tools. Card moves are click-to-select then click-to-place on the
-// board; while a card is selected its own actions float over the board, and
-// the table actions (draw, shuffle, LP…) are a menu in the header.
+// Free-play tools. Drag a card onto a zone to move it. Clicking a card opens
+// it with its actions (including "Move…", then click a zone); the table
+// actions (draw, shuffle, LP…) are a menu in the header.
 import { useState } from 'react'
 import { isMaterial } from '../../branches/branches'
 import { cardDb } from '../../data/cards'
-import { getCard, locate, PLAYERS, type Player, type SummonMethod } from '../../engine'
+import { getCard, locate, PLAYERS, type Iid, type Player, type SummonMethod } from '../../engine'
 import type { FreePlay } from '../../hooks/useFreePlay'
 import { cardFace } from '../../view/boardView'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
 const SUMMONS: SummonMethod[] = ['normal', 'tribute', 'flip', 'special', 'fusion', 'synchro', 'xyz', 'link', 'ritual']
 
-function SelectedCard({ fp, onInspect }: { fp: FreePlay; onInspect: () => void }) {
-  const { state, selected, act } = fp
-  if (!selected || !state.cards[selected]) return null
-  const card = getCard(state, selected)
-  const loc = locate(state, selected)
+// What you can do with a card, shown in the inspector. onDone closes it.
+export function CardActions({ fp, iid, onDone }: { fp: FreePlay; iid: Iid; onDone: () => void }) {
+  const { state, act, select } = fp
+  const card = getCard(state, iid)
+  const loc = locate(state, iid)
   const zone = loc && 'zone' in loc ? loc.zone.zone : undefined
   const onMonsterZone = zone === 'monster' || zone === 'extraMonster'
+  const run = (ok: boolean) => ok && onDone()
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="card-actions">
-      <span className="text-accent">
-        Moving <b className="text-ink">{cardFace(state, selected, cardDb).name}</b>: click a zone, or
-      </span>
-      <button type="button" className="btn" onClick={() => act({ type: 'move', card: selected, to: { player: card.owner, zone: 'hand' } })}>
-        To hand
+    <div className="flex flex-wrap gap-2" data-testid="card-actions">
+      <button
+        type="button"
+        className="btn btn-primary"
+        title="Or drag the card onto a zone"
+        onClick={() => {
+          select(iid)
+          onDone()
+        }}
+      >
+        Move…
       </button>
+      {zone !== 'hand' && (
+        <button type="button" className="btn" onClick={() => run(act({ type: 'move', card: iid, to: { player: card.owner, zone: 'hand' } }))}>
+          To hand
+        </button>
+      )}
       {zone && zone !== 'hand' && (
-        <button type="button" className="btn" onClick={() => act({ type: 'flip', card: selected })}>
+        <button type="button" className="btn" onClick={() => run(act({ type: 'flip', card: iid }))}>
           Flip {card.faceUp ? 'face-down' : 'face-up'}
         </button>
       )}
       {onMonsterZone && (
-        <button type="button" className="btn" onClick={() => act({ type: 'position', card: selected, position: card.position === 'atk' ? 'def' : 'atk' })}>
+        <button type="button" className="btn" onClick={() => run(act({ type: 'position', card: iid, position: card.position === 'atk' ? 'def' : 'atk' }))}>
           To {card.position === 'atk' ? 'Defense' : 'Attack'}
         </button>
       )}
-      <button type="button" className={`btn ${fp.attaching ? 'ring-1 ring-warn' : ''}`} onClick={() => fp.setAttaching(!fp.attaching)}>
-        {fp.attaching ? 'Now click the Xyz monster…' : 'Attach as material'}
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          select(iid)
+          fp.setAttaching(true)
+          onDone()
+        }}
+      >
+        Attach as material…
       </button>
-      {isMaterial(state, selected) && (
-        <button type="button" className="btn" onClick={() => act({ type: 'detach', card: selected })}>
+      {isMaterial(state, iid) && (
+        <button type="button" className="btn" onClick={() => run(act({ type: 'detach', card: iid }))}>
           Detach
         </button>
       )}
-      <span className="flex items-center gap-2 text-muted">
-        Next move
-        <select aria-label="Summon method" className="px-1 py-0.5" value={fp.summon} onChange={(e) => fp.setSummon(e.target.value as SummonMethod | '')}>
-          <option value="">not a summon</option>
-          {SUMMONS.map((m) => (
-            <option key={m} value={m}>
-              {m[0].toUpperCase() + m.slice(1)} Summon
-            </option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1">
-          <input type="checkbox" checked={fp.faceDown} onChange={(e) => fp.setFaceDown(e.target.checked)} /> face-down
-        </label>
-      </span>
-      <button type="button" className="btn" onClick={onInspect}>
-        Read card
-      </button>
-      <button type="button" className="btn" onClick={fp.cancel} title="Esc">
-        Cancel
-      </button>
     </div>
   )
 }
 
-// The selected card's actions, and why the last move failed.
-export function FreePlayStatus({ fp, onInspect }: { fp: FreePlay; onInspect: () => void }) {
-  if (!fp.selected && !fp.error && !fp.warnings.length) return null
+// While a card is being moved: where it's going and how, and why the last
+// move failed.
+export function FreePlayStatus({ fp }: { fp: FreePlay }) {
+  const { state, selected } = fp
+  if (!selected && !fp.error && !fp.warnings.length) return null
   return (
     <div className="panel space-y-1.5 px-3 py-2">
-      <SelectedCard fp={fp} onInspect={onInspect} />
+      {selected && state.cards[selected] && (
+        <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="moving">
+          <span className="text-accent">
+            {fp.attaching ? 'Attaching' : 'Moving'} <b className="text-ink">{cardFace(state, selected, cardDb).name}</b>: {fp.attaching ? 'click the Xyz monster' : 'click a zone'}
+          </span>
+          {!fp.attaching && (
+            <span className="flex items-center gap-2 text-muted">
+              <select aria-label="Summon method" className="px-1 py-0.5" value={fp.summon} onChange={(e) => fp.setSummon(e.target.value as SummonMethod | '')}>
+                <option value="">not a summon</option>
+                {SUMMONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m[0].toUpperCase() + m.slice(1)} Summon
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={fp.faceDown} onChange={(e) => fp.setFaceDown(e.target.checked)} /> face-down
+              </label>
+            </span>
+          )}
+          <button type="button" className="btn" onClick={fp.cancel} title="Esc">
+            Cancel
+          </button>
+        </div>
+      )}
       {fp.error && (
         <p role="alert" className="text-xs text-danger">
           Can't do that: {fp.error}
@@ -90,7 +115,7 @@ export function FreePlayMenu({ fp, onUndo }: { fp: FreePlay; onUndo?: () => void
   const who = (p: Player) => state.players[p].name
 
   return (
-    <Menu label={<span className="font-display font-semibold text-gold">Free play</span>} title="Click a card, then a zone to move it">
+    <Menu label={<span className="font-display font-semibold text-gold">Free play</span>} title="Drag a card onto a zone to move it, or click it for more">
       <div data-testid="free-play" className="flex flex-col">
         {PLAYERS.map((p) => (
           <MenuItem key={p} onClick={() => act({ type: 'draw', player: p })}>

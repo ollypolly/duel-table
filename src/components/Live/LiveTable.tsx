@@ -8,8 +8,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import type { Cursor } from '../../api/lesson'
-import type { Iid } from '../../engine'
+import type { Iid, ZoneRef } from '../../engine'
 import { cardDb } from '../../data/cards'
+import { isMonster } from '../../data/cardDb'
+import { useUiStore } from '../../store/uiStore'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
@@ -27,6 +29,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [picking, setPicking] = useState<GameChoice & { for?: number }>({ picked: [] })
   const [busy, setBusy] = useState(false)
   const { openSession, goTo } = usePlayerStore()
+  const inspect = useUiStore((s) => s.inspect)
   const position = usePlayerStore((s) => s.position)
   const followed = useRef<Cursor>(undefined) // the last cursor acted on
   const replay = useRef<ReturnType<typeof setInterval>>(undefined)
@@ -82,15 +85,59 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     setBusy(true)
     report(api.answerGame(id, { id: prompt.id, choices }).finally(() => setBusy(false)))
   }
+  // Clicking a lit card picks it when picking cards is the question;
+  // otherwise it opens with its options (cardActions).
   const chooseCard = (iid: Iid) => {
-    if (!prompt) return
+    if (!prompt) return false
     const matching = prompt.options.flatMap((o, i) => (o.card === iid ? [i] : []))
     if (prompt.max > 1) {
       const i = matching.find((m) => !choice.picked.includes(m))
       setChoice({ ...choice, picked: i === undefined ? choice.picked.filter((p) => !matching.includes(p)) : [...choice.picked, i] })
-    } else if (PICK_KINDS.includes(prompt.kind) || matching.length === 1) answerGame([matching[0]])
-    else setChoice({ ...choice, focused: iid })
+      return true
+    }
+    if (!PICK_KINDS.includes(prompt.kind)) return false
+    answerGame([matching[0]])
+    return true
   }
+  const optionsFor = (iid: Iid) => (prompt && prompt.max === 1 ? prompt.options.flatMap((o, i) => (o.card === iid ? [{ ...o, i }] : [])) : [])
+  const cardActions = (iid: Iid, close: () => void) => {
+    const options = optionsFor(iid)
+    if (!options.length) return undefined
+    return (
+      <div className="space-y-2" data-testid="card-actions">
+        <p className="text-xs text-muted">{prompt!.message}</p>
+        <div className="flex flex-wrap gap-2">
+          {options.map((o) => (
+            <button
+              key={o.i}
+              type="button"
+              className="btn btn-primary"
+              disabled={busy}
+              onClick={() => {
+                answerGame([o.i])
+                close()
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  // Dragging a card from hand onto the field: summon or set a monster on a
+  // monster zone, set or activate a Spell/Trap on a Spell & Trap zone. One
+  // fitting option is the answer; several open the card to pick from.
+  const DROPS: Partial<Record<string, string[]>> = { monster: ['Summon', 'Set'], extraMonster: ['Summon'], spellTrap: ['Set', 'Activate'], fieldSpell: ['Set', 'Activate'] }
+  const dropCard = (iid: Iid, to: ZoneRef) => {
+    const data = result?.ok ? cardDb.byId(result.scenario.timeline.at(-1)!.state.cards[iid]?.cardId ?? -1) : undefined
+    const monster = !!data && isMonster(data)
+    if ((to.player && to.player !== 'p1') || monster !== (to.zone === 'monster' || to.zone === 'extraMonster')) return
+    const fits = optionsFor(iid).filter((o) => DROPS[to.zone]?.includes(o.group ?? ''))
+    if (fits.length === 1) answerGame([fits[0].i])
+    else if (fits.length > 1) inspect(iid)
+  }
+  const draggable = prompt?.kind === 'idle' ? [...new Set(prompt.options.filter((o) => o.card && ['Summon', 'Set', 'Activate'].includes(o.group ?? '')).map((o) => o.card!))] : undefined
 
   const liveNav = (
     <>
@@ -146,6 +193,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         onUndo={game ? undefined : () => report(api.undo(id))}
         choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
         onChoose={prompt && !away ? chooseCard : undefined}
+        cardActions={prompt && !away ? cardActions : undefined}
+        draggable={away ? undefined : draggable}
+        onCardDrop={prompt && !away ? dropCard : undefined}
         onBranch={(position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
         branchLabel="Fork"
       />

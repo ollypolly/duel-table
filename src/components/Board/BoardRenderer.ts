@@ -22,7 +22,10 @@ export type BoardRendererProps = {
   insetLeft?: number
   onCameraMove?: () => void // the viewer panned or zoomed by hand
   onCardClick?: (iid: Iid) => void
-  onCardHover?: (iid: Iid | undefined) => void
+  // Dragging a card onto a zone. Only cards in draggable can be picked up;
+  // dragging anything else pans the camera.
+  draggable?: Iid[]
+  onCardDrop?: (iid: Iid, to: ZoneRef) => void
   onZoneClick?: (ref: ZoneRef) => void
 }
 

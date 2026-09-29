@@ -29,13 +29,14 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     return true
   }
 
-  // Move the selected card to a zone, using the "next move" options.
-  const place = (to: ZoneRef) => {
-    if (!selected) return false
+  // Move a card (by default the selected one) to a zone, using the "next
+  // move" options.
+  const place = (to: ZoneRef, card = selected) => {
+    if (!card) return false
     const monsterZone = to.zone === 'monster' || to.zone === 'extraMonster'
     const ok = act({
       type: 'move',
-      card: selected,
+      card,
       to,
       ...(faceDown && { faceUp: false, ...(monsterZone && { position: 'def' as const }) }),
       ...(summon && monsterZone && { summon }),
@@ -48,16 +49,12 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     return ok
   }
 
-  // A card click: attach the selected card to it when attaching, otherwise
-  // toggle the selection.
-  const clickCard = (iid: Iid) => {
-    if (attaching && selected && selected !== iid) {
-      if (act({ type: 'attach', card: selected, to: iid })) select(undefined)
-      setAttaching(false)
-      return
-    }
+  // Attach the selected card to another; false when not attaching.
+  const attachTo = (iid: Iid) => {
+    if (!attaching || !selected || selected === iid) return false
+    if (act({ type: 'attach', card: selected, to: iid })) select(undefined)
     setAttaching(false)
-    select(selected === iid ? undefined : iid)
+    return true
   }
 
   const cancel = () => {
@@ -65,5 +62,5 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     select(undefined)
   }
 
-  return { state, selected, act, place, clickCard, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
+  return { state, selected, select, act, place, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
 }

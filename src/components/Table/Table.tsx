@@ -1,10 +1,10 @@
 // The playback screen for one scenario: a header with the game status, the
 // board filling everything else, and a floating scene panel with the
-// narration and playback controls. Free play adds a header menu, and the
-// selected card's actions float over the board.
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+// narration and playback controls. Clicking a card opens it with what you can
+// do with it; free play adds a header menu and drag-to-move.
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
-import type { Iid, Player, Step } from '../../engine'
+import type { Iid, Player, Step, ZoneRef } from '../../engine'
 import { useFreePlay } from '../../hooks/useFreePlay'
 import { usePlayback, usePlaybackKeys } from '../../hooks/usePlayback'
 import type { ResolvedScenario } from '../../scenarios/resolve'
@@ -15,7 +15,8 @@ import { stepFocus } from '../../view/focus'
 import { Board2D } from '../Board/Board2D'
 import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
-import { FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
+import { CardActions, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
+import { DamagePopups } from './DamagePopups'
 import { Menu, MenuItem } from '../Menu/Menu'
 import { NarrationPanel } from '../NarrationPanel/NarrationPanel'
 import { PileViewer } from '../PileViewer/PileViewer'
@@ -47,14 +48,19 @@ type TableProps = {
   // Start a live API session at a position (when the server is running).
   onGoLive?: (position: number) => void
   lesson?: ReactNode // live lesson controls (Next, prompts), under the playback controls
-  // A game on the rules engine: cards you can pick now, and what a click on one does.
+  // A game on the rules engine: cards you can pick now, lit up. onChoose
+  // returns whether a click on one answered; otherwise it opens with
+  // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
   choosable?: Iid[]
-  onChoose?: (iid: Iid) => void
+  onChoose?: (iid: Iid) => boolean
+  cardActions?: (iid: Iid, close: () => void) => ReactNode
+  draggable?: Iid[]
+  onCardDrop?: (iid: Iid, to: ZoneRef) => void
 }
 
-export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson, choosable, onChoose }: TableProps) {
+export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson, choosable, onChoose, cardActions, draggable, onCardDrop }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
-  const { hovered, inspected, selected, openPile, hover, inspect, select, openPileViewer } = useUiStore()
+  const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
   // Open by default unless the screen is phone-sized, where it would cover the board.
   const [narrationOpen, setNarrationOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
   const last = scenario.game.steps.length
@@ -91,6 +97,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
   const intentIid = intentCardOf(step)
   const focus = !followFocus ? 'free' : freePlay ? 'all' : stepFocus(entry.state, step, entry.events)
   const stepWarnings = scenario.warnings.filter((w) => w.startsWith(`Step ${position},`))
+  const closeInspector = useCallback(() => inspect(undefined), [inspect])
 
   return (
     <>
@@ -112,8 +119,14 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           focus={focus}
           insetLeft={SCENE_PANEL_PX}
           onCameraMove={() => setFollowFocus(false)}
-          onCardClick={(iid) => (freePlay ? fp.clickCard(iid) : onChoose && choosable?.includes(iid) ? onChoose(iid) : inspect(inspected === iid ? undefined : iid))}
-          onCardHover={hover}
+          onCardClick={(iid) => {
+            if (freePlay && fp.attachTo(iid)) return
+            if (freePlay) fp.cancel()
+            if (!freePlay && choosable?.includes(iid) && onChoose?.(iid)) return
+            inspect(iid)
+          }}
+          draggable={freePlay ? view.cards.map((c) => c.iid) : draggable}
+          onCardDrop={freePlay ? (iid, to) => fp.place(to, iid) : onCardDrop}
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
             else if (view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)) openPileViewer(ref)
@@ -169,9 +182,11 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           <ChainList view={view} />
         </div>
 
+        <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
+
         {freePlay && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center *:pointer-events-auto sm:left-[27rem] sm:right-32">
-            <FreePlayStatus fp={fp} onInspect={() => inspect(selected)} />
+            <FreePlayStatus fp={fp} />
           </div>
         )}
 
@@ -184,25 +199,25 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
         </label>
       </main>
 
-      <CardInspector hovered={face(hovered)} pinned={face(inspected)} materialsOf={materialsOf} onClose={() => inspect(undefined)} />
+      <CardInspector
+        card={face(inspected)}
+        materialsOf={materialsOf}
+        onClose={closeInspector}
+        actions={inspected && (freePlay ? <CardActions fp={fp} iid={inspected} onDone={closeInspector} /> : cardActions?.(inspected, closeInspector))}
+      />
       {pile && (
         <PileViewer
           zone={pile}
           playerName={view.players[pile.ref.player!].name}
           onClose={() => openPileViewer(undefined)}
           onCardClick={
-            freePlay
+            freePlay || onChoose
               ? (iid) => {
-                  select(iid)
                   openPileViewer(undefined)
+                  if (!freePlay && choosable?.includes(iid) && onChoose?.(iid)) return
+                  inspect(iid)
                 }
-              : onChoose
-                ? (iid) => {
-                    if (!choosable?.includes(iid)) return
-                    onChoose(iid)
-                    openPileViewer(undefined)
-                  }
-                : undefined
+              : undefined
           }
         />
       )}

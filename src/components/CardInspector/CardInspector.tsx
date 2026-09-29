@@ -1,48 +1,28 @@
-// A card, big: its art and text over the blurred table. Hovering a card opens
-// it after a short delay; it ignores the pointer, so moving onto the next card
-// swaps it and moving off closes it. Clicking pins it until ✕, Esc or a click
-// outside.
+// A card, big: its art and text over the blurred table, with what you can do
+// with it. Opens on click, closes on ✕, Esc or a click outside.
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import type { CardFace } from '../../view/boardView'
 import { CardArt, CardInfo } from '../CardDetail/CardDetail'
 
-const OPEN_DELAY_MS = 350
-const CLOSE_GRACE_MS = 120 // so sliding between neighbouring cards doesn't flicker
-
 export function CardInspector({
-  hovered,
-  pinned,
+  card,
   materialsOf,
   onClose,
   actions,
 }: {
-  hovered?: CardFace
-  pinned?: CardFace
+  card?: CardFace
   materialsOf: (card: CardFace) => CardFace[]
   onClose: () => void
-  actions?: ReactNode // shown when pinned
+  actions?: ReactNode
 }) {
-  const [shownHover, setShownHover] = useState<CardFace>()
-  const open = useRef(false)
   useEffect(() => {
-    const t = hovered
-      ? setTimeout(() => setShownHover(hovered), open.current ? 0 : OPEN_DELAY_MS)
-      : setTimeout(() => setShownHover(undefined), CLOSE_GRACE_MS)
-    return () => clearTimeout(t)
-  }, [hovered])
-  useEffect(() => {
-    open.current = !!shownHover
-  }, [shownHover])
-
-  useEffect(() => {
-    if (!pinned) return
+    if (!card) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pinned, onClose])
+  }, [card, onClose])
 
-  const card = pinned ?? shownHover
   return (
     <AnimatePresence>
       {card && (
@@ -52,9 +32,9 @@ export function CardInspector({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          role={pinned ? 'dialog' : 'tooltip'}
+          role="dialog"
           aria-label={card.visible ? card.name : 'Face-down card'}
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-bg/60 p-4 backdrop-blur-md sm:p-10 ${pinned ? '' : 'pointer-events-none'}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bg/60 p-4 backdrop-blur-md sm:p-10"
           onClick={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div
@@ -68,19 +48,17 @@ export function CardInspector({
               <CardArt card={card} />
             </div>
             <div className="panel relative w-full min-w-0 max-w-xl p-5 sm:p-6">
-              {pinned && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="absolute right-3 top-3 rounded px-2 text-lg text-muted hover:bg-raised hover:text-ink"
-                  aria-label="Close card"
-                  title="Close (Esc)"
-                >
-                  ✕
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="absolute right-3 top-3 rounded px-2 text-lg text-muted hover:bg-raised hover:text-ink"
+                aria-label="Close card"
+                title="Close (Esc)"
+              >
+                ✕
+              </button>
               <CardInfo card={card} materials={materialsOf(card)} />
-              {pinned && actions && <div className="mt-5 border-t border-line pt-4">{actions}</div>}
+              {actions && <div className="mt-5 border-t border-line pt-4">{actions}</div>}
             </div>
           </motion.div>
         </motion.div>
