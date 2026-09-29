@@ -197,6 +197,7 @@ Every step is checked action by action against the state the previous action pro
 - **Check card text** with `/cards?name=` before a play that depends on it, and say in the narration if you're simplifying a ruling.
 - **Model costs and chains explicitly:** push the link, pay costs as separate `move`s with `cause.reason: "cost"`, let the opponent respond with more `chainPush`es, then `chainResolve` each link newest first, doing each link's effects before its `chainResolve`.
 - **Use `arrow` and `highlight`** when an effect targets something, so the viewer sees it.
+- **Keep a step about one player where you can.** The viewer's camera zooms to the player a step touches (its `intent` card, cards moved, summoned or chained, arrows) and pulls back to the whole table for attacks or anything touching both sides. A long step mixing both players' plays stays zoomed out.
 - **Don't reach into hidden information** for the opponent unless the human asked you to play both sides.
 - **Keep narration short and explanatory.** The human reads it while stepping through.
 - When the line is worth keeping, `POST /sessions/{id}/export` with `{ "id": "my-line", "title": "...", "write": true }` saves it as a scenario.

@@ -217,7 +217,7 @@ Commit `data/cards.json` (small, makes tests and fresh clones work). Gitignore `
 
 ## UI
 
-- **Board** laid out like a playmat: opponent mirrored on top, you at the bottom, LP and phase indicator on the side. Hands at the far top/bottom (opponent hand face-down unless revealed).
+- **Board** laid out like a playmat: opponent mirrored on top, you at the bottom, LP and phase in the header. Hands at the far top/bottom (opponent hand face-down unless revealed).
 - **Piles** (deck, Extra Deck, GY, banished) show a count + top card. Click to open a **PileViewer** listing the contents. Your deck/Extra Deck contents are visible in this tool (it's for learning).
 - **Card detail panel**: click/hover any face-up card to see full art, name, stats and text. Keep it docked on the right on desktop.
 - **Narration panel** under or beside the board: current step label + markdown narration.

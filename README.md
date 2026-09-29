@@ -25,6 +25,14 @@ Card images go in `public/cards/` and aren't committed. YGOPRODeck asks that ima
 | `npm run lint` | oxlint |
 | `npm run fetch-cards` | Rebuild `data/cards.json` from every card named in `decks/` and `scenarios/`, and download missing images |
 
+## In the browser
+
+- Step with ← → (or the footer controls). Narration sits top-left and folds away.
+- Hover a card to read it full screen; click to pin it (Esc closes). Click a Deck, GY or other pile to see what's in it.
+- The camera follows each step's action. Untick **Focus** to pan (drag) and zoom (scroll or pinch) yourself.
+- **Sleeves & mats** sets each seat's sleeves, deck box and playmat from your own images. They're kept in this browser only.
+- **Branch** forks from the current step so you can play on by hand (free play), and **Go live** hands the board to the API below.
+
 ## Driving it with curl
 
 The local API (`server/`, bound to 127.0.0.1) holds **sessions**: boards in progress that you and the browser both act on. A session is stored in `sessions/<id>.json` as a scenario file, so it replays like any scenario and can be exported to `scenarios/`. The full spec is at `/api/openapi.json`.
