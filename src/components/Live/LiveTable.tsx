@@ -1,7 +1,7 @@
 // Live mode: follow a server session over SSE. The session arrives as a
 // scenario file, so it resolves and plays back exactly like any scenario;
 // free-play moves are POSTed as steps instead of saved to a branch.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import { cardDb } from '../../data/cards'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
@@ -9,8 +9,9 @@ import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
 import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
+import { TopBar } from '../TopBar/TopBar'
 
-export function LiveTable({ id }: { id: string }) {
+export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [session, setSession] = useState<SessionUpdate>()
   const [connection, setConnection] = useState('')
   const [rejected, setRejected] = useState('')
@@ -39,37 +40,44 @@ export function LiveTable({ id }: { id: string }) {
     p.catch((e: Error) => setRejected(e.message))
   }
 
-  return (
+  const liveNav = (
     <>
-      <div className="flex items-center gap-3 border-b border-emerald-900 bg-emerald-950/60 px-4 py-1.5 text-sm">
+      {nav}
+      <span className="flex items-center gap-2 text-sm">
         <span className="relative flex h-2 w-2">
           <span className={`absolute inline-flex h-full w-full rounded-full ${connection ? 'bg-amber-400' : 'animate-ping bg-emerald-400/70'}`} />
           <span className={`relative inline-flex h-2 w-2 rounded-full ${connection ? 'bg-amber-400' : 'bg-emerald-400'}`} />
         </span>
-        <span>
-          Live session <code className="text-emerald-300">{id}</code>
-          {session && <span className="text-slate-400">: {session.title}</span>}
-        </span>
+        <span className="text-emerald-300">Live</span>
         {connection && <span className="text-amber-300">{connection}</span>}
         {rejected && (
           <span role="alert" className="text-rose-300">
             {rejected}
           </span>
         )}
-        <button type="button" className="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" onClick={() => openSession(undefined)}>
-          Leave live mode
+        <button type="button" className="rounded-md bg-slate-800 px-2 py-0.5 text-xs hover:bg-slate-700" onClick={() => openSession(undefined)}>
+          Leave
         </button>
-      </div>
+      </span>
+    </>
+  )
+
+  if (result?.ok)
+    return (
+      <Table
+        scenario={result.scenario}
+        nav={liveNav}
+        onStep={(step) => report(api.applyStep(id, step))}
+        onUndo={() => report(api.undo(id))}
+        onBranch={(position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
+        branchLabel="Fork"
+      />
+    )
+  return (
+    <>
+      <TopBar nav={liveNav} />
       {!result ? (
         <p className="mt-12 text-center text-slate-400">{connection || 'Connecting…'}</p>
-      ) : result.ok ? (
-        <Table
-          scenario={result.scenario}
-          onStep={(step) => report(api.applyStep(id, step))}
-          onUndo={() => report(api.undo(id))}
-          onBranch={(position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
-          branchLabel="Fork session"
-        />
       ) : (
         <ScenarioErrors id={result.id} errors={result.errors}>
           <span className="text-slate-400">The session's file doesn't resolve in the browser. Check that scenarios/ matches the server.</span>

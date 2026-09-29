@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -8,6 +9,9 @@ initUrlSync()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* Honour the OS "reduce motion" setting for every Motion animation. */}
+    <MotionConfig reducedMotion="user">
+      <App />
+    </MotionConfig>
   </StrictMode>,
 )

@@ -80,7 +80,7 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
   }
 
   return (
-    <span className="ml-auto flex min-w-0 items-center gap-2 whitespace-nowrap text-sm">
+    <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm">
       {error && (
         <span role="alert" className="max-w-md truncate text-xs text-rose-300" title={error}>
           Import failed: {error}

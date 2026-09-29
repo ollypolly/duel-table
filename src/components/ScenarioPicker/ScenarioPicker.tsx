@@ -1,4 +1,4 @@
-import type { ResolveResult } from '../../scenarios/resolve'
+import type { ResolveResult } from "../../scenarios/resolve";
 
 const Option = ({ r }: { r: ResolveResult }) =>
   r.ok ? (
@@ -7,7 +7,7 @@ const Option = ({ r }: { r: ResolveResult }) =>
     </option>
   ) : (
     <option value={r.id}>⚠ {r.id} (invalid)</option>
-  )
+  );
 
 export function ScenarioPicker({
   scenarios,
@@ -15,34 +15,31 @@ export function ScenarioPicker({
   value,
   onChange,
 }: {
-  scenarios: ResolveResult[]
-  branches: ResolveResult[]
-  value?: string
-  onChange: (id: string) => void
+  scenarios: ResolveResult[];
+  branches: ResolveResult[];
+  value?: string;
+  onChange: (id: string) => void;
 }) {
-  const key = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id)
+  const key = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id);
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-slate-400">Scenario</span>
-      <select
-        className="max-w-[28rem] rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label="Scenario"
-      >
-        <optgroup label="Scenarios">
-          {scenarios.map((r) => (
+    <select
+      className="max-w-[20rem] rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label="Scenario"
+    >
+      <optgroup label="Scenarios">
+        {scenarios.map((r) => (
+          <Option key={key(r)} r={r} />
+        ))}
+      </optgroup>
+      {branches.length > 0 && (
+        <optgroup label="Your branches">
+          {branches.map((r) => (
             <Option key={key(r)} r={r} />
           ))}
         </optgroup>
-        {branches.length > 0 && (
-          <optgroup label="Your branches">
-            {branches.map((r) => (
-              <Option key={key(r)} r={r} />
-            ))}
-          </optgroup>
-        )}
-      </select>
-    </label>
-  )
+      )}
+    </select>
+  );
 }

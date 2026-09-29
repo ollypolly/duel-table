@@ -4,6 +4,7 @@
 import { useState } from 'react'
 import { tryAction } from '../branches/branches'
 import { cardDb } from '../data/cards'
+import type { ScreenRect } from '../components/Board/BoardRenderer'
 import type { Action, BoardState, Iid, Step, SummonMethod, ZoneRef } from '../engine'
 import { useUiStore } from '../store/uiStore'
 
@@ -50,14 +51,14 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
 
   // A card click: attach the selected card to it when attaching, otherwise
   // toggle the selection.
-  const clickCard = (iid: Iid) => {
+  const clickCard = (iid: Iid, anchor?: ScreenRect) => {
     if (attaching && selected && selected !== iid) {
       if (act({ type: 'attach', card: selected, to: iid })) select(undefined)
       setAttaching(false)
       return
     }
     setAttaching(false)
-    select(selected === iid ? undefined : iid)
+    select(selected === iid ? undefined : iid, anchor)
   }
 
   return { state, selected, act, place, clickCard, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }

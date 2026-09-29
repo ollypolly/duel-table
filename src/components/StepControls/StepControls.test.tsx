@@ -20,17 +20,19 @@ const setup = (position: number) => {
 }
 
 describe('StepControls', () => {
-  it('lists setup plus every step label and marks the current one', () => {
+  it('lists setup plus every step label and shows the current one', () => {
     setup(2)
-    expect(screen.getByRole('button', { name: /Summon LV5/ })).toHaveAttribute('aria-current', 'step')
-    expect(screen.getByRole('button', { name: 'Setup' })).toBeInTheDocument()
+    const jump = screen.getByRole('combobox', { name: 'Jump to step' })
+    expect(jump).toHaveValue('2')
+    expect(screen.getByRole('option', { name: '2/3 · Summon LV5' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Setup' })).toBeInTheDocument()
   })
 
   it('steps and jumps', async () => {
     const { onGoTo, onPlaying } = setup(1)
     await userEvent.click(screen.getByTitle('Next (→)'))
     await userEvent.click(screen.getByTitle('Last (End)'))
-    await userEvent.click(screen.getByRole('button', { name: /Ojamagic/ }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Jump to step' }), '3/3 · Ojamagic')
     await userEvent.click(screen.getByTitle('Play/pause (space)'))
     expect(onGoTo.mock.calls).toEqual([[2], [3], [3]])
     expect(onPlaying).toHaveBeenCalledWith(true)

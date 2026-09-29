@@ -29,7 +29,7 @@ export function NarrationPanel({
   warnings: string[]
 }) {
   return (
-    <section className="space-y-3 rounded-lg bg-slate-900 p-4" data-testid="narration" aria-live="polite">
+    <section className="space-y-3 p-4 pr-7" data-testid="narration" aria-live="polite">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-semibold leading-tight">{step ? (step.label ?? `Step ${position}`) : 'Setup'}</h2>
         <span className="shrink-0 font-mono text-xs text-slate-500">

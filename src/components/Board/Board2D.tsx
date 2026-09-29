@@ -1,12 +1,14 @@
 // The 2D board: absolutely positions zones and cards from the shared layout,
 // in % of a fixed-aspect container, so it scales with the window. Every card
-// is a direct child keyed by iid, so moving between zones animates via CSS.
+// is a direct child keyed by iid, so moving between zones animates via CSS;
+// Motion handles what CSS can't: cards leaving, flips and arrows drawing in.
+import { AnimatePresence, motion } from 'motion/react'
 import type { CSSProperties } from 'react'
 import type { Iid } from '../../engine'
 import type { PlacedCard, ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
-import type { BoardRendererProps } from './BoardRenderer'
+import type { BoardRendererProps, ScreenRect } from './BoardRenderer'
 
 // Position only; rotation is applied to the card inside so labels stay upright.
 const box = (p: Point): CSSProperties => ({
@@ -27,15 +29,17 @@ export function Board2D({ view, selected, onCardClick, onCardHover, onZoneClick 
       {view.zones.map((z) => (
         <ZoneOutline key={z.key} zone={z} onClick={() => onZoneClick?.(z.ref)} />
       ))}
-      {view.cards.map((c) => (
-        <BoardCard
-          key={c.iid}
-          card={c}
-          selected={selected === c.iid}
-          onClick={() => onCardClick?.(c.iid)}
-          onHover={onCardHover}
-        />
-      ))}
+      <AnimatePresence initial={false}>
+        {view.cards.map((c) => (
+          <BoardCard
+            key={c.iid}
+            card={c}
+            selected={selected === c.iid}
+            onClick={(anchor) => onCardClick?.(c.iid, anchor)}
+            onHover={onCardHover}
+          />
+        ))}
+      </AnimatePresence>
       {view.zones
         .filter((z) => z.kind === 'pile' && z.count > 0)
         .map((z) => (
@@ -56,9 +60,12 @@ export function Board2D({ view, selected, onCardClick, onCardHover, onZoneClick 
             <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24" />
           </marker>
         </defs>
-        {view.arrows.map((a, i) => (
-          <line
-            key={i}
+        {view.arrows.map((a) => (
+          <motion.line
+            key={`${a.fromIid}>${a.toIid}`}
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
             x1={a.from.x}
             y1={a.from.y}
             x2={a.to.x}
@@ -102,28 +109,33 @@ function BoardCard({
 }: {
   card: PlacedCard
   selected: boolean
-  onClick: () => void
-  onHover?: (iid: Iid | undefined) => void
+  onClick: (anchor: ScreenRect) => void
+  onHover?: (iid: Iid | undefined, anchor?: ScreenRect) => void
 }) {
   const onField = card.stackIndex === undefined && card.handIndex === undefined && card.materialOf === undefined
   const isMonsterZone = card.zone.zone === 'monster' || card.zone.zone === 'extraMonster'
   const z = card.materialOf ? 10 + (card.materialIndex ?? 0) : card.handIndex !== undefined ? 30 + card.handIndex : 20
   const modified = card.atk !== card.baseAtk || card.def !== card.baseDef
   const inPile = card.stackIndex !== undefined
+  const face = card.visible && !card.set ? 'up' : 'down'
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      transition={{ duration: 0.25 }}
       role="button"
       tabIndex={0}
       aria-label={card.visible ? card.name : 'Face-down card'}
       data-iid={card.iid}
       onClick={(e) => {
         e.stopPropagation()
-        onClick()
+        onClick(e.currentTarget.getBoundingClientRect())
       }}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      onMouseEnter={() => onHover?.(card.iid)}
+      onKeyDown={(e) => e.key === 'Enter' && onClick(e.currentTarget.getBoundingClientRect())}
+      onMouseEnter={(e) => onHover?.(card.iid, e.currentTarget.getBoundingClientRect())}
       onMouseLeave={() => onHover?.(undefined)}
-      className={`absolute cursor-pointer text-[1.6cqw] transition-[left,top] duration-300 ease-out hover:brightness-110 ${inPile ? 'pointer-events-none' : ''}`}
+      className={`absolute cursor-pointer text-[1.6cqw] transition-[left,top] duration-300 ease-out hover:brightness-110 motion-reduce:transition-none ${inPile ? 'pointer-events-none' : ''}`}
       style={{ ...box(card.placement), zIndex: z }}
     >
       <div
@@ -132,7 +144,19 @@ function BoardCard({
           card.highlighted ? 'shadow-[0_0_1.2cqw_0.3cqw_rgba(251,191,36,0.9)] ring-2 ring-amber-300' : 'shadow-md shadow-black/60'
         } ${selected ? 'outline outline-2 outline-offset-2 outline-sky-300' : ''} ${card.revealed ? 'ring-2 ring-fuchsia-400' : ''}`}
       >
-        <CardView card={card} />
+        {/* A flip when the face shown changes; initial={false} skips it when the card first appears. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={face}
+            className="h-full w-full"
+            initial={{ rotateY: -90 }}
+            animate={{ rotateY: 0 }}
+            exit={{ rotateY: 90 }}
+            transition={{ duration: 0.15, ease: 'easeInOut' }}
+          >
+            <CardView card={card} />
+          </motion.div>
+        </AnimatePresence>
       </div>
       {onField && isMonsterZone && card.visible && card.atk !== undefined && (
         <div
@@ -149,6 +173,6 @@ function BoardCard({
           {card.modifiers.length}
         </div>
       )}
-    </div>
+    </motion.div>
   )
 }
