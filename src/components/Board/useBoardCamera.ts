@@ -11,6 +11,8 @@ const MAX_FOCUS_ZOOM = 2.2
 // screens can still zoom in on one player's half.
 const MAX_SIDE_CROP = 0.35
 const FREE_ZOOM = { min: 0.5, max: 5 }
+// The camera avoids a left overlay only if that leaves this much of the width.
+const MIN_UNCOVERED = 0.6
 const DRAG_THRESHOLD = 4 // px before a press becomes a drag rather than a click
 const SPRING = { type: 'spring', stiffness: 90, damping: 20 } as const
 
@@ -28,18 +30,21 @@ function useSize(ref: RefObject<HTMLElement | null>) {
   return size
 }
 
-// Scale and offset that frame a focus area in a viewport of this size.
-function frame(size: Size, worldW: number, focus: FocusArea) {
+// Scale and offset that frame a focus area in the part of the viewport that
+// isn't covered on the left.
+function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number) {
+  const left = full.w - insetLeft >= full.w * MIN_UNCOVERED ? insetLeft : 0
+  const size = { w: full.w - left, h: full.h }
   const unit = worldW / BOUNDS.width
   const r = focusRegion(focus)
   const fitW = size.w / (r.width * unit)
   const scale = Math.min(MAX_FOCUS_ZOOM, focus === 'all' ? fitW : fitW / (1 - MAX_SIDE_CROP), size.h / (r.height * unit))
   const cx = (r.minX + r.width / 2 - BOUNDS.minX) * unit
   const cy = (r.minY + r.height / 2 - BOUNDS.minY) * unit
-  return { scale, x: size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
+  return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -60,7 +65,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
 
   // Follow the focus. The first placement jumps rather than easing in; free
   // mode leaves the camera wherever it was.
-  const target = size && worldW && mode !== 'free' ? frame(size, worldW, mode) : undefined
+  const target = size && worldW && mode !== 'free' ? frame(size, worldW, mode, insetLeft) : undefined
   useEffect(() => {
     if (!target) return
     goTo(target, !placed.current)
@@ -151,7 +156,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
       }
     : {}
 
-  const reset = () => size && worldW && goTo(frame(size, worldW, 'all'), false)
+  const reset = () => size && worldW && goTo(frame(size, worldW, 'all', insetLeft), false)
 
   return { worldW, style: { x, y, scale }, handlers, reset }
 }

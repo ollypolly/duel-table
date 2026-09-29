@@ -1,19 +1,26 @@
 // Export, delete and import branches. An exported branch is a fork file, so
 // it can be dropped straight into scenarios/.
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { parseBranch, uniqueId } from '../../branches/branches'
 import { cardDb } from '../../data/cards'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
 import { useBranchStore } from '../../store/branchStore'
 import { usePlayerStore } from '../../store/playerStore'
+import { MenuItem } from '../Menu/Menu'
 
-const btn = 'rounded-md bg-raised px-2 py-1 text-xs hover:bg-raised-hover'
-
+// Menu items: a branch's export and delete.
 export function BranchActions({ id }: { id: string }) {
   const { branches, remove } = useBranchStore()
   const [confirming, setConfirming] = useState(false)
   const branch = branches.find((b) => b.id === id)
+  // Delete asks twice; the second ask lapses so a later click can't delete.
+  useEffect(() => {
+    if (!confirming) return
+    const t = setTimeout(() => setConfirming(false), 4000)
+    return () => clearTimeout(t)
+  }, [confirming])
   if (!branch) return null
 
   const exportJson = () => {
@@ -26,25 +33,18 @@ export function BranchActions({ id }: { id: string }) {
   }
 
   return (
-    <span className="flex items-center gap-2">
-      <button type="button" className={btn} onClick={exportJson}>
-        Export JSON
-      </button>
+    <>
+      <MenuItem onClick={exportJson}>Export branch JSON</MenuItem>
       {confirming ? (
-        <>
-          <button type="button" className="btn bg-danger text-bg hover:bg-danger/80" onClick={() => remove(id)}>
-            Delete for good
-          </button>
-          <button type="button" className={btn} onClick={() => setConfirming(false)}>
-            Keep
-          </button>
-        </>
+        <MenuItem danger onClick={() => remove(id)}>
+          Delete for good
+        </MenuItem>
       ) : (
-        <button type="button" className={btn} onClick={() => setConfirming(true)}>
-          Delete branch
-        </button>
+        <MenuItem danger data-keep-open onClick={() => setConfirming(true)}>
+          Delete branch…
+        </MenuItem>
       )}
-    </span>
+    </>
   )
 }
 
@@ -79,16 +79,10 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
     open(branch.id, r.scenario.game.steps.length)
   }
 
+  // A menu item; the error shows as a toast, outside the (closed) menu.
   return (
-    <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm">
-      {error && (
-        <span role="alert" className="max-w-md truncate text-xs text-danger" title={error}>
-          Import failed: {error}
-        </span>
-      )}
-      <button type="button" className={btn} onClick={() => input.current?.click()}>
-        Import branch
-      </button>
+    <>
+      <MenuItem onClick={() => input.current?.click()}>Import branch…</MenuItem>
       <input
         ref={input}
         type="file"
@@ -101,6 +95,18 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
           e.target.value = ''
         }}
       />
-    </span>
+      {error &&
+        createPortal(
+          <div role="alert" className="panel fixed bottom-4 left-1/2 z-50 flex max-w-[min(40rem,90vw)] -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-danger">
+            <span className="truncate" title={error}>
+              Import failed: {error}
+            </span>
+            <button type="button" className="btn" onClick={() => setError(undefined)}>
+              OK
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }

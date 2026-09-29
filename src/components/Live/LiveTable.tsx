@@ -55,9 +55,6 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             {rejected}
           </span>
         )}
-        <button type="button" className="rounded-md bg-raised px-2 py-0.5 text-xs hover:bg-raised-hover" onClick={() => openSession(undefined)}>
-          Leave
-        </button>
       </span>
     </>
   )

@@ -16,6 +16,9 @@ export type BoardRendererProps = {
   // The part of the table to frame. A 2D board pans and zooms; a 3D one
   // would move its camera.
   focus?: CameraMode
+  // Px along the left covered by an overlay (the scene panel). The camera
+  // frames the rest when there's room.
+  insetLeft?: number
   onCardClick?: (iid: Iid) => void
   onCardHover?: (iid: Iid | undefined) => void
   onZoneClick?: (ref: ZoneRef) => void

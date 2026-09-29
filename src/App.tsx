@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
-import { CosmeticsButton } from "./components/Cosmetics/Cosmetics";
+import { CosmeticsDialog } from "./components/Cosmetics/Cosmetics";
+import { Menu, MenuItem, MenuLabel } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
 import {
   ScenarioErrors,
@@ -18,6 +19,7 @@ import { usePlayerStore } from "./store/playerStore";
 export default function App() {
   const { scenarioId, sessionId, open, openSession } = usePlayerStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
+  const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
   const { scenarios, branches, branchIds } = useScenarios();
   const { add, appendStep, undo } = useBranchStore();
   const all = [...scenarios, ...branches];
@@ -64,24 +66,22 @@ export default function App() {
         />
       )}
       {liveSessions && (
-        <select
-          aria-label="Live session"
-          className="max-w-[11rem] rounded-md border border-line bg-surface px-2 py-1 text-sm"
-          value={sessionId ?? ""}
-          onChange={(e) => openSession(e.target.value || undefined, Infinity)}
-        >
-          <option value="">
-            {liveSessions.length ? "Live: off" : "Live: no sessions yet"}
-          </option>
+        <Menu label={sessionId ? `Live: ${sessionId}` : "Live"} title="Sessions on the local API">
+          <MenuLabel>Open a session</MenuLabel>
+          {liveSessions.length === 0 && <MenuItem disabled>No sessions yet</MenuItem>}
           {liveSessions.map((s) => (
-            <option key={s.id} value={s.id}>
+            <MenuItem key={s.id} onClick={() => openSession(s.id, Infinity)} aria-current={s.id === sessionId}>
               {s.id}: {s.title}
-            </option>
+            </MenuItem>
           ))}
-        </select>
+          {sessionId && <MenuItem onClick={() => openSession(undefined)}>Leave live mode</MenuItem>}
+        </Menu>
       )}
-      <ImportBranch takenIds={all.map(resultId)} />
-      <CosmeticsButton />
+      <Menu label="☰" title="More">
+        <ImportBranch takenIds={all.map(resultId)} />
+        <MenuItem onClick={() => setCosmeticsOpen(true)}>Sleeves, deck boxes & playmats…</MenuItem>
+      </Menu>
+      <CosmeticsDialog open={cosmeticsOpen} onClose={() => setCosmeticsOpen(false)} />
     </>
   );
 
@@ -102,7 +102,7 @@ export default function App() {
           {...(isBranch && {
             onStep: (step) => appendStep(result.scenario.id, step),
             onUndo: () => undo(result.scenario.id),
-            freePlayControls: <BranchActions id={result.scenario.id} />,
+            menuItems: <BranchActions id={result.scenario.id} />,
           })}
         />
       ) : (
@@ -113,7 +113,11 @@ export default function App() {
               <EmptyState />
             ) : (
               <ScenarioErrors id={result.id} errors={result.errors}>
-                {isBranch && <BranchActions id={result.id} />}
+                {isBranch && (
+                  <Menu label="Branch">
+                    <BranchActions id={result.id} />
+                  </Menu>
+                )}
               </ScenarioErrors>
             )}
           </div>

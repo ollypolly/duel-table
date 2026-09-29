@@ -21,20 +21,20 @@ const box = (p: Point, size: { w: number; h: number } = CARD): CSSProperties => 
   height: `${(size.h / BOUNDS.height) * 100}%`,
 })
 
-export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
+export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const cam = useBoardCamera(ref, focus)
+  const cam = useBoardCamera(ref, focus, insetLeft)
   const cosmetics = useCosmeticsStore((s) => s.cosmetics)
   return (
     <div
       ref={ref}
-      className={`relative isolate h-full w-full overflow-hidden ${focus === 'free' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
+      className={`felt relative isolate h-full w-full overflow-hidden ${focus === 'free' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
       data-testid="board"
       data-focus={focus}
       {...cam.handlers}
     >
       <motion.div
-        className="playmat @container absolute left-0 top-0 origin-top-left select-none rounded-2xl"
+        className="playmat @container absolute left-0 top-0 origin-top-left select-none"
         style={{ width: cam.worldW ?? '100%', aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}`, ...cam.style }}
       >
         {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
@@ -102,10 +102,10 @@ export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHove
 }
 
 // A player's playmat image fills their half, turned to face them, under a
-// scrim so the zones stay readable.
+// scrim so the zones stay readable, fading out into the table at its edges.
 function Playmat({ player, src }: { player: Player; src: string }) {
   return (
-    <div className={`pointer-events-none absolute inset-x-0 h-1/2 overflow-hidden ${player === 'p1' ? 'top-1/2 rounded-b-2xl' : 'top-0 rounded-t-2xl'}`}>
+    <div className={`pointer-events-none absolute inset-x-0 h-1/2 overflow-hidden [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_75%)] ${player === 'p1' ? 'top-1/2' : 'top-0'}`}>
       <img src={src} alt="" draggable={false} className={`h-full w-full object-cover ${player === 'p2' ? 'rotate-180' : ''}`} />
       <div className="absolute inset-0 bg-bg/50" />
     </div>

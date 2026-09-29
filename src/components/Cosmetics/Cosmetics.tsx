@@ -1,5 +1,5 @@
 // Pick each seat's sleeves, deck box and playmat from image files.
-import { useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { PLAYERS, type Player } from '../../engine'
 import { useCosmeticsStore, type Cosmetic } from '../../store/cosmeticsStore'
 
@@ -10,50 +10,40 @@ const SLOTS: { kind: Cosmetic; label: string; aspect: string }[] = [
 ]
 const SEATS: Record<Player, string> = { p1: 'Bottom seat (you)', p2: 'Top seat (opponent)' }
 
-export function CosmeticsButton() {
+export function CosmeticsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (open) ref.current?.showModal()
+  }, [open])
   return (
-    <>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => {
-          setOpen(true)
-          ref.current?.showModal()
-        }}
-      >
-        Sleeves & mats
-      </button>
-      <dialog
-        ref={ref}
-        onClose={() => setOpen(false)}
-        onClick={(e) => e.target === ref.current && ref.current.close()}
-        className="panel m-auto w-[min(44rem,94vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
-      >
-        {open && (
-          <div className="space-y-5 p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold">Sleeves, deck boxes & playmats</h2>
-              <button type="button" className="btn" onClick={() => ref.current?.close()}>
-                Close
-              </button>
-            </div>
-            {PLAYERS.map((p) => (
-              <section key={p} className="space-y-2">
-                <h3 className={`font-display text-xs font-semibold uppercase tracking-widest ${p === 'p1' ? 'text-p1' : 'text-p2'}`}>{SEATS[p]}</h3>
-                <div className="grid grid-cols-[1fr_1fr_2fr] gap-3">
-                  {SLOTS.map((s) => (
-                    <Slot key={s.kind} player={p} {...s} />
-                  ))}
-                </div>
-              </section>
-            ))}
-            <p className="text-xs text-faint">Images stay in this browser. JPEG, PNG or WebP.</p>
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && ref.current.close()}
+      className="panel m-auto w-[min(44rem,94vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
+    >
+      {open && (
+        <div className="space-y-5 p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">Sleeves, deck boxes & playmats</h2>
+            <button type="button" className="btn" onClick={() => ref.current?.close()}>
+              Close
+            </button>
           </div>
-        )}
-      </dialog>
-    </>
+          {PLAYERS.map((p) => (
+            <section key={p} className="space-y-2">
+              <h3 className={`font-display text-xs font-semibold uppercase tracking-widest ${p === 'p1' ? 'text-p1' : 'text-p2'}`}>{SEATS[p]}</h3>
+              <div className="grid grid-cols-[1fr_1fr_2fr] gap-3">
+                {SLOTS.map((s) => (
+                  <Slot key={s.kind} player={p} {...s} />
+                ))}
+              </div>
+            </section>
+          ))}
+          <p className="text-xs text-faint">Images stay in this browser. JPEG, PNG or WebP.</p>
+        </div>
+      )}
+    </dialog>
   )
 }
 
