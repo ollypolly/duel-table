@@ -79,7 +79,7 @@ export function CardInspector({
                   ✕
                 </button>
               )}
-              <CardInfo card={card} materials={materialsOf(card)} large />
+              <CardInfo card={card} materials={materialsOf(card)} />
               {pinned && actions && <div className="mt-5 border-t border-line pt-4">{actions}</div>}
             </div>
           </motion.div>

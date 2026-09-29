@@ -1,5 +1,4 @@
-// A card's art and rules text, in two sizes: compact (the pile viewer's side
-// pane) and large (the inspector).
+// A card's art and rules text, as the inspector shows them.
 import { useState } from 'react'
 import type { CardFace } from '../../view/boardView'
 import { CardView } from '../CardView/CardView'
@@ -32,16 +31,16 @@ export function CardArt({ card }: { card: CardFace }) {
   return <CardView card={card} showFace={card.visible} />
 }
 
-export function CardInfo({ card, materials = [], large = false }: { card: CardFace; materials?: CardFace[]; large?: boolean }) {
+export function CardInfo({ card, materials = [] }: { card: CardFace; materials?: CardFace[] }) {
   if (!card.visible) return <p className="text-sm text-muted">Face-down card</p>
   const d = card.data
   const stars = d?.level ?? d?.rank
   return (
-    <div className={large ? 'space-y-4' : 'space-y-3'} data-testid="card-detail">
+    <div className="space-y-4" data-testid="card-detail">
       <div className="space-y-1">
-        <h2 className={`font-display font-bold leading-tight ${large ? 'text-3xl' : 'text-base'}`}>{card.name}</h2>
+        <h2 className="font-display text-3xl font-bold leading-tight">{card.name}</h2>
         {card.name !== card.baseName && <p className="text-xs text-warn">(really {card.baseName})</p>}
-        <p className={`text-muted ${large ? 'text-sm' : 'text-xs'}`}>
+        <p className="text-sm text-muted">
           {[d?.attribute, d?.race, d?.type ?? card.custom?.kind, stars && `${d?.rank ? 'Rank' : 'Level'} ${stars}`, d?.linkval && `Link ${d.linkval}`]
             .filter(Boolean)
             .join(' · ')}
@@ -49,7 +48,7 @@ export function CardInfo({ card, materials = [], large = false }: { card: CardFa
         </p>
       </div>
       {card.baseAtk !== undefined && (
-        <p className={`font-display font-semibold tracking-wide ${large ? 'text-xl' : 'text-sm'}`}>
+        <p className="font-display text-xl font-semibold tracking-wide">
           <span className="text-muted">ATK</span> <Stat value={card.atk} base={card.baseAtk} />
           {card.baseDef !== undefined && (
             <>
@@ -68,7 +67,7 @@ export function CardInfo({ card, materials = [], large = false }: { card: CardFa
           ))}
         </ul>
       )}
-      <p className={`whitespace-pre-line text-ink/90 ${large ? 'text-base leading-relaxed' : 'text-[13px] leading-snug'}`}>{d?.desc ?? card.custom?.text}</p>
+      <p className="whitespace-pre-line text-base leading-relaxed text-ink/90">{d?.desc ?? card.custom?.text}</p>
       {materials.length > 0 && (
         <div className="text-xs text-ink/80">
           <p className="font-semibold">Materials ({materials.length})</p>

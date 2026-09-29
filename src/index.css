@@ -109,10 +109,13 @@
   box-shadow: inset 0 0 80px rgb(0 0 0 / 0.6);
 }
 
-.zone {
-  background: color-mix(in oklab, currentColor 4%, transparent);
-  &:hover {
-    background: color-mix(in oklab, currentColor 12%, transparent);
-    border-color: currentColor;
+/* In the components layer so utilities (a pile's hover styles) override it. */
+@layer components {
+  .zone {
+    background: color-mix(in oklab, currentColor 4%, transparent);
+    &:hover {
+      background: color-mix(in oklab, currentColor 12%, transparent);
+      border-color: currentColor;
+    }
   }
 }

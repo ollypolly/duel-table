@@ -40,7 +40,7 @@ export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHove
         {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
         <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         {view.zones.map((z) => (
-          <ZoneOutline key={z.key} zone={z} onClick={() => onZoneClick?.(z.ref)} />
+          <ZoneOutline key={z.key} zone={z} placing={!!selected} onClick={() => onZoneClick?.(z.ref)} />
         ))}
         {PLAYERS.map(
           (p) =>
@@ -48,7 +48,7 @@ export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHove
               <img
                 key={p}
                 src={cosmetics[p].deckBox}
-                alt={`${view.players[p].name}'s deck box`}
+                alt="Deck box"
                 draggable={false}
                 className="pointer-events-none absolute rounded-[6%] object-cover shadow-lg shadow-black/70"
                 style={{ ...box(deckBoxPlacement(p), DECK_BOX), rotate: `${deckBoxPlacement(p).rotation}deg` }}
@@ -112,21 +112,29 @@ function Playmat({ player, src }: { player: Player; src: string }) {
   )
 }
 
-function ZoneOutline({ zone, onClick }: { zone: ZoneView; onClick: () => void }) {
+// Piles (Deck, GY…) sit above their top card so the whole stack is the click
+// target, and light up with a "View" chip on hover.
+function ZoneOutline({ zone, placing, onClick }: { zone: ZoneView; placing: boolean; onClick: () => void }) {
   const pile = zone.kind === 'pile'
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={`${zone.ref.player ?? ''} ${zone.label}${pile ? ` (${zone.count})` : ''}`}
-      className={`zone absolute rounded-[6%] border transition-colors ${
+      className={`zone group absolute cursor-pointer rounded-[6%] border transition-[background-color,border-color,box-shadow] ${
         zone.ref.zone === 'extraMonster' ? 'border-gold/40 text-gold/50' : zone.ref.player === 'p2' ? 'border-p2/25 text-p2/40' : 'border-p1/25 text-p1/40'
-      }`}
+      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''}`}
       style={box(zone.placement)}
     >
-      <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-[4%] text-center font-display text-[0.75cqw] font-semibold uppercase leading-tight tracking-wider">
-        {zone.label}
-      </span>
+      {pile && zone.count > 0 ? (
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-gold px-[0.7cqw] py-[0.15cqw] font-display text-[0.9cqw] font-bold uppercase tracking-wider text-bg opacity-0 transition-opacity group-hover:opacity-100">
+          {placing ? 'Move here' : 'View'}
+        </span>
+      ) : (
+        <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-[4%] text-center font-display text-[0.75cqw] font-semibold uppercase leading-tight tracking-wider">
+          {zone.label}
+        </span>
+      )}
     </button>
   )
 }
