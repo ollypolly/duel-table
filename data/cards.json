@@ -229,6 +229,41 @@
       "archetype": "Armed Dragon"
     },
     {
+      "id": 15721392,
+      "name": "Super Quantal Alphancall Appeal",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "If a \"Super Quant\" monster you control is destroyed by battle: Special Summon 1 \"Super Quantal Mech Beast\" Xyz Monster from your Extra Deck, then you can Special Summon 1 \"Super Quantum\" monster from your hand, Deck, or GY, that is specifically listed on that Xyz Monster in its text, but negate its effects. You can only activate 1 \"Super Quantal Alphancall Appeal\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Super Quant"
+    },
+    {
+      "id": 58753372,
+      "name": "Super Quantal Fairy Alphan",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Once per turn: You can target 1 \"Super Quant\" monster you control; all face-up monsters you currently control become that monster's Level. You can Tribute this card; reveal 3 \"Super Quant\" monsters with different names from your Deck, your opponent randomly picks 1 for you to Special Summon to your field, and you send the rest to the Graveyard. You can only use this effect of \"Super Quantal Fairy Alphan\" once per turn.",
+      "atk": 0,
+      "def": 0,
+      "level": 1,
+      "attribute": "LIGHT",
+      "race": "Fairy",
+      "archetype": "Super Quant"
+    },
+    {
+      "id": 11646785,
+      "name": "Super Quantal Mech Beast Aeroboros",
+      "type": "XYZ Monster",
+      "frameType": "xyz",
+      "desc": "2 Level 4 monsters\nCannot attack unless it has Xyz Material. Once per turn: You can detach 1 Xyz Material from this card, then target 1 other face-up monster on the field; change it to face-down Defense Position. This effect can be activated during either player's turn, if this card has \"Super Quantum Green Layer\" as Xyz Material. Once per turn: You can attach 1 \"Super Quantum\" monster from your hand or field to this card as an Xyz Material.",
+      "atk": 2200,
+      "def": 2400,
+      "rank": 4,
+      "attribute": "WIND",
+      "race": "Machine",
+      "archetype": "Super Quant"
+    },
+    {
       "id": 85252081,
       "name": "Super Quantal Mech Beast Grampulse",
       "type": "XYZ Monster",
@@ -277,6 +312,24 @@
       "archetype": "Super Quant"
     },
     {
+      "id": 47819246,
+      "name": "Super Quantal Mech Sword - Magnaslayer",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "Target 1 \"Super Quant\" Xyz Monster you control; equip this card to it. It gains ATK equal to its Rank x 100, also if it attacks a Defense Position monster, inflict piercing battle damage to your opponent. During your Battle Phase: You can send this Equip Card to the Graveyard; the monster that was equipped with this card can make 3 attacks during each Battle Phase this turn.",
+      "race": "Normal",
+      "archetype": "Super Quant"
+    },
+    {
+      "id": 1825445,
+      "name": "Super Quantal Union - Magnaformation",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "Your opponent cannot target \"Super Quant\" cards on the field with card effects during your Main Phase 1. You can target 1 \"Super Quant\" Xyz Monster you control; attach 1 other face-up monster you control to it as material. You can only use this effect of \"Super Quantal Union - Magnaformation\" once per turn.",
+      "race": "Continuous",
+      "archetype": "Super Quant"
+    },
+    {
       "id": 92034192,
       "name": "Super Quantum Black Layer",
       "type": "Effect Monster",
@@ -300,6 +353,19 @@
       "level": 3,
       "attribute": "WATER",
       "race": "Psychic",
+      "archetype": "Super Quant"
+    },
+    {
+      "id": 85374678,
+      "name": "Super Quantum Green Layer",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "When this card is Normal or Special Summoned: You can Special Summon 1 \"Super Quant\" monster from your hand. If this card is sent to the Graveyard: You can discard 1 \"Super Quant\" card; draw 1 card. You can only use each effect of \"Super Quantum Green Layer\" once per turn.",
+      "atk": 1600,
+      "def": 1400,
+      "level": 4,
+      "attribute": "WIND",
+      "race": "Spellcaster",
       "archetype": "Super Quant"
     },
     {

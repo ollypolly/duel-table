@@ -1,0 +1,363 @@
+{
+  "id": "ojama-vs-super-quant-t1-t3",
+  "title": "Armed Ojama vs Super Quant: turns 1–3",
+  "description": "You're on **Armed Ojama**, going first against a friend's **Super Quant** deck. Turn 1 builds **Armed Dragon LV7** and **XYZ-Dragon Cannon**, turn 2 is Friend's answer, and turn 3 recycles your Ojamas and wins a fight.\n\nPress **→** to step through.",
+  "seed": 42,
+  "players": {
+    "p1": { "name": "You", "deck": "chazz-armed-ojama" },
+    "p2": {
+      "name": "Friend",
+      "cards": [
+        "Super Quantum Blue Layer",
+        "Super Quantum Black Layer",
+        "Super Quantum Red Layer",
+        "Super Quantum Green Layer",
+        "Super Quantal Mech Ship Magnacarrier",
+        "Super Quantal Mech Sword - Magnaslayer",
+        "Super Quantal Union - Magnaformation",
+        "Super Quantal Alphancall Appeal",
+        "Super Quantal Fairy Alphan",
+        "Super Quantal Mech Beast Magnaliger",
+        "Super Quantal Mech Beast Grampulse",
+        "Super Quantal Mech Beast Aeroboros",
+        "Super Quantal Mech King Great Magnus"
+      ]
+    }
+  },
+  "setup": {
+    "p1": {
+      "hand": ["Ojamatch", "Ojama Green", "Ojama Black", "Ojamassimilation", "Ash Blossom & Joyous Spring"],
+      "deck": ["Forbidden Droplet"]
+    },
+    "p2": {
+      "hand": [
+        "Super Quantum Blue Layer",
+        "Super Quantum Black Layer",
+        "Super Quantum Red Layer",
+        "Super Quantal Mech Ship Magnacarrier",
+        "Super Quantal Mech Sword - Magnaslayer"
+      ],
+      "deck": ["Super Quantum Green Layer"]
+    }
+  },
+  "steps": [
+    {
+      "label": "Turn 1: you go first",
+      "narration": "The player going first **doesn't draw** on turn 1, so you start with just your 5 cards.\n\nThe plan: turn this hand into **Armed Dragon LV7** and **XYZ-Dragon Cannon**, while keeping **Ash Blossom** in hand for Friend's turn.\n\n*Note: the hand from the video line was Ojamatch, Ojamagic, Ojamassimilation, Fusion Tag and Ash. That doesn't work with one copy of each Ojama (see step 3), so this replay swaps Ojamagic and Fusion Tag for Ojama Green and Ojama Black.*",
+      "actions": [{ "type": "phase", "phase": "main1" }]
+    },
+    {
+      "label": "Activate Ojamatch",
+      "narration": "**Ojamatch** is a Quick-Play Spell. Its **cost** is sending an \"Ojama\" card from your hand to the GY, so **Ojama Green** goes.\n\nCosts are paid when you activate, before anything can respond. That's why Ojama Green is already in the GY while Ojamatch is still waiting to resolve.",
+      "intent": { "type": "activate", "card": "p1-ojamatch-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamatch-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-ojamatch-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamatch-1", "label": "Ojamatch: add an Ojama + an Armed Dragon" },
+        { "type": "highlight", "cards": ["p1-ojamatch-1"] }
+      ]
+    },
+    {
+      "label": "Ojamatch resolves",
+      "narration": "Ojamatch adds **1 Ojama monster with a different name** from the card you sent (so not Green) and **1 \"Armed Dragon\" monster**. You take **Ojama Yellow** and **Armed Dragon Thunder LV3**.\n\n**Why not Ojamagic as the cost, like the video?** Ojamagic adds Green, Yellow *and* Black, but only if all three are still in your Deck ([it's all or nothing](https://yugipedia.com/wiki/Card_Rulings:Ojamagic)). Its effect would activate *after* Ojamatch resolves, and Ojamatch has to take one of the three, so with one copy of each Ojama, Ojamagic would add nothing.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamatch-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamatch-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojamatch-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-ojama-yellow-1", "p1-armed-dragon-thunder-lv3-1"] }
+      ]
+    },
+    {
+      "label": "Normal Summon Thunder LV3",
+      "narration": "Right after resolving, Ojamatch lets you **Normal Summon** one of the two cards. That uses up your one Normal Summon for the turn.\n\nIt has to be **Thunder LV3**: a Level 5 monster like Thunder LV5 would need a Tribute, and your field is empty.",
+      "intent": { "type": "normalSummon", "card": "p1-armed-dragon-thunder-lv3-1" },
+      "actions": [
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "normal" },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv3-1"] }
+      ]
+    },
+    {
+      "label": "Thunder LV3: level up",
+      "narration": "**Thunder LV3**'s effect: send 1 monster from your hand to the GY as a cost (**Ojama Yellow**), then Thunder LV3 sends *itself* to the GY and Special Summons a Level 5 or lower \"Armed Dragon\" from your hand or Deck.\n\nNotice the Ojamas are piling up in the GY. That's on purpose: **Ojamassimilation** can use Ojamas from the GY later.",
+      "intent": { "type": "activate", "card": "p1-armed-dragon-thunder-lv3-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-armed-dragon-thunder-lv3-1", "label": "Thunder LV3: level up" },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv3-1"] }
+      ]
+    },
+    {
+      "label": "Special Summon Thunder LV5",
+      "narration": "Thunder LV3 goes to the GY and **Armed Dragon Thunder LV5** comes out of the Deck.\n\nThunder LV3 also has a \"draw 1\" effect, but only when it's sent to the GY **as a cost** for a Dragon's effect. Here it sent itself as part of the *resolution*, so it doesn't draw.\n\nOn the field (and in the GY), Thunder LV5's name **becomes \"Armed Dragon LV5\"**. That matters in the next step.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv5-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "special", "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "effect" } },
+        { "type": "modify", "modifier": { "id": "thunder-lv5-name", "target": "p1-armed-dragon-thunder-lv5-1", "kind": "name", "value": "Armed Dragon LV5", "until": "leavesField", "label": "Its name becomes \"Armed Dragon LV5\" on the field" } },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv5-1"] }
+      ]
+    },
+    {
+      "label": "Thunder LV5: level up",
+      "narration": "Same trick, one level higher. Send a monster from your hand as the cost (**Ojama Black**), then Thunder LV5 sends itself to the GY and Special Summons a Level 7 or lower \"Armed Dragon\" from your hand or Deck.",
+      "intent": { "type": "activate", "card": "p1-armed-dragon-thunder-lv5-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-armed-dragon-thunder-lv5-1", "label": "Thunder LV5: level up" },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv5-1"] }
+      ]
+    },
+    {
+      "label": "Special Summon Armed Dragon LV7",
+      "narration": "**Armed Dragon LV7** (2800 ATK) arrives. LV7 *\"must be Special Summoned by 'Armed Dragon LV5'\"*, and Thunder LV5 counts because its name was \"Armed Dragon LV5\" on the field.\n\nThis is the **first material for the boss**. Armed Dragon Catapult Cannon needs LV7 and VWXYZ to have both been properly Special Summoned at some point this duel.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv5-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-lv7-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "special", "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-armed-dragon-lv7-1"] }
+      ]
+    },
+    {
+      "label": "Activate Ojamassimilation",
+      "narration": "**Ojamassimilation**: reveal a LIGHT Machine Fusion Monster from your Extra Deck (**XYZ-Dragon Cannon**) and banish any number of Ojama monsters from your hand, field or GY as the cost.\n\nYou banish all **3 Ojamas from the GY**. Every card you've discarded so far is paying off.",
+      "intent": { "type": "activate", "card": "p1-ojamassimilation-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "reveal", "cards": ["p1-xyz-dragon-cannon-1"] },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamassimilation-1", "label": "Ojamassimilation: summon 3 materials" },
+        { "type": "highlight", "cards": ["p1-ojamassimilation-1", "p1-xyz-dragon-cannon-1"] }
+      ]
+    },
+    {
+      "label": "Summon X, Y and Z",
+      "narration": "Three Ojamas banished means **three materials** Special Summoned, each with a different name listed on XYZ-Dragon Cannon: **X-Head Cannon**, **Y-Dragon Head** and **Z-Metal Tank**, straight from the Deck.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-x-head-cannon-1", "to": { "player": "p1", "zone": "monster", "slot": 0 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-y-dragon-head-1", "to": { "player": "p1", "zone": "monster", "slot": 1 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-z-metal-tank-1", "to": { "player": "p1", "zone": "monster", "slot": 3 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-x-head-cannon-1", "p1-y-dragon-head-1", "p1-z-metal-tank-1"] }
+      ]
+    },
+    {
+      "label": "XYZ-Dragon Cannon",
+      "narration": "**XYZ-Dragon Cannon** (2800 ATK) is Special Summoned from the Extra Deck by **banishing X, Y and Z** from your field. No Polymerization needed.\n\nThis isn't a *Fusion Summon*, even though XYZ is a Fusion Monster. That distinction comes back when we talk about Fusion Tag at the end.",
+      "intent": { "type": "specialSummon", "card": "p1-xyz-dragon-cannon-1", "method": "special" },
+      "actions": [
+        { "type": "move", "card": "p1-x-head-cannon-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-y-dragon-head-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-z-metal-tank-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-xyz-dragon-cannon-1", "to": { "player": "p1", "zone": "monster", "slot": 1 }, "summon": "special" },
+        { "type": "highlight", "cards": ["p1-xyz-dragon-cannon-1"] }
+      ]
+    },
+    {
+      "label": "End turn 1",
+      "narration": "Your board: **Armed Dragon LV7** and **XYZ-Dragon Cannon**, both 2800 ATK. In hand: **Ash Blossom**.\n\nAsh is a **hand trap**: you discard it during *Friend's* turn to negate an effect that searches the Deck, Special Summons from the Deck, or sends from the Deck to the GY. Holding it is the whole point.",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    },
+    {
+      "label": "Turn 2: Friend draws",
+      "narration": "Friend's turn. They draw for the turn and go to their Main Phase.",
+      "actions": [
+        { "type": "nextTurn" },
+        { "type": "draw", "player": "p2" },
+        { "type": "phase", "phase": "main1" }
+      ]
+    },
+    {
+      "label": "Normal Summon Blue Layer",
+      "narration": "Friend Normal Summons **Super Quantum Blue Layer**, one of the Super Quant \"pilots\". When it's summoned, it **adds a Super Quant card from the Deck to the hand**.\n\nThat's a search from the Deck, exactly what **Ash Blossom** can stop.",
+      "intent": { "type": "normalSummon", "card": "p2-super-quantum-blue-layer-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantum-blue-layer-1", "to": { "player": "p2", "zone": "monster", "slot": 2 }, "summon": "normal" },
+        { "type": "chainPush", "card": "p2-super-quantum-blue-layer-1", "label": "Blue Layer: search the Deck" },
+        { "type": "highlight", "cards": ["p2-super-quantum-blue-layer-1"] }
+      ]
+    },
+    {
+      "label": "You chain Ash Blossom",
+      "narration": "You respond: discard **Ash Blossom** (that's its cost) to negate the search. Ash becomes **Chain Link 2** on top of Blue Layer's effect.\n\nChains resolve **last in, first out**, so Ash will resolve before the search does.",
+      "intent": { "type": "activate", "card": "p1-ash-blossom-joyous-spring-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ash-blossom-joyous-spring-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-ash-blossom-joyous-spring-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ash-blossom-joyous-spring-1", "player": "p1", "label": "Ash Blossom: negate the search" },
+        { "type": "arrow", "from": "p1-ash-blossom-joyous-spring-1", "to": "p2-super-quantum-blue-layer-1" }
+      ]
+    },
+    {
+      "label": "Friend chains Black Layer",
+      "narration": "Friend has an answer. **Super Quantum Black Layer** can Special Summon itself from the hand *when the opponent activates a monster effect*. Ash Blossom is a monster effect, so your Ash lets Black Layer in.\n\nBlack Layer becomes **Chain Link 3**. This is the \"makes a Zord anyway\" part of the story.",
+      "intent": { "type": "activate", "card": "p2-super-quantum-black-layer-1" },
+      "actions": [
+        { "type": "reveal", "cards": ["p2-super-quantum-black-layer-1"] },
+        { "type": "chainPush", "card": "p2-super-quantum-black-layer-1", "label": "Black Layer: summon itself" }
+      ]
+    },
+    {
+      "label": "Chain Link 3: Black Layer",
+      "narration": "The chain starts resolving from the top. Black Layer's effect **discards 1 other card** (**Red Layer**) and Special Summons Black Layer from the hand.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantum-red-layer-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-super-quantum-black-layer-1", "reason": "effect" } },
+        { "type": "move", "card": "p2-super-quantum-black-layer-1", "to": { "player": "p2", "zone": "monster", "slot": 1 }, "summon": "special", "cause": { "card": "p2-super-quantum-black-layer-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantum-black-layer-1"] }
+      ]
+    },
+    {
+      "label": "Chain Links 2 and 1",
+      "narration": "**Chain Link 2** (Ash Blossom) resolves and negates the search. Then **Chain Link 1** (Blue Layer's search) resolves as a negated effect and does nothing.\n\nAsh did its job, but it cost you your only hand trap *and* opened the door for Black Layer. Trade-offs like this are what make Yu-Gi-Oh interesting.",
+      "actions": [{ "type": "chainResolve" }, { "type": "chainResolve" }]
+    },
+    {
+      "label": "Black Layer becomes Magnaliger",
+      "narration": "Black Layer was Special Summoned, so its next effect triggers. It Xyz Summons a **\"Super Quantal Mech Beast\"** (the \"Zord\") from the Extra Deck **using itself as material**, then **attaches a Super Quant monster from the GY**.\n\nFriend picks **Super Quantal Mech Beast Magnaliger** (2600 ATK) and attaches **Red Layer**. Xyz materials sit *under* the monster (the cards peeking out behind it).",
+      "intent": { "type": "specialSummon", "card": "p2-super-quantal-mech-beast-magnaliger-1", "method": "xyz" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantal-mech-beast-magnaliger-1", "to": { "player": "p2", "zone": "monster", "slot": 3 }, "summon": "xyz", "cause": { "card": "p2-super-quantum-black-layer-1", "reason": "effect" } },
+        { "type": "attach", "card": "p2-super-quantum-black-layer-1", "to": "p2-super-quantal-mech-beast-magnaliger-1" },
+        { "type": "attach", "card": "p2-super-quantum-red-layer-1", "to": "p2-super-quantal-mech-beast-magnaliger-1", "cause": { "card": "p2-super-quantum-black-layer-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-magnaliger-1"] }
+      ]
+    },
+    {
+      "label": "Magnaliger targets XYZ",
+      "narration": "Magnaliger's effect: **detach 1 material** (the cost) and target 1 monster on the field to destroy. Friend detaches **Red Layer** and targets **XYZ-Dragon Cannon**.\n\nWith Red Layer attached, this was a Quick Effect usable on either player's turn. Detaching Red Layer turns that off, which matters next turn.",
+      "intent": { "type": "activate", "card": "p2-super-quantal-mech-beast-magnaliger-1" },
+      "actions": [
+        { "type": "detach", "card": "p2-super-quantum-red-layer-1", "cause": { "card": "p2-super-quantal-mech-beast-magnaliger-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-super-quantal-mech-beast-magnaliger-1", "label": "Magnaliger: destroy a monster" },
+        { "type": "arrow", "from": "p2-super-quantal-mech-beast-magnaliger-1", "to": "p1-xyz-dragon-cannon-1" }
+      ]
+    },
+    {
+      "label": "XYZ-Dragon Cannon is destroyed",
+      "narration": "**XYZ-Dragon Cannon is destroyed** and goes to your GY (a destroyed Fusion Monster goes to the GY, not back to the Extra Deck). X, Y and Z stay banished.\n\n*The original story had the Zord bounce XYZ to the Extra Deck. No Super Quant Mech Beast does that, so this uses Magnaliger's real destroy effect.* Red Layer's own GY effect has nothing to revive, so it does nothing.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-xyz-dragon-cannon-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p2-super-quantal-mech-beast-magnaliger-1", "reason": "effect" } }
+      ]
+    },
+    {
+      "label": "Activate Magnacarrier",
+      "narration": "Friend activates the Field Spell **Super Quantal Mech Ship Magnacarrier**. Its cost is **discarding 1 card** (**Magnaslayer**). It targets a Super Quantum monster they control, here **Blue Layer**.",
+      "intent": { "type": "activate", "card": "p2-super-quantal-mech-ship-magnacarrier-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantal-mech-ship-magnacarrier-1", "to": { "player": "p2", "zone": "fieldSpell", "slot": 0 } },
+        { "type": "move", "card": "p2-super-quantal-mech-sword-magnaslayer-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-super-quantal-mech-ship-magnacarrier-1", "label": "Magnacarrier: Xyz Summon a Mech Beast" },
+        { "type": "arrow", "from": "p2-super-quantal-mech-ship-magnacarrier-1", "to": "p2-super-quantum-blue-layer-1" }
+      ]
+    },
+    {
+      "label": "Blue Layer becomes Grampulse",
+      "narration": "Magnacarrier Xyz Summons a Mech Beast **with the same Attribute** as the target, using it as material. Blue Layer is WATER, so it becomes **Super Quantal Mech Beast Grampulse** (WATER, 1800 ATK).\n\nWith Blue Layer as material, Grampulse can destroy a Spell/Trap as a **Quick Effect**. Worth remembering before you set anything.",
+      "intent": { "type": "specialSummon", "card": "p2-super-quantal-mech-beast-grampulse-1", "method": "xyz" },
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-grampulse-1", "to": { "player": "p2", "zone": "monster", "slot": 0 }, "summon": "xyz", "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "effect" } },
+        { "type": "attach", "card": "p2-super-quantum-blue-layer-1", "to": "p2-super-quantal-mech-beast-grampulse-1" },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-grampulse-1"] }
+      ]
+    },
+    {
+      "label": "No attack, end turn 2",
+      "narration": "Friend doesn't attack. Magnaliger (2600) and Grampulse (1800) would both lose to **Armed Dragon LV7** (2800), and Magnaliger has already used its once-per-turn destroy.\n\nYou're down XYZ-Dragon Cannon and Ash Blossom, but LV7 is still standing.",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    },
+    {
+      "label": "Turn 3: you draw",
+      "narration": "Your turn. You draw **Forbidden Droplet**.",
+      "actions": [
+        { "type": "nextTurn" },
+        { "type": "draw", "player": "p1" },
+        { "type": "phase", "phase": "main1" },
+        { "type": "highlight", "cards": ["p1-forbidden-droplet-1"] }
+      ]
+    },
+    {
+      "label": "Ojamassimilation from the GY",
+      "narration": "Ojamassimilation has a second effect **in the GY**: banish it (the cost), then target 3 of your banished Ojama monsters, shuffle them into the Deck, and draw 1.\n\nYour three Ojamas were banished on turn 1, so they come back into the Deck.",
+      "intent": { "type": "activate", "card": "p1-ojamassimilation-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamassimilation-1", "label": "Ojamassimilation (GY): recycle 3 Ojamas, draw 1" },
+        { "type": "highlight", "cards": ["p1-ojama-green-1", "p1-ojama-yellow-1", "p1-ojama-black-1"] }
+      ]
+    },
+    {
+      "label": "Shuffle the Ojamas in, draw 1",
+      "narration": "Green, Yellow and Black go back into the Deck, which is shuffled, and you draw 1. A real draw is random. In this replay it's **Ojamagic**.\n\nThis is the key setup for the next step: **all three Ojamas are in the Deck again**.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "shuffle", "player": "p1", "zone": "deck" },
+        { "type": "move", "card": "p1-ojamagic-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-ojamagic-1"] }
+      ]
+    },
+    {
+      "label": "Forbidden Droplet",
+      "narration": "**Ojamagic can't be activated from your hand.** It only does something when it's *sent* from the hand or field to the GY. (*The original story activated it. That isn't allowed.*)\n\nSo send it as a cost instead. **Forbidden Droplet**: send any number of other cards from your hand/field to the GY, and choose that many of Friend's Effect Monsters. You send **Ojamagic** and choose **Magnaliger**.\n\nBecause you sent a **Spell**, Friend can't respond with Spells. Grampulse could still destroy Droplet in response, but a Quick-Play Spell still resolves if it's destroyed on the chain, so it wouldn't help.",
+      "intent": { "type": "activate", "card": "p1-forbidden-droplet-1" },
+      "actions": [
+        { "type": "move", "card": "p1-forbidden-droplet-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "move", "card": "p1-ojamagic-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-forbidden-droplet-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-forbidden-droplet-1", "label": "Forbidden Droplet: halve ATK, negate" },
+        { "type": "arrow", "from": "p1-forbidden-droplet-1", "to": "p2-super-quantal-mech-beast-magnaliger-1" }
+      ]
+    },
+    {
+      "label": "Magnaliger is halved and negated",
+      "narration": "Until the end of this turn, Magnaliger's **ATK is halved** (2600 → **1300**) and its **effects are negated**. The card detail panel shows both (click Magnaliger).",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "modify", "modifier": { "id": "droplet-atk", "target": "p2-super-quantal-mech-beast-magnaliger-1", "kind": "atk", "op": "multiply", "value": 0.5, "until": "endOfTurn", "source": "p1-forbidden-droplet-1", "label": "ATK halved (Forbidden Droplet)" } },
+        { "type": "modify", "modifier": { "id": "droplet-negate", "target": "p2-super-quantal-mech-beast-magnaliger-1", "kind": "negated", "until": "endOfTurn", "source": "p1-forbidden-droplet-1", "label": "Effects negated (Forbidden Droplet)" } },
+        { "type": "move", "card": "p1-forbidden-droplet-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-magnaliger-1"] }
+      ]
+    },
+    {
+      "label": "Ojamagic: add the Ojama trio",
+      "narration": "**Ojamagic** was sent from your hand to the GY, so its effect activates: add **Ojama Green, Ojama Yellow and Ojama Black** from the Deck.\n\nIt works this time because all three are in the Deck, thanks to Ojamassimilation. Compare that with step 3 on turn 1.",
+      "actions": [
+        { "type": "chainPush", "card": "p1-ojamagic-1", "label": "Ojamagic: add Green, Yellow and Black" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-ojama-green-1", "p1-ojama-yellow-1", "p1-ojama-black-1"] }
+      ]
+    },
+    {
+      "label": "LV7 attacks Magnaliger",
+      "narration": "Battle Phase. **Armed Dragon LV7** (2800) attacks **Magnaliger** (now 1300).",
+      "intent": { "type": "attack", "attacker": "p1-armed-dragon-lv7-1", "target": "p2-super-quantal-mech-beast-magnaliger-1" },
+      "actions": [
+        { "type": "phase", "phase": "battle" },
+        { "type": "arrow", "from": "p1-armed-dragon-lv7-1", "to": "p2-super-quantal-mech-beast-magnaliger-1" }
+      ]
+    },
+    {
+      "label": "Magnaliger is destroyed",
+      "narration": "2800 beats 1300: **Magnaliger is destroyed by battle** and Friend takes the difference, **1500 damage**. Its remaining material (Black Layer) goes to the GY with it, and Droplet's changes vanish because Magnaliger left the field.",
+      "actions": [
+        { "type": "move", "card": "p2-super-quantal-mech-beast-magnaliger-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-lv7-1", "reason": "battle" } },
+        { "type": "lp", "player": "p2", "delta": -1500, "cause": { "card": "p1-armed-dragon-lv7-1", "reason": "battle" } }
+      ]
+    },
+    {
+      "label": "End turn 3: the road to the boss",
+      "narration": "End of turn 3: **Armed Dragon LV7** on the field and **Green, Yellow and Black** in hand. Friend is on 6500 LP with Grampulse.\n\n**The route to Armed Dragon Catapult Cannon** from here: **Ojamassimilation** revealing **VW-Tiger Catapult** banishes 2 Ojamas to summon **V-Tiger Jet** + **W-Wing Catapult**, then banish those for **VW-Tiger Catapult**. You'd also need a new **XYZ-Dragon Cannon** (yours is in the GY and can't be Special Summoned from there). Then banish VW + XYZ for **VWXYZ-Dragon Catapult Cannon**, and finally banish **VWXYZ + LV7** for the boss.\n\n*Fusion Tag caveat: the video renames a spare monster with Fusion Tag to stand in for a missing piece. Fusion Tag's current text only applies \"if used for a **Fusion Summon**\", and these Machines are summoned by banishing, not Fusion Summoned. Check that ruling before counting on it.*",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    }
+  ]
+}
