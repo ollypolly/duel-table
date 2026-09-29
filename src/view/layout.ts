@@ -37,11 +37,18 @@ export function zonePlacement(ref: ZoneRef): Placement {
 }
 
 const HAND_Y = 2 * ROW + 1.95
-const HAND_MAX_WIDTH = 7 * COL
+const HAND_MAX_WIDTH = 6.5 * COL // leaves the corners for the deck box
 
 export function handPlacement(player: Player, index: number, count: number): Placement {
   const pitch = Math.min(1.08, count > 1 ? HAND_MAX_WIDTH / (count - 1) : 0)
   const x = (index - (count - 1) / 2) * pitch
+  return player === 'p1' ? { x, y: HAND_Y, rotation: 0 } : { x: -x, y: -HAND_Y, rotation: 180 }
+}
+
+// The deck box sits in the hand row's corner, by the Deck.
+export const DECK_BOX = { w: 0.9, h: 1.3 }
+export function deckBoxPlacement(player: Player): Placement {
+  const x = 4 * COL
   return player === 'p1' ? { x, y: HAND_Y, rotation: 0 } : { x: -x, y: -HAND_Y, rotation: 180 }
 }
 

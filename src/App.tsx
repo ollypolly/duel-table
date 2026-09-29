@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
+import { CosmeticsButton } from "./components/Cosmetics/Cosmetics";
 import { LiveTable } from "./components/Live/LiveTable";
 import {
   ScenarioErrors,
@@ -80,6 +81,7 @@ export default function App() {
         </select>
       )}
       <ImportBranch takenIds={all.map(resultId)} />
+      <CosmeticsButton />
     </>
   );
 

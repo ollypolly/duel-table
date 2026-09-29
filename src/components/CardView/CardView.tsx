@@ -1,3 +1,4 @@
+import { useCosmeticsStore } from '../../store/cosmeticsStore'
 import type { CardFace } from '../../view/boardView'
 
 const FRAME_COLOURS: Record<string, string> = {
@@ -15,7 +16,8 @@ const FRAME_COLOURS: Record<string, string> = {
 // One card, face or back. Sized by its parent (fills it).
 export function CardView({ card, showFace }: { card: CardFace; showFace?: boolean }) {
   const face = showFace ?? card.visible
-  if (!face) return <CardBack />
+  const sleeve = useCosmeticsStore((s) => s.cosmetics[card.owner].sleeve)
+  if (!face) return <CardBack sleeve={sleeve} />
   if (card.image) {
     return (
       <img
@@ -41,8 +43,10 @@ export function CardView({ card, showFace }: { card: CardFace; showFace?: boolea
   )
 }
 
-// The classic brown back with its dark swirl, drawn rather than scanned.
-export function CardBack() {
+// The owner's sleeve, or the classic brown back with its dark swirl, drawn
+// rather than scanned.
+function CardBack({ sleeve }: { sleeve?: string }) {
+  if (sleeve) return <img src={sleeve} alt="" draggable={false} className="h-full w-full rounded-[4%] border border-black/50 object-cover" />
   return (
     <div className="flex h-full w-full items-center justify-center rounded-[4%] border border-black/50 bg-[radial-gradient(ellipse_at_30%_20%,#9a5a22,#4a2410_55%,#1d0d06)]">
       <div className="h-[58%] w-[62%] rounded-[50%] border-[0.12em] border-gold/60 bg-[radial-gradient(circle_at_40%_35%,#3a2a24,#0c0806_70%)] shadow-[0_0_0.4em_rgb(0_0_0/0.8)_inset]" />

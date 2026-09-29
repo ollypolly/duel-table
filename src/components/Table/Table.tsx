@@ -79,7 +79,7 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, freeP
   const materialsOf = (c: CardFace) => (entry.state.cards[c.iid]?.materials ?? []).map((m) => cardFace(entry.state, m, cardDb))
   const pile = openPile && view.zones.find((z) => z.kind === 'pile' && z.ref.player === openPile.player && z.ref.zone === openPile.zone)
   const intentIid = intentCardOf(step)
-  const focus = freePlay || !followFocus ? 'all' : stepFocus(entry.state, step, entry.events)
+  const focus = !followFocus ? 'free' : freePlay ? 'all' : stepFocus(entry.state, step, entry.events)
   const stepWarnings = scenario.warnings.filter((w) => w.startsWith(`Step ${position},`))
 
   return (
@@ -167,17 +167,13 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, freeP
             </button>
           )}
           {!freePlay && freePlayControls}
-          {!freePlay && (
-            <button
-              type="button"
-              className="btn"
-              aria-pressed={followFocus}
-              title={followFocus ? 'The camera follows each step. Click to show the whole table' : 'Showing the whole table. Click to follow each step'}
-              onClick={() => setFollowFocus(!followFocus)}
-            >
-              {followFocus ? '◎ Following' : '▣ Whole table'}
-            </button>
-          )}
+          <label
+            className="flex items-center gap-1.5 text-xs text-muted"
+            title="On: the camera follows each step. Off: drag to pan, scroll or pinch to zoom"
+          >
+            <input type="checkbox" className="accent-gold" checked={followFocus} onChange={(e) => setFollowFocus(e.target.checked)} />
+            Focus
+          </label>
         </StepControls>
       </footer>
 

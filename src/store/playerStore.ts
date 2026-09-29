@@ -12,7 +12,7 @@ type PlayerState = {
   position: number
   speed: number
   playing: boolean
-  followFocus: boolean // the camera follows each step's action, or shows the whole table
+  followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
   goTo: (position: number) => void

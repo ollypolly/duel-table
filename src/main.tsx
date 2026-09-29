@@ -4,8 +4,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { initUrlSync } from './hooks/urlSync'
+import { useCosmeticsStore } from './store/cosmeticsStore'
 
 initUrlSync()
+void useCosmeticsStore.getState().load()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

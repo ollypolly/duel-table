@@ -4,69 +4,57 @@
 // keyed by iid, so moving between zones animates via CSS; Motion handles what
 // CSS can't: the camera, cards leaving, flips and arrows drawing in.
 import { AnimatePresence, motion } from 'motion/react'
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import type { Iid } from '../../engine'
+import { useRef, type CSSProperties } from 'react'
+import { PLAYERS, type Iid, type Player } from '../../engine'
+import { useCosmeticsStore } from '../../store/cosmeticsStore'
 import type { PlacedCard, ZoneView } from '../../view/boardView'
-import { BOUNDS, CARD, focusRegion, type FocusArea, type Point } from '../../view/layout'
+import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
 import type { BoardRendererProps } from './BoardRenderer'
-
-const MAX_ZOOM = 2.2
-// A focused view may crop the table's sides by this much, so narrow (phone)
-// screens can still zoom in on one player's half.
-const MAX_SIDE_CROP = 0.35
+import { useBoardCamera } from './useBoardCamera'
 
 // Position only; rotation is applied to the card inside so labels stay upright.
-const box = (p: Point): CSSProperties => ({
-  left: `${((p.x - CARD.w / 2 - BOUNDS.minX) / BOUNDS.width) * 100}%`,
-  top: `${((p.y - CARD.h / 2 - BOUNDS.minY) / BOUNDS.height) * 100}%`,
-  width: `${(CARD.w / BOUNDS.width) * 100}%`,
-  height: `${(CARD.h / BOUNDS.height) * 100}%`,
+const box = (p: Point, size: { w: number; h: number } = CARD): CSSProperties => ({
+  left: `${((p.x - size.w / 2 - BOUNDS.minX) / BOUNDS.width) * 100}%`,
+  top: `${((p.y - size.h / 2 - BOUNDS.minY) / BOUNDS.height) * 100}%`,
+  width: `${(size.w / BOUNDS.width) * 100}%`,
+  height: `${(size.h / BOUNDS.height) * 100}%`,
 })
-
-function useSize(ref: React.RefObject<HTMLElement | null>) {
-  const [size, setSize] = useState<{ w: number; h: number }>()
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [ref])
-  return size
-}
-
-// Scale and offset (px) that frame a focus area in a viewport of this size.
-function camera(size: { w: number; h: number }, focus: FocusArea) {
-  const worldW = Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
-  const unit = worldW / BOUNDS.width
-  const r = focusRegion(focus)
-  const fitW = size.w / (r.width * unit)
-  const scale = Math.min(MAX_ZOOM, focus === 'all' ? fitW : fitW / (1 - MAX_SIDE_CROP), size.h / (r.height * unit))
-  const cx = (r.minX + r.width / 2 - BOUNDS.minX) * unit
-  const cy = (r.minY + r.height / 2 - BOUNDS.minY) * unit
-  return { worldW, scale, x: size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
-}
 
 export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const size = useSize(ref)
-  const cam = size && camera(size, focus)
+  const cam = useBoardCamera(ref, focus)
+  const cosmetics = useCosmeticsStore((s) => s.cosmetics)
   return (
-    <div ref={ref} className="relative isolate h-full w-full overflow-hidden" data-testid="board" data-focus={focus}>
-      {/* Remounts once measured so the camera starts in place rather than easing in. */}
+    <div
+      ref={ref}
+      className={`relative isolate h-full w-full overflow-hidden ${focus === 'free' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
+      data-testid="board"
+      data-focus={focus}
+      {...cam.handlers}
+    >
       <motion.div
-        key={cam ? 'measured' : 'unmeasured'}
         className="playmat @container absolute left-0 top-0 origin-top-left select-none rounded-2xl"
-        style={{ width: cam ? cam.worldW : '100%', aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}` }}
-        initial={false}
-        animate={cam ? { x: cam.x, y: cam.y, scale: cam.scale } : undefined}
-        transition={{ type: 'spring', stiffness: 90, damping: 20 }}
+        style={{ width: cam.worldW ?? '100%', aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}`, ...cam.style }}
       >
+        {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
         <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         {view.zones.map((z) => (
           <ZoneOutline key={z.key} zone={z} onClick={() => onZoneClick?.(z.ref)} />
         ))}
+        {PLAYERS.map(
+          (p) =>
+            cosmetics[p].deckBox && (
+              <img
+                key={p}
+                src={cosmetics[p].deckBox}
+                alt={`${view.players[p].name}'s deck box`}
+                draggable={false}
+                className="pointer-events-none absolute rounded-[6%] object-cover shadow-lg shadow-black/70"
+                style={{ ...box(deckBoxPlacement(p), DECK_BOX), rotate: `${deckBoxPlacement(p).rotation}deg` }}
+              />
+            ),
+        )}
         <AnimatePresence initial={false}>
           {view.cards.map((c) => (
             <BoardCard key={c.iid} card={c} selected={selected === c.iid} onClick={() => onCardClick?.(c.iid)} onHover={onCardHover} />
@@ -104,6 +92,22 @@ export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHove
           ))}
         </svg>
       </motion.div>
+      {focus === 'free' && (
+        <button type="button" className="btn absolute bottom-3 right-3 z-10" onClick={cam.reset} onPointerDown={(e) => e.stopPropagation()}>
+          Reset view
+        </button>
+      )}
+    </div>
+  )
+}
+
+// A player's playmat image fills their half, turned to face them, under a
+// scrim so the zones stay readable.
+function Playmat({ player, src }: { player: Player; src: string }) {
+  return (
+    <div className={`pointer-events-none absolute inset-x-0 h-1/2 overflow-hidden ${player === 'p1' ? 'top-1/2 rounded-b-2xl' : 'top-0 rounded-t-2xl'}`}>
+      <img src={src} alt="" draggable={false} className={`h-full w-full object-cover ${player === 'p2' ? 'rotate-180' : ''}`} />
+      <div className="absolute inset-0 bg-bg/50" />
     </div>
   )
 }
