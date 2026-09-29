@@ -146,6 +146,19 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const draggable =
     prompt?.kind === 'idle' ? [...new Set(prompt.options.filter((o) => o.card && ['Summon', 'Set', 'Activate'].includes(o.group ?? '')).map((o) => o.card!))] : undefined
 
+  // The same decks and opponent again, with a fresh shuffle.
+  const players = session?.file.players
+  const claude = game?.claude
+  const rematch =
+    players?.p1.deck && players.p2.deck
+      ? () =>
+          report(
+            api
+              .createGame({ deck: players.p1.deck!, opponentDeck: players.p2.deck!, ...(claude && { claude: 'p2' as const, model: claude.model, coach: claude.coach }) })
+              .then((s) => openSession(s.id, Infinity)),
+          )
+      : undefined
+
   const liveNav = (
     <>
       {nav}
@@ -205,7 +218,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                 onAnswer={(a) => report(api.answer(id, a))}
               />
               {game && lesson.queued === 0 && (
-                <GamePanel game={game} state={result.scenario.timeline.at(-1)!.state} choice={choice} onChoice={setChoice} onAnswer={answerGame} busy={busy} />
+                <GamePanel
+                  game={game}
+                  state={result.scenario.timeline.at(-1)!.state}
+                  choice={choice}
+                  onChoice={setChoice}
+                  onAnswer={answerGame}
+                  onRematch={rematch}
+                  busy={busy}
+                />
               )}
             </>
           )

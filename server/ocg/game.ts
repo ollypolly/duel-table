@@ -15,7 +15,7 @@ export class OcgGame {
   readonly duel: OcgDuel
   readonly translator: Translator
 
-  constructor(ocg: Ocg, scenario: ResolvedScenario) {
+  constructor(ocg: Ocg, scenario: ResolvedScenario, shuffle = true) {
     const { setup } = scenario.game
     const decks = {} as DuelDecks
     for (const p of ['p1', 'p2'] as const) {
@@ -24,7 +24,7 @@ export class OcgGame {
       if (missing.length) throw new Error(`the rules engine doesn't know ${[...new Set(missing.map((c) => c.name))].join(', ')}`)
       decks[p] = { main: pool.filter((c) => !c.extra).map((c) => c.cardId!), extra: pool.filter((c) => c.extra).map((c) => c.cardId!) }
     }
-    this.duel = new OcgDuel(ocg, { seed: setup.seed, decks })
+    this.duel = new OcgDuel(ocg, { seed: setup.seed, decks, shuffle })
     this.translator = new Translator(scenario.timeline[0].state, ocg, this.duel)
   }
 

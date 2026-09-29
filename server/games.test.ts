@@ -64,6 +64,19 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(kinds.has('idle')).toBe(true)
   }, 60_000)
 
+  it('shuffles each Deck from the seed', async () => {
+    const sessions = new SessionService(ctx)
+    const games = new GameService(sessions, ctx)
+    const hand = async (seed: number) => {
+      const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed, bots: [] })
+      const { state } = await games.get(v.id)
+      return state.players.p1.zones.hand.map((iid) => state.cards[iid].cardId)
+    }
+    const hands = await Promise.all([1, 2, 3, 4].map(hand))
+    expect(new Set(hands.map((h) => h.join())).size).toBeGreaterThan(1)
+    expect(await hand(1)).toEqual(hands[0])
+  }, 60_000)
+
   it('rebuilds a game after a restart', async () => {
     const store = saving()
     const before = new SessionService(ctx, store)

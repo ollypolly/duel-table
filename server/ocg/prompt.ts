@@ -108,8 +108,8 @@ export function question(m: PromptMsg, ctx: Context): Question {
     return ask('yesno', text(m.desc) ?? 'Yes or no?', [{ label: 'Yes' }, { label: 'No' }], ([i]) => m.prepareResponse(i === 0))
   }
   if (m instanceof M.YGOProMsgSelectOption) {
-    if (m.options.length === 1) return { auto: m.prepareResponse(0) }
-    return ask('option', hint('Choose an effect'), m.options.map((d, i) => ({ label: text(d) ?? `Option ${i + 1}` })), ([i]) => m.prepareResponse(i))
+    if (m.options.length === 1) return { auto: m.prepareResponse(m.options[0]) }
+    return ask('option', hint('Choose an effect'), m.options.map((d, i) => ({ label: text(d) ?? `Option ${i + 1}` })), ([i]) => m.prepareResponse(m.options[i]))
   }
 
   if (m instanceof M.YGOProMsgSelectCard || m instanceof M.YGOProMsgSelectTribute) {

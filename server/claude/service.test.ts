@@ -23,32 +23,31 @@ const lastQuestion = (text: string) => {
 }
 
 // Plays like the random bot, through the same tools and text Claude gets.
-// Records every message and tool result it's shown.
-function fakeAgent(seed: number) {
+// Every message and tool result it's shown goes to onSeen as it arrives.
+function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
   const rng = seededRng(seed)
-  const seen: string[] = []
   const requests: AgentRequest[] = []
   const agent: Agent = (req) => {
     requests.push(req)
-    seen.push(req.message)
+    onSeen(req.message)
     async function* run(): AsyncIterable<AgentEvent> {
       let text = req.message
       yield { type: 'text', text: 'Hello from the fake.' }
-      seen.push(req.tools.table())
+      onSeen(req.tools.table())
       for (let tries = 0; tries < 400; tries++) {
         const q = lastQuestion(text)
         if (!q) break
         const n = q.min + Math.floor(rng() * (q.max - q.min + 1))
         const choices = [...Array(q.options).keys()].sort(() => rng() - 0.5).slice(0, n)
         const result = await req.tools.answer(q.id, choices)
-        seen.push(result)
+        onSeen(result)
         if (!result.startsWith('Not accepted')) text = result
       }
       yield { type: 'done', sessionId: 'fake-session', costUsd: 0.01 }
     }
     return { events: run(), interrupt: async () => {} }
   }
-  return { agent, seen, requests }
+  return { agent, requests }
 }
 
 const setup = (agent: Agent) => {
@@ -62,7 +61,10 @@ describe.skipIf(!hasData)('Claude as a player', () => {
   it.each([1, 2])(
     'seed %i: plays a whole game through its tools, seeing only its side',
     async (seed) => {
-      const fake = fakeAgent(seed)
+      // Text shown before the check exists (at the very start) waits for it.
+      const early: string[] = []
+      let inspect: (text: string) => void = (text) => void early.push(text)
+      const fake = fakeAgent(seed, (text) => inspect(text))
       const { sessions, games, claude } = setup(fake.agent)
       const db = ctx().db
       let v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed, claude: 'p2', model: 'sonnet' })
@@ -70,7 +72,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       const rng = seededRng(seed * 13)
       const leaks: string[] = []
       const allIids = Object.keys(v.state.cards)
-      const check = () => {
+      // Checked against the board as it is when Claude is shown the text.
+      const check = (raw: string) => {
         const state = games['games'].get(id)!.game.state
         const visible = new Set<string>()
         const hidden = new Set<string>()
@@ -79,16 +82,15 @@ describe.skipIf(!hasData)('Claude as a player', () => {
           (seenBy(state, iid, 'p2', db) || state.cards[iid].owner === 'p2' ? visible : hidden).add(cardFace(state, iid, db).name)
         const secret = [...hidden].filter((n) => !visible.has(n))
         // Card texts name other cards ("Special Summoned by X"); those aren't leaks.
-      const descs = [...new Set(Object.keys(state.cards).map((iid) => cardFace(state, iid, db).name))].flatMap((n) => db.byName(n)?.desc ?? [])
-      for (const raw of fake.seen.splice(0)) {
+        const descs = [...new Set(Object.keys(state.cards).map((iid) => cardFace(state, iid, db).name))].flatMap((n) => db.byName(n)?.desc ?? [])
         const text = descs.reduce((t, d) => t.split(d).join(''), raw)
-          for (const n of secret) if (text.includes(n)) leaks.push(`${n} in: ${text}`)
-          for (const iid of allIids) if (text.includes(iid)) leaks.push(`${iid} in: ${text}`)
-        }
+        for (const n of secret) if (text.includes(n)) leaks.push(`${n} in: ${text}`)
+        for (const iid of allIids) if (text.includes(iid)) leaks.push(`${iid} in: ${text}`)
       }
+      inspect = check
+      early.splice(0).forEach(check)
       for (let i = 0; i < 1500; i++) {
         await claude.idle(id)
-        check()
         v = sessions.get(id)
         if (v.game?.winner) break
         const p = v.game?.prompt

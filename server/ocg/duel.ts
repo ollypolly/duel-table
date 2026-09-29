@@ -2,9 +2,12 @@
 // so far, so replaying the answers rebuilds it exactly (after a restart, say).
 import { LOC, M, POS, type Msg, type Ocg, type PromptMsg } from './lib'
 import type { Player } from '../../src/engine'
+import { seededRng } from './bot'
 
 export type DuelDecks = Record<Player, { main: number[]; extra: number[] }>
-export type DuelSetup = { seed: number; decks: DuelDecks }
+// shuffle: shuffle each Deck from the seed first. The core doesn't; in
+// YGOPro the host does. Games saved before this replay unshuffled.
+export type DuelSetup = { seed: number; decks: DuelDecks; shuffle?: boolean }
 
 export const playerOf = (n: number): Player => (n === 0 ? 'p1' : 'p2')
 export const indexOf = (p: Player) => (p === 'p1' ? 0 : 1)
@@ -26,11 +29,19 @@ export class OcgDuel {
 
   constructor(ocg: Ocg, setup: DuelSetup) {
     this.duel = ocg.wrapper.createDuel(setup.seed)
+    const rng = seededRng(setup.seed ^ 0x5eed)
     for (const p of ['p1', 'p2'] as const) {
       const player = indexOf(p)
+      const main = [...setup.decks[p].main]
+      if (setup.shuffle) {
+        for (let i = main.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1))
+          ;[main[i], main[j]] = [main[j], main[i]]
+        }
+      }
       this.duel.setPlayerInfo({ player, lp: 8000, startHand: 5, drawCount: 1 })
       const add = (code: number, location: number) => this.duel.newCard({ code, owner: player, player, location, sequence: 0, position: POS.faceDownDef })
-      for (const code of setup.decks[p].main) add(code, LOC.deck)
+      for (const code of main) add(code, LOC.deck)
       for (const code of setup.decks[p].extra) add(code, LOC.extra)
     }
     this.duel.startDuel({ rule: 5 }) // Master Rule 2020

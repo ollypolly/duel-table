@@ -18,10 +18,11 @@ type Props = {
   choice: GameChoice
   onChoice: (c: GameChoice) => void
   onAnswer: (choices: number[]) => void
+  onRematch?: () => void // once it's over
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, busy }: Props) {
   const name = (iid: Iid) => {
     const f = cardFace(state, iid, cardDb)
     return f.visible ? f.name : 'Face-down card'
@@ -30,7 +31,16 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, busy }: Pro
 
   if (winner) {
     const who = winner.player === 'p1' ? 'You win!' : `${state.players[winner.player].name} wins`
-    return <p className="font-display text-lg font-semibold text-gold">{who}</p>
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-display text-lg font-semibold text-gold">{who}</p>
+        {onRematch && (
+          <button type="button" className="btn btn-primary" onClick={onRematch}>
+            Rematch
+          </button>
+        )}
+      </div>
+    )
   }
   if (!prompt) {
     return <p className="text-sm text-muted">{waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}</p>

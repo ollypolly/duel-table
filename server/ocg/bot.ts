@@ -42,7 +42,7 @@ export function botResponse(m: PromptMsg, rng: Rng, attempt = 0, codes: number[]
   }
   if (m instanceof M.YGOProMsgSelectEffectYn || m instanceof M.YGOProMsgSelectYesNo) return m.prepareResponse(rng() < 0.7)
   if (m instanceof M.YGOProMsgSelectPosition) return m.prepareResponse(pick([1, 2, 4, 8].filter((b) => m.positions & b)))
-  if (m instanceof M.YGOProMsgSelectOption) return m.prepareResponse(int(m.options.length))
+  if (m instanceof M.YGOProMsgSelectOption) return m.prepareResponse(m.options[int(m.options.length)])
   if (m instanceof M.YGOProMsgSelectPlaceCommon) return m.prepareResponse(m.getSelectablePlaces().slice(0, Math.max(1, m.count)))
   if (m instanceof M.YGOProMsgSelectCard || m instanceof M.YGOProMsgSelectTribute) {
     const n = Math.min(m.cards.length, m.min + (attempt ? int(m.max - m.min + 1) : 0))

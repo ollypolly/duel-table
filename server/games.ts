@@ -14,13 +14,22 @@ import { question, type Question } from './ocg/prompt'
 import { SessionError, type SessionService, type SessionView } from './sessions'
 
 // claude: the player Claude answers for, with its model and coach setting.
-export type CreateGameOptions = { deck: string; opponentDeck?: string; seed?: number; bots?: Player[]; claude?: Player; model?: ModelChoice; coach?: boolean; title?: string }
+export type CreateGameOptions = {
+  deck: string
+  opponentDeck?: string
+  seed?: number
+  bots?: Player[]
+  claude?: Player
+  model?: ModelChoice
+  coach?: boolean
+  title?: string
+}
 
 // How long each bot (or Claude) step stays on screen before the next.
 export const BOT_STEP_MS = 700
 
 type Asked = Extract<Question, { prompt: unknown }>
-type Live = { game: OcgGame; ocg: Ocg; bots: Player[]; claude?: Player; rng: Rng; codes: number[]; asked?: Asked }
+type Live = { game: OcgGame; ocg: Ocg; bots: Player[]; claude?: Player; shuffled: boolean; rng: Rng; codes: number[]; asked?: Asked }
 
 export class GameService {
   private games = new Map<string, Live>()
@@ -59,7 +68,7 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, bots, file.seed!, opts.claude)
+    const live = this.track(id, game, ocg, bots, file.seed!, opts.claude, true)
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
@@ -73,7 +82,8 @@ export class GameService {
     if (a.id !== prompt.id) throw new SessionError(409, `question ${a.id} isn't open (${prompt.id} is)`)
     const { min, max, options } = prompt
     if (a.choices.length < min || a.choices.length > max) throw new SessionError(400, min === max ? `pick ${min}` : `pick ${min}-${max}`)
-    if (new Set(a.choices).size !== a.choices.length || a.choices.some((c) => c >= options.length)) throw new SessionError(400, `choices must be distinct, 0-${options.length - 1}`)
+    if (new Set(a.choices).size !== a.choices.length || a.choices.some((c) => c >= options.length))
+      throw new SessionError(400, `choices must be distinct, 0-${options.length - 1}`)
     const p = live.game.respond(asked.answer(a.choices))
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
     return this.advance(id, live, p)
@@ -97,7 +107,9 @@ export class GameService {
     const live = this.games.get(id)
     if (!live) {
       // Not rebuilt yet: start that, and report what the file knows.
-      void this.live(id).then(() => this.sessions.touch(id)).catch(() => {})
+      void this.live(id)
+        .then(() => this.sessions.touch(id))
+        .catch(() => {})
       return { bots: this.sessions.export(id).duel?.bots ?? [] }
     }
     const { game, bots, asked } = live
@@ -140,7 +152,12 @@ export class GameService {
       }
       p = live.game.respond(response)
     }
-    const duel = { responses: live.game.duel.responses.map(encodeResponse), bots: live.bots, ...(live.claude && { claude: live.claude }) }
+    const duel = {
+      responses: live.game.duel.responses.map(encodeResponse),
+      bots: live.bots,
+      ...(live.claude && { claude: live.claude }),
+      ...(live.shuffled && { shuffled: true }),
+    }
     const view = this.sessions.appendGame(id, steps, duel, (s) => (paced.has(s) ? { afterMs: BOT_STEP_MS } : undefined))
     this.onChange?.(id)
     return view
@@ -156,12 +173,12 @@ export class GameService {
     const file = this.sessions.export(id)
     if (!file.duel) throw new SessionError(409, `session ${id} isn't a game on the rules engine`)
     const ocg = await this.ocg()
-    const game = new OcgGame(ocg, this.setup(file))
+    const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const last = game.replay(file.duel.responses.map(decodeResponse))
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, file.duel.bots ?? [], (file.seed ?? 0) + file.duel.responses.length, file.duel.claude)
+    const live = this.track(id, game, ocg, file.duel.bots ?? [], (file.seed ?? 0) + file.duel.responses.length, file.duel.claude, !!file.duel.shuffled)
     if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
       const q = this.ask(live, last)
       if ('prompt' in q) live.asked = q
@@ -170,9 +187,9 @@ export class GameService {
     return live
   }
 
-  private track(id: string, game: OcgGame, ocg: Ocg, bots: Player[], seed: number, claude?: Player): Live {
+  private track(id: string, game: OcgGame, ocg: Ocg, bots: Player[], seed: number, claude: Player | undefined, shuffled: boolean): Live {
     const codes = [...new Set(Object.values(game.state.cards).flatMap((c) => (c.cardId === undefined ? [] : [c.cardId])))]
-    const live = { game, ocg, bots, claude, rng: seededRng(seed), codes }
+    const live = { game, ocg, bots, claude, shuffled, rng: seededRng(seed), codes }
     this.games.set(id, live)
     return live
   }
