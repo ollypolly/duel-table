@@ -17,6 +17,7 @@ import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
 import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
+import { ClaudePanel } from '../Game/ClaudePanel'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
@@ -128,7 +129,12 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // Dragging a card from hand onto the field: summon or set a monster on a
   // monster zone, set or activate a Spell/Trap on a Spell & Trap zone. One
   // fitting option is the answer; several open the card to pick from.
-  const DROPS: Partial<Record<string, string[]>> = { monster: ['Summon', 'Set'], extraMonster: ['Summon'], spellTrap: ['Set', 'Activate'], fieldSpell: ['Set', 'Activate'] }
+  const DROPS: Partial<Record<string, string[]>> = {
+    monster: ['Summon', 'Set'],
+    extraMonster: ['Summon'],
+    spellTrap: ['Set', 'Activate'],
+    fieldSpell: ['Set', 'Activate'],
+  }
   const dropCard = (iid: Iid, to: ZoneRef) => {
     const data = result?.ok ? cardDb.byId(result.scenario.timeline.at(-1)!.state.cards[iid]?.cardId ?? -1) : undefined
     const monster = !!data && isMonster(data)
@@ -137,7 +143,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     if (fits.length === 1) answerGame([fits[0].i])
     else if (fits.length > 1) inspect(iid)
   }
-  const draggable = prompt?.kind === 'idle' ? [...new Set(prompt.options.filter((o) => o.card && ['Summon', 'Set', 'Activate'].includes(o.group ?? '')).map((o) => o.card!))] : undefined
+  const draggable =
+    prompt?.kind === 'idle' ? [...new Set(prompt.options.filter((o) => o.card && ['Summon', 'Set', 'Activate'].includes(o.group ?? '')).map((o) => o.card!))] : undefined
 
   const liveNav = (
     <>
@@ -160,7 +167,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
 
   const lesson = session?.lesson
   // Inside a replay's range counts as following it.
-  const away = !!lesson && position !== lesson.cursor.position && !(lesson.cursor.from !== undefined && position >= lesson.cursor.from && position < lesson.cursor.position)
+  const away =
+    !!lesson && position !== lesson.cursor.position && !(lesson.cursor.from !== undefined && position >= lesson.cursor.from && position < lesson.cursor.position)
   const backToLive = () => lesson && goTo(lesson.cursor.position)
 
   if (result?.ok)
@@ -184,6 +192,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               />
               {game && lesson.queued === 0 && (
                 <GamePanel game={game} state={result.scenario.timeline.at(-1)!.state} choice={choice} onChoice={setChoice} onAnswer={answerGame} busy={busy} />
+              )}
+              {game?.claude && (
+                <ClaudePanel
+                  claude={game.claude}
+                  onChat={(text) => report(api.chat(id, text))}
+                  onStop={() => report(api.stopClaude(id))}
+                  onResume={() => report(api.resumeClaude(id))}
+                  onSettings={(s) => report(api.claudeSettings(id, s))}
+                />
               )}
             </>
           )

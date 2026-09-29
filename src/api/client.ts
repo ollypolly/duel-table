@@ -2,7 +2,7 @@
 // uses. Everything is optional: playback works without the server.
 import type { Issue, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
-import type { GameAnswer, GameView } from './game'
+import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
 import type { Answer, LessonView } from './lesson'
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
@@ -38,9 +38,17 @@ export const api = {
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
-  createGame: (opts: { deck: string; opponentDeck: string }) => call<SessionSummary>('POST', '/games', opts),
+  createGame: (opts: { deck: string; opponentDeck: string; claude?: 'p2'; model?: ModelChoice; coach?: boolean }) => call<SessionSummary>('POST', '/games', opts),
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
+  // Whether this server has a Claude login to play with.
+  claude: () => call<ClaudeStatus>('GET', '/claude').catch((): ClaudeStatus => ({ available: false })),
+  chat: (id: string, text: string) => call<unknown>('POST', `/sessions/${id}/claude/chat`, { text }),
+  stopClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/stop`),
+  resumeClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/resume`),
+  claudeSettings: (id: string, s: ClaudeSettings) => call<unknown>('POST', `/sessions/${id}/claude/settings`, s),
 }
+
+export type ClaudeStatus = { available: boolean; email?: string; plan?: string }
 
 // Calls onUpdate with the whole session now and after every change.
 export function subscribeSession(id: string, onUpdate: (s: SessionUpdate) => void, onError: (message: string) => void): () => void {

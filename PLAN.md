@@ -330,10 +330,10 @@ The server reports whether a Claude login is available. The UI shows the Claude 
   - streaming input, so viewer events can be queued while a turn is running;
   - interrupt (the Stop button);
   - per-run usage and cost.
-- **Auth.** Locally, it uses the owner's Claude Code login. That's allowed for personal use only, so no API key is needed. If the app is hosted, an `ANTHROPIC_API_KEY` from env takes over, because claude.ai login can't be offered to other users. The displayed cost is the API-equivalent figure, labelled as such, since a subscription doesn't charge per call.
+- **Auth.** Locally, it uses the owner's Claude Code login. That's allowed for personal use only, so no API key is needed. There's no login inside the app: you run `claude` and `/login` on the machine running the server, and the server rechecks when a New game dialog opens (at most every 30s). If the app is hosted, an `ANTHROPIC_API_KEY` from env takes over, because claude.ai login can't be offered to other users. The displayed cost is the API-equivalent figure, labelled as such, since a subscription doesn't charge per call.
 - **Only our tools.** Built-in Claude Code tools (Bash, file edits, web) are disabled. Our tools are an in-process MCP server (`createSdkMcpServer` with Zod tools). Each tool is a thin wrapper over `server/sessions.ts`, alongside the HTTP routes, and reuses their schemas.
-- **Transport.** Existing SSE plus POST, no WebSocket. The session SSE stream already reconnects by itself. The chat gets its own SSE stream (text deltas, tool activity, usage, errors), and the browser sends chat and Stop as POSTs.
-- **Layout.** The app opens on the board as it does now. The scene panel becomes the chat, and Claude's messages take the place of step narration. A compact step bar stays at the top of the panel for scrubbing.
+- **Transport.** Existing SSE plus POST, no WebSocket. Claude's chat, status and cost are part of the game's view, so they arrive over the session SSE stream as whole messages (no token streaming). The browser sends chat, Stop, Resume and settings as POSTs.
+- **Layout.** The Claude panel (chat, Stop/Resume, model, Coach, Show my cards, cost) sits in the scene panel under the game's question. Step narration stays below it.
 - **Rules.** Games against Claude run on OCG Core (spiked, see below). Free play, scenarios and lessons stay on our own engine.
 - **Models.** Opus by default, with Sonnet selectable, since Sonnet is quicker for an opponent's turn.
 
@@ -346,22 +346,26 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 - **Questions as options.** Each core prompt becomes a `GamePrompt` (`src/api/game.ts`): a message plus numbered options, each optionally tied to a card iid, with how many to pick. The answer is the list of picked indices (`POST /sessions/{id}/game/answer`). Claude's tools will use the same shape.
 - **Auto-answered:** zone placement (first free zone), a single legal position or option, sorting, and chances to chain when nothing just happened (no summon, attack or activation, and an empty chain), as most clients do. A "stop at every chance" toggle may be needed for traps in the End Phase.
 - **Hidden info in prompts:** labels never name the opponent's face-down or in-hand cards. The browser still receives full board state, as sessions always have; the board just doesn't show those faces. Fine locally, not for hosting.
-- **Bots.** Any player can be a random bot (`bots`, default `["p2"]`), with its steps paced at 700ms. Used for tests and until Claude plays p2.
+- **Bots.** Any player can be a random bot (`bots`, default `["p2"]`), with its steps paced at 700ms. The free-tier opponent, and used in tests.
 - **Browser.** "New game against the bot…" in the Live menu. The scene panel lists the options (grouped by card, with a filter for long lists and checkboxes for multi-picks); the cards involved are lit on the board, and clicking one narrows to its options or picks it.
 
-**Next (Claude as p2):**
-- When the core is waiting on Claude, the agent gets the prompt and answers with a tool that picks options. Its tools only read what p2 can see (`playerView(1)` and redacted state), so fair play is structural. Tests check nothing hidden leaks. Its steps are paced like the bot's.
-- **Chat.** You can talk to Claude at any time. A message sent mid-turn is queued and delivered after the current turn. Stop interrupts, and there's a cap on agent turns per run.
-- **Undo.** Games have no undo by default. A takeback (replay minus your last decision) might be added later, offered by the coach.
-- **Coach toggle.** Off: Claude chats as an opponent only. On (the default): it also points out misplays and explains its chains once they resolve. It never reveals its hand either way.
-- **Persistence.** The conversation is stored alongside the session, so a game can resume after a restart.
+**Built (Claude as p2, server/claude/):**
+- **Turns.** When the core asks Claude's player something, or you chat, Claude gets one message: your chat, what happened since it last looked, card texts it hasn't had yet, the table, and the question. It answers with the `answer` tool, whose result carries the next question, so a whole turn is one run. Other tools: `table` and `card`. Built-in Claude Code tools are off. A question ignored twice gets the first option picked for it.
+- **Fair play.** Claude never sees iids (they spell card names). The table text is written from Claude's side only, from `BoardState` plus who can see each card, and step labels blank the names of cards it can't see. A fake-agent test plays whole games and checks every message for hidden names and iids.
+- **Card text.** The real text of each card goes in the first time Claude knows of it, so it plays from the text, not memory.
+- **Show my cards.** A toggle that adds your hidden cards and your open question to its table, so it can advise you. It's on its honour not to use them on its own turn.
+- **Chat, Stop, settings.** Chat sent mid-run waits for the next run. Stop interrupts; Resume, or saying something, carries on. Model and Coach can change mid-game. Cost is shown as the API-equivalent.
+- **Persistence.** Settings, chat, cost and the SDK session id are saved in `sessions/claude/<id>.json`, and a game resumes after a restart. Prompts are `prompts/game.md` and `prompts/coach.md`, read per run.
+- **Later:** a takeback (replay minus your last decision) offered by the coach; filtering chain passes out of the move lines.
 
 ### Then
 
 1. **Lessons.** Claude sets up an opening hand and paces it with Next. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
-2. **Chat niceties.** Card names in Claude's messages open the inspector. Prompts live in `prompts/*.md`.
+2. **Chat niceties.** Card names in Claude's messages open the inspector.
 3. **Deck hub.** List decks, a Main/Extra grid with counts, import via decklist (with the 422 suggestions), edit and delete, per-deck sleeves, mat and deck box, plus "Teach me this deck" and "Play with this deck".
-4. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
+4. **Rethink Live.** "Live" currently covers sessions on the local API, curl-driven boards and games, and it isn't clear from the UI what it means or when you're in it. Work out the concepts (a game, a shared board Claude can drive, a lesson) and name and reach each one plainly.
+5. **Refine the scene panel.** It has grown by accretion (step controls, lesson, game question, Claude chat, narration). Rework what shows when, and how it reads on a phone.
+6. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
    - auth;
    - spend limits;
    - storage beyond files;
@@ -419,10 +423,5 @@ EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compil
 
 ### Testing
 
-- Unit tests:
-  - the tool layer;
-  - fair-play redaction;
-  - the event queue and agent loop, against a fake agent.
-- E2E in a real browser with the owner's login:
-  - a short game where Claude plays p2 without seeing your hand;
-  - later, a lesson from chat and a deck import.
+- Unit tests (`server/claude/service.test.ts`, with a fake agent): whole games through the tools with a leak check, chat, Show my cards, Stop, and the default pick.
+- By hand with the owner's login: games where Claude plays p2. Later, a lesson from chat and a deck import.
