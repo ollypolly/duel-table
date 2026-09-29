@@ -177,6 +177,7 @@ export type Step = {
   narration?: string
   intent?: Intent
   actions: Action[]
+  author?: 'user' | 'claude' // who made it in a live session
 }
 
 export type Issue = {

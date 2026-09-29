@@ -10,6 +10,11 @@ import { randomBytes } from 'node:crypto'
 import { validateStep, tableRules, type BoardState, type EngineEvent, type Issue, type Step } from '../src/engine'
 import { resolveScenario, type ResolveContext, type ResolvedScenario } from '../src/scenarios/resolve'
 import type { ScenarioFile } from '../src/scenarios/schema'
+import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
+import { SessionError } from './errors'
+import { Lesson } from './lesson'
+
+export { SessionError }
 
 export type SessionStore = {
   load(): ScenarioFile[]
@@ -28,23 +33,13 @@ export type CreateOptions = {
 }
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
-export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState }
+export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView }
 export type ApplyResult =
-  | { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number }
+  | { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number }
   | { ok: false; issues: Issue[] }
 
-export class SessionError extends Error {
-  readonly status: 400 | 404 | 409 | 422
-  readonly details?: string[]
-  constructor(status: 400 | 404 | 409 | 422, message: string, details?: string[]) {
-    super(message)
-    this.status = status
-    this.details = details
-  }
-}
-
 type Listener = (view: SessionView) => void
-type Live = { file: ScenarioFile; resolved: ResolvedScenario }
+type Live = { file: ScenarioFile; resolved: ResolvedScenario; lesson: Lesson }
 
 export class SessionService {
   private sessions = new Map<string, Live>()
@@ -58,7 +53,7 @@ export class SessionService {
     this.store = store
     for (const file of store.load()) {
       const r = this.resolve(file)
-      if (r.ok) this.sessions.set(file.id, { file, resolved: r.scenario })
+      if (r.ok) this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario) })
     }
   }
 
@@ -68,7 +63,7 @@ export class SessionService {
 
   get(id: string): SessionView {
     const s = this.live(id)
-    return view(s.file, s.resolved)
+    return { ...summary(s.file, s.resolved), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view() }
   }
 
   create(opts: CreateOptions): SessionView {
@@ -95,23 +90,32 @@ export class SessionService {
     } else {
       throw new SessionError(400, 'give a scenario (optionally with atStep) or a deck')
     }
-    return this.commit(file)
+    this.commit(file)
+    return this.get(id)
   }
 
-  apply(id: string, step: Step, { strict = false } = {}): ApplyResult {
+  // Checked against the state after every step, queued ones included. The
+  // viewer's own steps (author "user") can't jump the queue.
+  apply(id: string, step: Step, { strict = false, reveal }: { strict?: boolean; reveal?: Reveal } = {}): ApplyResult {
     const s = this.live(id)
+    if (step.author === 'user' && s.lesson.view().queued) throw new SessionError(409, 'steps are still queued for the viewer')
     const state = s.resolved.timeline.at(-1)!.state
     const issues = validateStep(tableRules, state, step.actions)
     if (issues.some((i) => i.severity === 'error') || (strict && issues.length)) return { ok: false, issues }
-    const saved = this.commit({ ...s.file, steps: [...s.file.steps, step] })
-    const last = this.live(id).resolved.timeline.at(-1)!
-    return { ok: true, state: saved.state, events: last.events, issues, position: saved.steps }
+    const saved = { ...step, author: step.author ?? 'claude' }
+    const last = this.commit({ ...s.file, steps: [...s.file.steps, saved] }).timeline.at(-1)!
+    const position = s.lesson.total + 1
+    s.lesson.added(saved, position, reveal)
+    this.notify(id)
+    return { ok: true, state: last.state, events: last.events, issues, position, revealed: s.lesson.view().revealed }
   }
 
-  undo(id: string): SessionView {
+  undo(id: string, { byUser = false } = {}): SessionView {
     const s = this.live(id)
     if (s.file.steps.length === 0) throw new SessionError(409, 'nothing to undo: the session has no steps of its own')
-    return this.commit({ ...s.file, steps: s.file.steps.slice(0, -1) })
+    this.commit({ ...s.file, steps: s.file.steps.slice(0, -1) })
+    s.lesson.removed(byUser)
+    return this.notify(id)
   }
 
   // A new session from this one at a position (default: its end).
@@ -124,13 +128,46 @@ export class SessionService {
     const file: ScenarioFile = { ...s.file, id: this.newId(), title: `${s.file.title} (fork at step ${at})` }
     if (!s.file.extends || at >= inherited) file.steps = s.file.steps.slice(0, at - inherited)
     else Object.assign(file, { extends: { ...s.file.extends, atStep: at - 1 }, steps: [] })
-    return this.commit(file)
+    this.commit(file)
+    return this.get(file.id)
   }
 
   // The session as a scenario file, ready for scenarios/.
   export(id: string, as?: { id?: string; title?: string }): ScenarioFile {
     const s = this.live(id)
     return { ...s.file, id: as?.id ?? s.file.id, title: as?.title ?? s.file.title }
+  }
+
+  // Lessons: see ./lesson.ts.
+
+  next(id: string): SessionView {
+    this.live(id).lesson.next()
+    return this.notify(id)
+  }
+
+  present(id: string, to: { position: number; from?: number }): SessionView {
+    this.live(id).lesson.present(to)
+    return this.notify(id)
+  }
+
+  ask(id: string, prompt: Prompt) {
+    const open = this.live(id).lesson.ask(prompt)
+    this.notify(id)
+    return open
+  }
+
+  withdraw(id: string): SessionView {
+    this.live(id).lesson.withdraw()
+    return this.notify(id)
+  }
+
+  answer(id: string, answer: Answer): SessionView {
+    this.live(id).lesson.answer(answer)
+    return this.notify(id)
+  }
+
+  wait(id: string, since: number | undefined, timeoutMs: number) {
+    return this.live(id).lesson.wait(since, timeoutMs)
   }
 
   subscribe(id: string, fn: Listener): () => void {
@@ -141,14 +178,23 @@ export class SessionService {
     return () => set.delete(fn)
   }
 
-  private commit(file: ScenarioFile): SessionView {
+  private commit(file: ScenarioFile): ResolvedScenario {
     const r = this.resolve(file)
     if (!r.ok) throw new SessionError(422, 'the session no longer resolves', r.errors)
-    this.sessions.set(file.id, { file, resolved: r.scenario })
+    const lesson = this.sessions.get(file.id)?.lesson ?? this.newLesson(file.id, r.scenario)
+    this.sessions.set(file.id, { file, resolved: r.scenario, lesson })
     this.store.save(file)
-    const v = view(file, r.scenario)
-    for (const fn of this.listeners.get(file.id) ?? []) fn(v)
+    return r.scenario
+  }
+
+  private notify(id: string): SessionView {
+    const v = this.get(id)
+    for (const fn of this.listeners.get(id) ?? []) fn(v)
     return v
+  }
+
+  private newLesson(id: string, r: ResolvedScenario) {
+    return new Lesson(r.game.steps.length, () => this.notify(id))
   }
 
   private resolve(file: unknown) {
@@ -181,5 +227,3 @@ const summary = (file: ScenarioFile, r: ResolvedScenario): SessionSummary => ({
   steps: r.game.steps.length,
   ...(file.extends && { basedOn: file.extends.scenario }),
 })
-
-const view = (file: ScenarioFile, r: ResolvedScenario): SessionView => ({ ...summary(file, r), file, state: r.timeline.at(-1)!.state })

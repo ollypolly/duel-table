@@ -129,4 +129,35 @@ describe('API', () => {
       expect(written).toEqual([])
     })
   })
+
+  it('runs a lesson: queued steps, Next, a prompt and wait', async () => {
+    const { call } = setup()
+    const { json: session } = await call('POST', '/sessions', { scenario: 'free-table' })
+    const at = `/sessions/${session.id}`
+    const draw = { label: 'Draw', actions: [{ type: 'draw', player: 'p1' }] }
+    expect((await call('POST', `${at}/steps`, { ...draw, reveal: 'onNext' })).json).toMatchObject({ position: 2, revealed: 1 })
+    expect((await call('POST', `${at}/steps`, { ...draw, reveal: 'later' })).status).toBe(400)
+    const { json: start } = await call('GET', `${at}/wait?timeout=0`)
+    const waiting = call('GET', `${at}/wait?since=${start.cursor}&timeout=30`)
+    expect((await call('POST', `${at}/next`)).json.lesson).toMatchObject({ revealed: 2, queued: 0 })
+    const { json: woke } = await waiting
+    expect(woke.events).toEqual([expect.objectContaining({ type: 'revealed', via: 'next' })])
+    expect((await call('POST', `${at}/next`)).status).toBe(409)
+
+    expect((await call('POST', `${at}/cursor`, { position: 1 })).json.lesson.cursor).toMatchObject({ position: 1 })
+    const { json: prompt } = await call('POST', `${at}/prompt`, { type: 'text', message: 'Why chain Ash here?' })
+    expect(prompt).toMatchObject({ id: expect.any(String), type: 'text', openedAt: 2 })
+    expect((await call('POST', `${at}/prompt`, { type: 'ack', message: 'x' })).status).toBe(409)
+    expect((await call('POST', `${at}/prompt/answer`, { id: prompt.id, text: 'To stop the search' })).status).toBe(200)
+    const { json: answered } = await call('GET', `${at}/wait?since=${woke.cursor}&timeout=0`)
+    expect(answered.events).toEqual([expect.objectContaining({ type: 'answer', text: 'To stop the search' })])
+
+    expect((await call('POST', `${at}/steps`, { ...draw, author: 'user' })).status).toBe(200)
+    expect((await call('POST', `${at}/undo`, { author: 'user' })).status).toBe(200)
+    expect((await call('POST', `${at}/undo`)).status).toBe(200)
+    const { json: after } = await call('GET', `${at}/wait?since=${answered.cursor}&timeout=0`)
+    expect(after.events.map((e: { type: string }) => e.type)).toEqual(['step', 'revealed', 'undo'])
+    expect((await call('GET', `${at}/wait?timeout=9999`)).status).toBe(400)
+  })
 })
+

@@ -82,6 +82,7 @@ export const StepSchema = z
     narration: z.string().optional(),
     intent: IntentSchema.optional(),
     actions: z.array(ActionSchema),
+    author: z.enum(['user', 'claude']).optional(),
   })
   .strict()
 

@@ -8,6 +8,7 @@ import { imagePath } from '../src/data/cardDb'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
 import { DeckSchema, StepSchema } from '../src/scenarios/schema'
+import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
@@ -18,13 +19,18 @@ const IssueSchema = z.object({ severity: z.enum(['error', 'warning']), message: 
 const SummarySchema = z.object({ id: z.string(), title: z.string(), steps: z.number(), basedOn: z.string().optional() })
 const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),
-  state: z.unknown().openapi({ description: 'BoardState after the last step' }),
+  state: z.unknown().openapi({ description: 'BoardState after the last step (queued ones included)' }),
+  lesson: LessonViewSchema,
 })
 const IdParam = z.object({ id: z.string().openapi({ param: { name: 'id', in: 'path' } }) })
 
 const json = <T extends z.ZodType>(schema: T, description: string) => ({ content: { 'application/json': { schema } }, description })
 const body = <T extends z.ZodType>(schema: T) => ({ body: { content: { 'application/json': { schema } } } })
 const errors = { 400: json(ErrorSchema, 'Bad request'), 404: json(ErrorSchema, 'Not found'), 422: json(ErrorSchema, "Doesn't resolve") }
+
+// Well under the 10 minutes a tool call can wait.
+export const WAIT_DEFAULT_S = 300
+export const WAIT_MAX_S = 540
 
 type AppDeps = {
   sessions: SessionService
@@ -276,25 +282,36 @@ export function createApp({ sessions, ctx, writeFile, addCards }: AppDeps) {
       method: 'post',
       path: '/sessions/{id}/steps',
       summary: 'Apply a step',
-      description: 'Checked with tableRules first. Errors (physically impossible moves) always reject; warnings only reject with strict: true.',
-      request: { params: IdParam, ...body(StepSchema.extend({ strict: z.boolean().optional() })) },
+      description:
+        'Checked with tableRules first. Errors (physically impossible moves) always reject; warnings only reject with strict: true. reveal paces it: omitted shows it at once, {afterMs} after a delay, "onNext" when the viewer clicks Next. Queued steps show in order.',
+      request: { params: IdParam, ...body(StepSchema.extend({ strict: z.boolean().optional(), reveal: RevealSchema.optional() })) },
       responses: {
-        200: json(z.object({ state: z.unknown(), events: z.array(z.unknown()), issues: z.array(IssueSchema), position: z.number() }), 'Applied'),
+        200: json(z.object({ state: z.unknown(), events: z.array(z.unknown()), issues: z.array(IssueSchema), position: z.number(), revealed: z.number() }), 'Applied'),
         422: json(z.object({ error: z.string(), issues: z.array(IssueSchema) }), 'Rejected'),
         404: json(ErrorSchema, 'Not found'),
+        409: json(ErrorSchema, 'A viewer step while steps are queued'),
       },
     }),
     (c) => {
-      const { strict, ...step } = c.req.valid('json')
-      const r = sessions.apply(c.req.valid('param').id, step, { strict })
+      const { strict, reveal, ...step } = c.req.valid('json')
+      const r = sessions.apply(c.req.valid('param').id, step, { strict, reveal })
       if (!r.ok) return c.json({ error: 'step rejected', issues: r.issues }, 422)
-      return c.json({ state: r.state, events: r.events, issues: r.issues, position: r.position }, 200)
+      return c.json({ state: r.state, events: r.events, issues: r.issues, position: r.position, revealed: r.revealed }, 200)
     },
   )
 
   app.openapi(
-    createRoute({ method: 'post', path: '/sessions/{id}/undo', summary: 'Drop the last step', request: { params: IdParam }, responses: { 200: json(SessionSchema, 'The session'), 409: json(ErrorSchema, 'Nothing to undo'), ...errors } }),
-    (c) => c.json(sessions.undo(c.req.valid('param').id), 200),
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/undo',
+      summary: 'Drop the last step (a queued one first)',
+      request: { params: IdParam, body: { content: { 'application/json': { schema: z.object({ author: z.enum(['user', 'claude']).optional() }).strict() } }, required: false } },
+      responses: { 200: json(SessionSchema, 'The session'), 409: json(ErrorSchema, 'Nothing to undo'), ...errors },
+    }),
+    async (c) => {
+      const { author } = (await c.req.json().catch(() => ({}))) as { author?: string }
+      return c.json(sessions.undo(c.req.valid('param').id, { byUser: author === 'user' }), 200)
+    },
   )
 
   app.openapi(
@@ -328,6 +345,80 @@ export function createApp({ sessions, ctx, writeFile, addCards }: AppDeps) {
       } catch (e) {
         return c.json({ error: e instanceof Error ? e.message : String(e) }, 409)
       }
+    },
+  )
+
+  // Lessons ------------------------------------------------------------------
+
+  const conflict = { 409: json(ErrorSchema, 'Conflict') }
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/next',
+      summary: "The viewer's Next: show the first queued step",
+      request: { params: IdParam },
+      responses: { 200: json(SessionSchema, 'The session'), ...conflict, ...errors },
+    }),
+    (c) => c.json(sessions.next(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/cursor',
+      summary: 'Point the viewer at a position, or replay from..position',
+      description: "Viewers following along jump there; anyone who has scrubbed away gets a 'Back to live' button instead. Only shown positions (up to lesson.revealed) are allowed.",
+      request: { params: IdParam, ...body(CursorSchema.omit({ seq: true }).strict()) },
+      responses: { 200: json(SessionSchema, 'The session'), ...errors },
+    }),
+    (c) => c.json(sessions.present(c.req.valid('param').id, c.req.valid('json')), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/prompt',
+      summary: 'Ask the viewer something: ack, choice, move or text',
+      description: 'One prompt at a time. It shows once no steps are queued. The answer arrives as an "answer" event from /wait.',
+      request: { params: IdParam, ...body(PromptSchema) },
+      responses: { 201: json(LessonViewSchema.shape.prompt.unwrap(), 'The open prompt'), ...conflict, ...errors },
+    }),
+    (c) => c.json(sessions.ask(c.req.valid('param').id, c.req.valid('json')), 201),
+  )
+
+  app.openapi(
+    createRoute({ method: 'delete', path: '/sessions/{id}/prompt', summary: 'Withdraw the open prompt', request: { params: IdParam }, responses: { 200: json(SessionSchema, 'The session'), ...conflict, ...errors } }),
+    (c) => c.json(sessions.withdraw(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/prompt/answer',
+      summary: "The viewer's answer (the browser sends this)",
+      description: 'choice: the option index. text: the text. ack and move: nothing else.',
+      request: { params: IdParam, ...body(AnswerSchema) },
+      responses: { 200: json(SessionSchema, 'The session'), ...conflict, ...errors },
+    }),
+    (c) => c.json(sessions.answer(c.req.valid('param').id, c.req.valid('json')), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/sessions/{id}/wait',
+      summary: 'Long-poll for what the viewer does',
+      description: `Returns the events after since as soon as there are any, or none after timeout seconds (default ${WAIT_DEFAULT_S}, max ${WAIT_MAX_S}). Pass the returned cursor as the next since. Without since, waits for the next new event.`,
+      request: {
+        params: IdParam,
+        query: z.object({ since: z.coerce.number().int().min(0).optional(), timeout: z.coerce.number().min(0).max(WAIT_MAX_S).optional() }),
+      },
+      responses: { 200: json(z.object({ events: z.array(LessonEventSchema), cursor: z.int() }), 'Events (possibly none)'), ...errors },
+    }),
+    async (c) => {
+      const { since, timeout = WAIT_DEFAULT_S } = c.req.valid('query')
+      return c.json(await sessions.wait(c.req.valid('param').id, since, timeout * 1000), 200)
     },
   )
 

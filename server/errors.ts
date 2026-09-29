@@ -1,0 +1,9 @@
+export class SessionError extends Error {
+  readonly status: 400 | 404 | 409 | 422
+  readonly details?: string[]
+  constructor(status: 400 | 404 | 409 | 422, message: string, details?: string[]) {
+    super(message)
+    this.status = status
+    this.details = details
+  }
+}

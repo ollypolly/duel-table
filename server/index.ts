@@ -2,7 +2,7 @@
 // (and fetch cards from YGOPRODeck into it).
 import { serve } from '@hono/node-server'
 import { join } from 'node:path'
-import { createApp } from './app'
+import { createApp, WAIT_MAX_S } from './app'
 import { diskStore, repoContext, ROOT, writeRepoFile } from './files'
 import { SessionService } from './sessions'
 import { addCards } from './ygoprodeck'
@@ -12,6 +12,7 @@ const ctx = repoContext()
 const sessions = new SessionService(ctx, diskStore(join(ROOT, 'sessions')))
 const app = createApp({ sessions, ctx, writeFile: writeRepoFile(), addCards: (names) => addCards(names, ROOT) })
 
-serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, (info) => {
+// Node's default 5-minute request timeout would cut long-polls (/wait) short.
+serve({ fetch: app.fetch, hostname: '127.0.0.1', port, serverOptions: { requestTimeout: (WAIT_MAX_S + 60) * 1000 } }, (info) => {
   console.log(`Duel Table API on http://127.0.0.1:${info.port}/api (spec: /api/openapi.json)`)
 })
