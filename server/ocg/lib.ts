@@ -26,11 +26,16 @@ export const POS = { faceUpAtk: 0x1, faceDownAtk: 0x2, faceUpDef: 0x4, faceDownD
 export const QUERY = { code: 0x1, position: 0x2, attack: 0x100, defense: 0x200, baseAttack: 0x400, baseDefense: 0x800 } as const
 export const TYPE_TOKEN = 0x4000
 
-export type CardData = { code: number; name: string; type: number; atk: number; def: number }
+export type CardData = { code: number; alias: number; setcode: bigint; name: string; type: number; race: number; attribute: number; atk: number; def: number; strings: string[] }
 
 export type Ocg = {
   wrapper: OcgWrapper
   card(code: number): CardData | undefined
+  cards(): Iterable<CardData>
+  // The text for a core description: a card's effect string (code << 4 | n)
+  // or a system string, from strings.conf.
+  describe(desc: number): string | undefined
+  system(n: number): string | undefined
   scriptErrors: string[] // the most recent script errors, newest last
 }
 
@@ -54,8 +59,25 @@ async function load(dir: string): Promise<Ocg> {
   const SQL = await initSqlJs()
   const db: Database = new SQL.Database(readFileSync(cdb))
   const cards = new Map<number, CardData>()
-  const rows = db.exec('select d.id, t.name, d.type, d.atk, d.def from datas d join texts t on t.id = d.id')[0]?.values ?? []
-  for (const [code, name, type, atk, def] of rows as [number, string, number, number, number][]) cards.set(code, { code, name, type, atk, def })
+  const strs = Array.from({ length: 16 }, (_, i) => `t.str${i + 1}`).join(', ')
+  const rows = db.exec(`select d.id, d.alias, d.setcode, t.name, d.type, d.race, d.attribute, d.atk, d.def, ${strs} from datas d join texts t on t.id = d.id`)[0]?.values ?? []
+  type Row = [number, number, number, string, number, number, number, number, number, ...string[]]
+  for (const [code, alias, setcode, name, type, race, attribute, atk, def, ...strings] of rows as Row[]) {
+    cards.set(code, { code, alias, setcode: BigInt(setcode), name, type, race, attribute, atk, def, strings })
+  }
+
+  const system = new Map<number, string>()
+  const conf = join(dir, 'strings.conf')
+  if (existsSync(conf)) {
+    for (const line of readFileSync(conf, 'utf8').split('\n')) {
+      const m = /^!system (\d+) (.+)$/.exec(line.trim())
+      if (m) system.set(Number(m[1]), m[2])
+    }
+  }
+  const describe = (desc: number) => {
+    if (desc < 0x10000) return system.get(desc)
+    return cards.get(desc >> 4)?.strings[desc & 0xf] || undefined
+  }
 
   const scriptErrors: string[] = []
   const wrapper = await Core.createOcgcoreWrapper()
@@ -66,5 +88,5 @@ async function load(dir: string): Promise<Ocg> {
     scriptErrors.push(String(message))
     if (scriptErrors.length > 50) scriptErrors.shift()
   })
-  return { wrapper, card: (code) => cards.get(code), scriptErrors }
+  return { wrapper, card: (code) => cards.get(code), cards: () => cards.values(), describe, system: (n) => system.get(n), scriptErrors }
 }

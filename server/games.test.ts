@@ -5,7 +5,8 @@ import type { ScenarioFile } from '../src/scenarios/schema'
 import { repoContext, ROOT } from './files'
 import { GameService } from './games'
 import { ocgDataDir } from './ocg/lib'
-import { SessionService, type SessionStore } from './sessions'
+import { seededRng } from './ocg/bot'
+import { SessionError, SessionService, type SessionStore } from './sessions'
 
 const hasData = existsSync(join(ROOT, ocgDataDir(), 'cards.cdb'))
 const ctx = repoContext()
@@ -36,6 +37,31 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(v.game).toMatchObject({ bots: ['p2'], waitingFor: 'p1' })
     expect(() => sessions.apply(v.id, { actions: [{ type: 'nextTurn' }] })).toThrow(/rules engine/)
     expect(() => sessions.undo(v.id)).toThrow(/can't be undone/)
+  }, 60_000)
+
+  it.each([1, 2, 3])('seed %i: a person can play a whole game through the questions', async (seed) => {
+    const sessions = new SessionService(ctx)
+    const games = new GameService(sessions, ctx)
+    const rng = seededRng(seed * 7)
+    let v = await games.create({ deck: 'super-quant', opponentDeck: 'chazz-armed-ojama', seed })
+    const kinds = new Set<string>()
+    let rejected = 0
+    for (let i = 0; i < 1500 && v.game?.prompt; i++) {
+      const p = v.game.prompt
+      kinds.add(p.kind)
+      expect(p.options.every((o) => o.label && !o.label.includes('undefined'))).toBe(true)
+      expect(p.options.every((o) => !o.card || v.state.cards[o.card])).toBe(true)
+      const n = p.min + Math.floor(rng() * (Math.min(p.max, p.options.length) - p.min + 1))
+      const choices = [...p.options.keys()].sort(() => rng() - 0.5).slice(0, n)
+      try {
+        v = await games.answer(v.id, 'p1', { id: p.id, choices })
+      } catch (e) {
+        // Picks that don't add up (sums, tributes) are refused; try again.
+        if (!(e instanceof SessionError) || e.status !== 422 || ++rejected > 200) throw e
+      }
+    }
+    expect(v.game?.winner).toBeDefined()
+    expect(kinds.has('idle')).toBe(true)
   }, 60_000)
 
   it('rebuilds a game after a restart', async () => {

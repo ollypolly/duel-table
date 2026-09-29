@@ -47,9 +47,12 @@ type TableProps = {
   // Start a live API session at a position (when the server is running).
   onGoLive?: (position: number) => void
   lesson?: ReactNode // live lesson controls (Next, prompts), under the playback controls
+  // A game on the rules engine: cards you can pick now, and what a click on one does.
+  choosable?: Iid[]
+  onChoose?: (iid: Iid) => void
 }
 
-export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson }: TableProps) {
+export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson, choosable, onChoose }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
   const { hovered, inspected, selected, openPile, hover, inspect, select, openPileViewer } = useUiStore()
   // Open by default unless the screen is phone-sized, where it would cover the board.
@@ -105,10 +108,11 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           view={view}
           events={entry.events}
           selected={freePlay ? selected : undefined}
+          choosable={choosable}
           focus={focus}
           insetLeft={SCENE_PANEL_PX}
           onCameraMove={() => setFollowFocus(false)}
-          onCardClick={(iid) => (freePlay ? fp.clickCard(iid) : inspect(inspected === iid ? undefined : iid))}
+          onCardClick={(iid) => (freePlay ? fp.clickCard(iid) : onChoose && choosable?.includes(iid) ? onChoose(iid) : inspect(inspected === iid ? undefined : iid))}
           onCardHover={hover}
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
@@ -192,7 +196,13 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
                   select(iid)
                   openPileViewer(undefined)
                 }
-              : undefined
+              : onChoose
+                ? (iid) => {
+                    if (!choosable?.includes(iid)) return
+                    onChoose(iid)
+                    openPileViewer(undefined)
+                  }
+                : undefined
           }
         />
       )}

@@ -31,6 +31,7 @@ export type CreateOptions = {
   opponentDeck?: string // defaults to deck
   seed?: number
   title?: string
+  opponentName?: string // defaults to Friend
 }
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
@@ -89,7 +90,7 @@ export class SessionService {
         id,
         title: opts.title ?? `Live: ${opts.deck}`,
         seed: opts.seed ?? Math.floor(Math.random() * 2 ** 31),
-        players: { p1: { name: 'You', deck: opts.deck }, p2: { name: 'Friend', deck: opts.opponentDeck ?? opts.deck } },
+        players: { p1: { name: 'You', deck: opts.deck }, p2: { name: opts.opponentName ?? 'Friend', deck: opts.opponentDeck ?? opts.deck } },
         steps: [],
       }
     } else {

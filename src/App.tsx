@@ -4,6 +4,7 @@ import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { CosmeticsDialog } from "./components/Cosmetics/Cosmetics";
 import { Menu, MenuItem, MenuLabel } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
+import { NewGameDialog } from "./components/Game/NewGameDialog";
 import {
   ScenarioErrors,
   EmptyState,
@@ -20,6 +21,7 @@ export default function App() {
   const { scenarioId, sessionId, open, openSession } = usePlayerStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
+  const [newGameOpen, setNewGameOpen] = useState(false);
   const { scenarios, branches, branchIds } = useScenarios();
   const { add, appendStep, undo } = useBranchStore();
   const all = [...scenarios, ...branches];
@@ -67,6 +69,7 @@ export default function App() {
       )}
       {liveSessions && (
         <Menu label={sessionId ? `Live: ${sessionId}` : "Live"} title="Sessions on the local API">
+          <MenuItem onClick={() => setNewGameOpen(true)}>New game against the bot…</MenuItem>
           <MenuLabel>Open a session</MenuLabel>
           {liveSessions.length === 0 && <MenuItem disabled>No sessions yet</MenuItem>}
           {liveSessions.map((s) => (
@@ -87,6 +90,14 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink">
+      <NewGameDialog
+        open={newGameOpen}
+        onClose={() => setNewGameOpen(false)}
+        onStarted={(id) => {
+          setNewGameOpen(false);
+          openSession(id, Infinity);
+        }}
+      />
       {sessionId ? (
         <LiveTable key={sessionId} id={sessionId} nav={nav} />
       ) : result?.ok ? (

@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import type { Cursor } from '../../api/lesson'
+import type { Iid } from '../../engine'
 import { cardDb } from '../../data/cards'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
@@ -15,12 +16,16 @@ import { usePlayerStore } from '../../store/playerStore'
 import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
 import { TopBar } from '../TopBar/TopBar'
+import { PICK_KINDS } from '../../api/game'
+import { GamePanel, type GameChoice } from '../Game/GamePanel'
 import { LessonPanel } from './LessonPanel'
 
 export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [session, setSession] = useState<SessionUpdate>()
   const [connection, setConnection] = useState('')
   const [rejected, setRejected] = useState('')
+  const [picking, setPicking] = useState<GameChoice & { for?: number }>({ picked: [] })
+  const [busy, setBusy] = useState(false)
   const { openSession, goTo } = usePlayerStore()
   const position = usePlayerStore((s) => s.position)
   const followed = useRef<Cursor>(undefined) // the last cursor acted on
@@ -67,6 +72,26 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     p.catch((e: Error) => setRejected(e.message))
   }
 
+  // Games: what you've picked so far only counts for the question it was for.
+  const game = session?.game
+  const prompt = game && session.lesson.queued === 0 ? game.prompt : undefined
+  const choice: GameChoice = picking.for === prompt?.id ? picking : { picked: [] }
+  const setChoice = (c: GameChoice) => setPicking({ ...c, for: prompt?.id })
+  const answerGame = (choices: number[]) => {
+    if (!prompt) return
+    setBusy(true)
+    report(api.answerGame(id, { id: prompt.id, choices }).finally(() => setBusy(false)))
+  }
+  const chooseCard = (iid: Iid) => {
+    if (!prompt) return
+    const matching = prompt.options.flatMap((o, i) => (o.card === iid ? [i] : []))
+    if (prompt.max > 1) {
+      const i = matching.find((m) => !choice.picked.includes(m))
+      setChoice({ ...choice, picked: i === undefined ? choice.picked.filter((p) => !matching.includes(p)) : [...choice.picked, i] })
+    } else if (PICK_KINDS.includes(prompt.kind) || matching.length === 1) answerGame([matching[0]])
+    else setChoice({ ...choice, focused: iid })
+  }
+
   const liveNav = (
     <>
       {nav}
@@ -98,22 +123,29 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         nav={liveNav}
         lesson={
           lesson &&
-          (away || lesson.queued > 0 || !!lesson.prompt) && (
-            <LessonPanel
-              lesson={lesson}
-              away={away}
-              onBackToLive={backToLive}
-              onNext={() => {
-                backToLive()
-                report(api.next(id))
-              }}
-              onAnswer={(a) => report(api.answer(id, a))}
-            />
+          (game || away || lesson.queued > 0 || !!lesson.prompt) && (
+            <>
+              <LessonPanel
+                lesson={lesson}
+                away={away}
+                onBackToLive={backToLive}
+                onNext={() => {
+                  backToLive()
+                  report(api.next(id))
+                }}
+                onAnswer={(a) => report(api.answer(id, a))}
+              />
+              {game && lesson.queued === 0 && (
+                <GamePanel game={game} state={result.scenario.timeline.at(-1)!.state} choice={choice} onChoice={setChoice} onAnswer={answerGame} busy={busy} />
+              )}
+            </>
           )
         }
         // Your moves wait until the queued steps have shown.
-        onStep={lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
-        onUndo={() => report(api.undo(id))}
+        onStep={game || lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
+        onUndo={game ? undefined : () => report(api.undo(id))}
+        choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
+        onChoose={prompt && !away ? chooseCard : undefined}
         onBranch={(position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
         branchLabel="Fork"
       />

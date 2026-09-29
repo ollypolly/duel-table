@@ -2,14 +2,15 @@
 // the core, plus the answers given to the core so far (saved in the session
 // file as duel.responses). After a restart a game is rebuilt by replaying
 // those answers the first time it's needed.
-import type { Player, Step } from '../src/engine'
-import type { GameView } from '../src/api/game'
+import type { BoardState, Player, Step } from '../src/engine'
+import type { GameAnswer, GameView } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { ScenarioFile } from '../src/scenarios/schema'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
 import { decodeResponse, encodeResponse } from './ocg/duel'
 import { OcgGame, type Progress } from './ocg/game'
-import { loadOcg, ocgDataDir, type Ocg } from './ocg/lib'
+import { loadOcg, M, ocgDataDir, type Ocg } from './ocg/lib'
+import { question, type Question } from './ocg/prompt'
 import { SessionError, type SessionService, type SessionView } from './sessions'
 
 export type CreateGameOptions = { deck: string; opponentDeck?: string; seed?: number; bots?: Player[]; title?: string }
@@ -17,7 +18,8 @@ export type CreateGameOptions = { deck: string; opponentDeck?: string; seed?: nu
 // How long each bot step stays on screen before the next.
 export const BOT_STEP_MS = 700
 
-type Live = { game: OcgGame; bots: Player[]; rng: Rng; codes: number[] }
+type Asked = Extract<Question, { prompt: unknown }>
+type Live = { game: OcgGame; ocg: Ocg; bots: Player[]; rng: Rng; codes: number[]; asked?: Asked }
 
 export class GameService {
   private games = new Map<string, Live>()
@@ -35,7 +37,13 @@ export class GameService {
   async create(opts: CreateGameOptions): Promise<SessionView> {
     const ocg = await this.ocg()
     const bots = opts.bots ?? ['p2']
-    const { id } = this.sessions.create({ deck: opts.deck, opponentDeck: opts.opponentDeck, seed: opts.seed, title: opts.title ?? `Game: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}` })
+    const { id } = this.sessions.create({
+      deck: opts.deck,
+      opponentDeck: opts.opponentDeck,
+      seed: opts.seed,
+      title: opts.title ?? `Game: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
+      ...(bots.includes('p2') && { opponentName: 'Bot' }),
+    })
     const file = this.sessions.export(id)
     let game: OcgGame
     try {
@@ -43,16 +51,22 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, bots, file.seed!)
+    const live = this.track(id, game, ocg, bots, file.seed!)
     return this.advance(id, live, game.start())
   }
 
-  // Answer the pending prompt for a player (not a bot).
-  async respond(id: string, player: Player, response: Uint8Array): Promise<SessionView> {
+  // A person's answer to the open question: the options they picked.
+  async answer(id: string, player: Player, a: GameAnswer): Promise<SessionView> {
     const live = await this.live(id)
-    if (live.game.waitingFor !== player) throw new SessionError(409, `the rules engine isn't waiting for ${player}`)
-    const p = live.game.respond(response)
-    if (p.retried) throw new SessionError(422, 'the rules engine rejected that answer')
+    const { asked } = live
+    if (!asked || asked.prompt.player !== player) throw new SessionError(409, `nothing is being asked of ${player}`)
+    const { prompt } = asked
+    if (a.id !== prompt.id) throw new SessionError(409, `question ${a.id} isn't open (${prompt.id} is)`)
+    const { min, max, options } = prompt
+    if (a.choices.length < min || a.choices.length > max) throw new SessionError(400, min === max ? `pick ${min}` : `pick ${min}-${max}`)
+    if (new Set(a.choices).size !== a.choices.length || a.choices.some((c) => c >= options.length)) throw new SessionError(400, `choices must be distinct, 0-${options.length - 1}`)
+    const p = live.game.respond(asked.answer(a.choices))
+    if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
     return this.advance(id, live, p)
   }
 
@@ -67,32 +81,49 @@ export class GameService {
       void this.live(id).then(() => this.sessions.touch(id)).catch(() => {})
       return { bots: this.sessions.export(id).duel?.bots ?? [] }
     }
-    const { game, bots } = live
+    const { game, bots, asked } = live
     const winner = game.duel.result
-    return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }) }
+    return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(asked && { prompt: asked.prompt }) }
   }
 
-  // Save what happened, then answer for bots until a person has to (or the
-  // duel ends). Bot steps are paced so they can be watched.
+  // Save what happened, then answer for bots, and for people where there's
+  // nothing to decide, until a person has a real question (or the duel ends).
+  // Bot steps are paced so they can be watched.
   private advance(id: string, live: Live, first: Progress): SessionView {
     const steps: Step[] = []
     const paced = new Set<Step>()
     let p = first
     let actor: Player | undefined
     let attempt = 0
+    live.asked = undefined
     for (;;) {
       for (const s of p.steps) {
         steps.push(s)
         if (actor && live.bots.includes(actor)) paced.add(s)
       }
-      if (!p.prompt || !p.waitingFor || !live.bots.includes(p.waitingFor)) break
-      if (attempt > 50) throw new Error(`the bot is stuck on ${p.prompt.constructor.name}`)
+      if (!p.prompt || !p.waitingFor) break
+      if (attempt > 50) throw new Error(`stuck on ${p.prompt.constructor.name}`)
       attempt = p.retried ? attempt + 1 : 0
       actor = p.waitingFor
-      p = live.game.respond(botResponse(p.prompt, live.rng, attempt, live.codes))
+      let response: Uint8Array
+      if (live.bots.includes(actor)) response = botResponse(p.prompt, live.rng, attempt, live.codes)
+      else if (quietChance(p, live.game.state)) response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
+      else {
+        const q = this.ask(live, p)
+        if ('prompt' in q) {
+          live.asked = q
+          break
+        }
+        response = q.auto
+      }
+      p = live.game.respond(response)
     }
     const duel = { responses: live.game.duel.responses.map(encodeResponse), bots: live.bots }
     return this.sessions.appendGame(id, steps, duel, (s) => (paced.has(s) ? { afterMs: BOT_STEP_MS } : undefined))
+  }
+
+  private ask(live: Live, p: Progress): Question {
+    return question(p.prompt!, { id: live.game.duel.responses.length, hint: p.hint, ocg: live.ocg, translator: live.game.translator, codes: live.codes })
   }
 
   private async live(id: string): Promise<Live> {
@@ -100,17 +131,23 @@ export class GameService {
     if (found) return found
     const file = this.sessions.export(id)
     if (!file.duel) throw new SessionError(409, `session ${id} isn't a game on the rules engine`)
-    const game = new OcgGame(await this.ocg(), this.setup(file))
+    const ocg = await this.ocg()
+    const game = new OcgGame(ocg, this.setup(file))
     if (this.games.has(id)) return this.games.get(id)!
-    game.replay(file.duel.responses.map(decodeResponse))
+    const last = game.replay(file.duel.responses.map(decodeResponse))
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    return this.track(id, game, file.duel.bots ?? [], (file.seed ?? 0) + file.duel.responses.length)
+    const live = this.track(id, game, ocg, file.duel.bots ?? [], (file.seed ?? 0) + file.duel.responses.length)
+    if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
+      const q = this.ask(live, last)
+      if ('prompt' in q) live.asked = q
+    }
+    return live
   }
 
-  private track(id: string, game: OcgGame, bots: Player[], seed: number): Live {
+  private track(id: string, game: OcgGame, ocg: Ocg, bots: Player[], seed: number): Live {
     const codes = [...new Set(Object.values(game.state.cards).flatMap((c) => (c.cardId === undefined ? [] : [c.cardId])))]
-    const live = { game, bots, rng: seededRng(seed), codes }
+    const live = { game, ocg, bots, rng: seededRng(seed), codes }
     this.games.set(id, live)
     return live
   }
@@ -121,4 +158,14 @@ export class GameService {
     if (!r.ok) throw new SessionError(422, "the game's decks don't load", r.errors)
     return r.scenario
   }
+}
+
+// A chance to respond when nothing has happened to respond to (a new phase,
+// say) is passed for you, as most clients do. Anything on the chain, or a
+// summon, attack or activation just now, and you're asked.
+function quietChance(p: Progress, state: BoardState): boolean {
+  const m = p.prompt
+  if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced) || state.chain.length) return false
+  const loud = new Set(['activate', 'normalSummon', 'tributeSummon', 'specialSummon', 'attack'])
+  return !p.steps.some((s) => s.intent && loud.has(s.intent.type))
 }

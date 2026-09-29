@@ -5,9 +5,11 @@ import type { BoardState, Player, Step } from '../../src/engine'
 import type { ResolvedScenario } from '../../src/scenarios/resolve'
 import { OcgDuel, playerOf, type DuelDecks, type RunResult } from './duel'
 import type { Ocg, PromptMsg } from './lib'
+import { selectHint } from './prompt'
 import { Translator } from './translate'
 
-export type Progress = { steps: Step[]; prompt?: PromptMsg; waitingFor?: Player; winner?: RunResult['winner']; retried?: boolean }
+// hint is the core's "select a..." text for the prompt, if it sent one.
+export type Progress = { steps: Step[]; prompt?: PromptMsg; hint?: number; waitingFor?: Player; winner?: RunResult['winner']; retried?: boolean }
 
 export class OcgGame {
   readonly duel: OcgDuel
@@ -51,13 +53,14 @@ export class OcgGame {
       const next = this.respond(r)
       if (next.retried) throw new Error('a saved answer was rejected on replay')
       all.steps.push(...next.steps)
-      Object.assign(all, { prompt: next.prompt, waitingFor: next.waitingFor, winner: next.winner })
+      Object.assign(all, { prompt: next.prompt, hint: next.hint, waitingFor: next.waitingFor, winner: next.winner })
     }
     return all
   }
 
   private progress(r: RunResult, actor?: Player): Progress {
     const steps = this.translator.feed(r.messages, actor)
-    return { steps, prompt: r.prompt, waitingFor: this.waitingFor, winner: r.winner, ...(r.retried && { retried: true }) }
+    const hint = r.prompt && selectHint(r.messages, r.prompt.responsePlayer())
+    return { steps, prompt: r.prompt, hint, waitingFor: this.waitingFor, winner: r.winner, ...(r.retried && { retried: true }) }
   }
 }

@@ -86,6 +86,21 @@ export class Translator {
     return this.steps
   }
 
+  // The card a prompt means, if we can place it. Copies in a pile are
+  // interchangeable, so avoid says which were already handed out.
+  cardAt(where: Where, code: number, avoid = new Set<Iid>()): Iid | undefined {
+    try {
+      const ref = zoneFor(where)
+      if (!(where.location & LOC.overlay) && ref.slot === undefined) {
+        const pile = this.state.players[ref.player!].zones[ref.zone as 'hand']
+        return pile.find((i) => this.state.cards[i].cardId === code && !avoid.has(i)) ?? pile.find((i) => this.state.cards[i].cardId === code)
+      }
+      return this.from(where, code)
+    } catch {
+      return undefined
+    }
+  }
+
   name(iid: Iid) {
     const c = this.state.cards[iid]
     return c?.custom?.name ?? (c?.cardId !== undefined ? this.ocg.card(c.cardId)?.name : undefined) ?? iid

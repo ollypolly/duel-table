@@ -9,7 +9,7 @@ import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
 import { DeckSchema, StepSchema } from '../src/scenarios/schema'
 import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
-import { GameViewSchema } from '../src/api/game'
+import { GameAnswerSchema, GameViewSchema } from '../src/api/game'
 import { PlayerSchema } from '../src/scenarios/schema'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
@@ -378,6 +378,20 @@ export function createApp({ sessions, ctx, writeFile, addCards, games }: AppDeps
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       return c.json(await games.create(c.req.valid('json')), 201)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/answer',
+      summary: "The viewer's answer to the rules engine's question (game.prompt), as option indices",
+      request: { params: IdParam, ...body(GameAnswerSchema) },
+      responses: { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, 'That question is not open'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.answer(c.req.valid('param').id, 'p1', c.req.valid('json')), 200)
     },
   )
 

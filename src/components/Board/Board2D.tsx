@@ -21,10 +21,12 @@ const box = (p: Point, size: { w: number; h: number } = CARD): CSSProperties => 
   height: `${(size.h / BOUNDS.height) * 100}%`,
 })
 
-export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCameraMove, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
+export function Board2D({ view, selected, choosable = [], focus = 'all', insetLeft = 0, onCameraMove, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
   const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove)
   const cosmetics = useCosmeticsStore((s) => s.cosmetics)
+  const lit = new Set(choosable)
+  const litPiles = new Set(view.cards.filter((c) => lit.has(c.iid) && c.stackIndex !== undefined).map((c) => `${c.zone.player}:${c.zone.zone}`))
   return (
     <div
       ref={ref}
@@ -40,7 +42,7 @@ export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCamera
         {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
         <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         {view.zones.map((z) => (
-          <ZoneOutline key={z.key} zone={z} placing={!!selected} onClick={() => onZoneClick?.(z.ref)} />
+          <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`)} onClick={() => onZoneClick?.(z.ref)} />
         ))}
         {PLAYERS.map(
           (p) =>
@@ -57,7 +59,7 @@ export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCamera
         )}
         <AnimatePresence initial={false}>
           {view.cards.map((c) => (
-            <BoardCard key={c.iid} card={c} selected={selected === c.iid} onClick={() => onCardClick?.(c.iid)} onHover={onCardHover} />
+            <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} onHover={onCardHover} />
           ))}
         </AnimatePresence>
         {view.zones
@@ -114,7 +116,7 @@ function Playmat({ player, src }: { player: Player; src: string }) {
 
 // Piles (Deck, GY…) sit above their top card so the whole stack is the click
 // target, and light up with a "View" chip on hover.
-function ZoneOutline({ zone, placing, onClick }: { zone: ZoneView; placing: boolean; onClick: () => void }) {
+function ZoneOutline({ zone, placing, lit, onClick }: { zone: ZoneView; placing: boolean; lit: boolean; onClick: () => void }) {
   const pile = zone.kind === 'pile'
   return (
     <button
@@ -123,12 +125,12 @@ function ZoneOutline({ zone, placing, onClick }: { zone: ZoneView; placing: bool
       aria-label={`${zone.ref.player ?? ''} ${zone.label}${pile ? ` (${zone.count})` : ''}`}
       className={`zone group absolute cursor-pointer rounded-[6%] border transition-[background-color,border-color,box-shadow] ${
         zone.ref.zone === 'extraMonster' ? 'border-gold/40 text-gold/50' : zone.ref.player === 'p2' ? 'border-p2/25 text-p2/40' : 'border-p1/25 text-p1/40'
-      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''}`}
+      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''} ${lit ? 'border-accent shadow-[0_0_1.2cqw_var(--color-accent)]' : ''}`}
       style={box(zone.placement)}
     >
       {pile && zone.count > 0 ? (
         <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-gold px-[0.7cqw] py-[0.15cqw] font-display text-[0.9cqw] font-bold uppercase tracking-wider text-bg opacity-0 transition-opacity group-hover:opacity-100">
-          {placing ? 'Move here' : 'View'}
+          {placing ? 'Move here' : lit ? 'Choose' : 'View'}
         </span>
       ) : (
         <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-[4%] text-center font-display text-[0.75cqw] font-semibold uppercase leading-tight tracking-wider">
@@ -142,11 +144,13 @@ function ZoneOutline({ zone, placing, onClick }: { zone: ZoneView; placing: bool
 function BoardCard({
   card,
   selected,
+  lit,
   onClick,
   onHover,
 }: {
   card: PlacedCard
   selected: boolean
+  lit: boolean
   onClick: () => void
   onHover?: (iid: Iid | undefined) => void
 }) {
@@ -180,7 +184,7 @@ function BoardCard({
         style={{ transform: `rotate(${card.placement.rotation + (isMonsterZone && card.position === 'def' ? 90 : 0)}deg)` }}
         className={`h-full w-full rounded-[5%] transition-transform duration-300 ${
           card.highlighted ? 'shadow-[0_0_1.4cqw_0.3cqw_var(--color-gold)] ring-2 ring-gold' : 'shadow-lg shadow-black/70'
-        } ${selected ? 'outline outline-2 outline-offset-2 outline-accent' : ''} ${card.revealed ? 'ring-2 ring-chain' : ''}`}
+        } ${selected ? 'outline outline-2 outline-offset-2 outline-accent' : ''} ${lit ? 'outline outline-2 outline-offset-[0.3cqw] outline-accent shadow-[0_0_1.4cqw_0.2cqw_var(--color-accent)]' : ''} ${card.revealed ? 'ring-2 ring-chain' : ''}`}
       >
         {/* A flip when the face shown changes; initial={false} skips it when the card first appears. */}
         <AnimatePresence mode="wait" initial={false}>

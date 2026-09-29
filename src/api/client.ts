@@ -2,10 +2,11 @@
 // uses. Everything is optional: playback works without the server.
 import type { Issue, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
+import type { GameAnswer, GameView } from './game'
 import type { Answer, LessonView } from './lesson'
 
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
-export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView }
+export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView }
 
 class ApiError extends Error {
   readonly status: number
@@ -37,6 +38,8 @@ export const api = {
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
+  createGame: (opts: { deck: string; opponentDeck: string }) => call<SessionSummary>('POST', '/games', opts),
+  answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
 }
 
 // Calls onUpdate with the whole session now and after every change.

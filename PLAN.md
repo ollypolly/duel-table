@@ -322,20 +322,22 @@ Claude runs inside the app, as an opponent first and then as a teacher. The HTTP
 
 ### Play against Claude (first)
 
-OCG Core owns the rules, turn flow and hidden information. It asks each player what to do, and your answers come from clicking legal options on the board. Claude answers its own prompts with tools. The chat, events, Stop, coach toggle and persistence work as described below.
+OCG Core owns the rules, turn flow and hidden information. It asks each player what to do. You answer by clicking; Claude answers its own questions with tools.
 
-- **Starting a game.** Pick your deck and Claude's deck. The server creates a session backed by a core duel (seed + both decks). You're p1 and Claude is p2.
-- **State.** The duel is the seed plus the list of responses given so far. That list is persisted with the session, and a restart rebuilds the duel by replaying it, the same way `.yrp` replays work. Each batch of core messages between prompts is translated into a step on the session, so the existing board, SSE stream and timeline show the game.
-- **Your turn.** When the core is waiting on you, the browser gets your prompt through the session stream (your view only):
-  - legal actions are highlighted on the board, and clicking a card offers its options (Summon, Set, Activate…);
-  - card choices, yes/no, "chain?" and phase changes appear as small dialogs;
-  - obvious prompts are auto-answered: no chainable cards, one legal option, zone placement.
-- **Claude's turn.** When the core is waiting on Claude, the agent gets its prompt (its view only) and answers with a tool that picks one of the listed options. Its tools can only read Claude's own view (`playerView(1)` and queries restricted to what p2 can see), so fair play is structural, not a filter. Tests check that nothing hidden leaks. Its steps are revealed with short `afterMs` delays so you can watch them land.
+**Built (server/games.ts, server/ocg/):**
+- **Games are sessions.** `POST /games` picks both decks; the session's steps are translated from the core, and `duel.responses` in the session file holds every answer given. A restart rebuilds the duel by replaying them (like `.yrp` replays). Games refuse posted steps and undo (409).
+- **Questions as options.** Each core prompt becomes a `GamePrompt` (`src/api/game.ts`): a message plus numbered options, each optionally tied to a card iid, with how many to pick. The answer is the list of picked indices (`POST /sessions/{id}/game/answer`). Claude's tools will use the same shape.
+- **Auto-answered:** zone placement (first free zone), a single legal position or option, sorting, and chances to chain when nothing just happened (no summon, attack or activation, and an empty chain), as most clients do. A "stop at every chance" toggle may be needed for traps in the End Phase.
+- **Hidden info in prompts:** labels never name the opponent's face-down or in-hand cards. The browser still receives full board state, as sessions always have; the board just doesn't show those faces. Fine locally, not for hosting.
+- **Bots.** Any player can be a random bot (`bots`, default `["p2"]`), with its steps paced at 700ms. Used for tests and until Claude plays p2.
+- **Browser.** "New game against the bot…" in the Live menu. The scene panel lists the options (grouped by card, with a filter for long lists and checkboxes for multi-picks); the cards involved are lit on the board, and clicking one narrows to its options or picks it.
+
+**Next (Claude as p2):**
+- When the core is waiting on Claude, the agent gets the prompt and answers with a tool that picks options. Its tools only read what p2 can see (`playerView(1)` and redacted state), so fair play is structural. Tests check nothing hidden leaks. Its steps are paced like the bot's.
 - **Chat.** You can talk to Claude at any time. A message sent mid-turn is queued and delivered after the current turn. Stop interrupts, and there's a cap on agent turns per run.
 - **Undo.** Games have no undo by default. A takeback (replay minus your last decision) might be added later, offered by the coach.
 - **Coach toggle.** Off: Claude chats as an opponent only. On (the default): it also points out misplays and explains its chains once they resolve. It never reveals its hand either way.
 - **Persistence.** The conversation is stored alongside the session, so a game can resume after a restart.
-- **Opponent decks.** Only `chazz-armed-ojama` exists today. A second deck is imported with the existing `POST /decks` flow for testing. Deck names are resolved to core card codes through the card database.
 
 ### Then
 
@@ -382,17 +384,17 @@ EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compil
   | `Chaining` / `ChainSolved` | `chainPush` / `chainResolve` |
   | `Summoning` etc. | step `intent` |
 
-  The core identifies cards by controller + location + sequence, not stable ids, so the translator keeps a location→`Iid` map updated on every move. ATK/DEF changes are read back with card queries.
+  The core names cards by controller + location + sequence. Field slots map one to one; in piles, copies are interchangeable, so a card leaving one is found by its code. ATK/DEF are read back with card queries and kept as modifiers. After every batch, tests check our board against the core's.
 - **Licences:**
   - core: MIT;
   - scripts: GPL-2.0 (only matters if we distribute them);
-  - the card database: no licence file, and the card text itself is Konami's.
+  - the card database and `strings.conf`: no licence file, and the card text itself is Konami's.
+
+  `npm run fetch-ocg` downloads the scripts, database and strings into `data/ocg/` (gitignored).
 
   These need care before hosting; they're fine locally.
 
-**Recommendation: OCG Core runs games against Claude.** The Claude referee below is no longer needed unless something goes wrong while integrating.
-
-**Design for games on OCG Core:** see "Play against Claude" above. Free play, scenarios and lessons stay on our engine.
+**Games run on OCG Core** (see "Play against Claude" above). Free play, scenarios and lessons stay on our engine.
 
 **Fallback (not planned): a Claude referee behind `RulesProvider`.**
 - Instant checks in code (`basicRules`): one Normal Summon per turn, tribute counts, phase order, zone limits.
