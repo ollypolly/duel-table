@@ -105,7 +105,7 @@ export function Board2D({ view, selected, focus = 'all', insetLeft = 0, onCardCl
 // scrim so the zones stay readable, fading out into the table at its edges.
 function Playmat({ player, src }: { player: Player; src: string }) {
   return (
-    <div className={`pointer-events-none absolute inset-x-0 h-1/2 overflow-hidden [mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_75%)] ${player === 'p1' ? 'top-1/2' : 'top-0'}`}>
+    <div className={`pointer-events-none absolute -inset-x-[10%] h-[75%] overflow-hidden [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_72%)] ${player === 'p1' ? 'top-1/2' : '-top-1/4'}`}>
       <img src={src} alt="" draggable={false} className={`h-full w-full object-cover ${player === 'p2' ? 'rotate-180' : ''}`} />
       <div className="absolute inset-0 bg-bg/50" />
     </div>

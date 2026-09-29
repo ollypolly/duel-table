@@ -105,12 +105,18 @@
   box-shadow: inset 0 0 120px rgb(0 0 0 / 0.6);
 }
 
-/* The play area on it, lit from each side in its player's colour. */
-.playmat {
+/* The play area on it, lit from each side in its player's colour. The glow
+   runs well past the play area (and the hands) so it fades into the table. */
+.playmat::before {
+  content: '';
+  position: absolute;
+  inset: -50% -30%;
+  z-index: -1;
+  pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 45% at 50% 100%, color-mix(in oklab, var(--color-p1) 14%, transparent), transparent 70%),
-    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in oklab, var(--color-p2) 12%, transparent), transparent 70%),
-    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--color-gold) 7%, transparent), transparent 35%);
+    radial-gradient(ellipse 45% 32% at 50% 74%, color-mix(in oklab, var(--color-p1) 16%, transparent), transparent 100%),
+    radial-gradient(ellipse 45% 32% at 50% 26%, color-mix(in oklab, var(--color-p2) 14%, transparent), transparent 100%),
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--color-gold) 7%, transparent), transparent 22%);
 }
 
 /* In the components layer so utilities (a pile's hover styles) override it. */
