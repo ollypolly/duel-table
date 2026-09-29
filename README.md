@@ -27,11 +27,11 @@ Card images go in `public/cards/` and aren't committed. YGOPRODeck asks that ima
 
 ## In the browser
 
-- Step with ← → (or the footer controls). Narration sits top-left and folds away.
+- Step with ← → or the controls at the top of the scene panel. The narration under them folds away.
 - Hover a card to read it full screen; click to pin it (Esc closes). Click a Deck, GY or other pile to see what's in it.
 - The camera follows each step's action. Untick **Focus** to pan (drag) and zoom (scroll or pinch) yourself.
-- **Sleeves & mats** sets each seat's sleeves, deck box and playmat from your own images. They're kept in this browser only.
-- **Branch** forks from the current step so you can play on by hand (free play), and **Go live** hands the board to the API below.
+- **☰ → Sleeves, deck boxes & playmats** sets each seat's images. They're kept in this browser only. Importing a branch is in the same menu.
+- **Branch** forks from the current step so you can play on by hand, and **More → Go live** hands the board to the API below. In free play, click a card then a zone to move it; draws, shuffles, LP, next turn and undo are in the **Free play** menu.
 
 ## Driving it with curl
 
@@ -64,3 +64,5 @@ Every step is checked with the table rules first. A physically impossible move (
 The full guide, written for handing to Claude (endpoints, state shape, every action type, validation and conventions), is [docs/API.md](docs/API.md).
 
 In the browser, "Go live" starts a session at the current step, and free-play moves made there are posted to the session, so both sides act on the same board.
+
+Sessions can also run as **interactive lessons**: Claude queues steps that show when you click **Next** (or after a delay), points your view at a step or replays a range, and asks you things (a question, a choice, or "your move") in the scene panel. It long-polls `GET /sessions/{id}/wait` to hear what you did. See [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).

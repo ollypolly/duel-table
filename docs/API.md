@@ -32,9 +32,13 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 | --- | --- | --- |
 | `GET /sessions` | | `[{ id, title, steps, basedOn? }]` |
 | `POST /sessions` | `{ scenario?, atStep?, deck?, opponentDeck?, seed?, title? }` | `201` session |
-| `GET /sessions/{id}` | | `{ id, title, steps, basedOn?, file, state }` |
-| `POST /sessions/{id}/steps` | a step, plus optional `"strict": true` | `{ position, state, events, issues }`, or `422 { error, issues }` |
-| `POST /sessions/{id}/undo` | | the session; `409` if there's nothing to undo |
+| `GET /sessions/{id}` | | `{ id, title, steps, basedOn?, file, state, lesson }` |
+| `POST /sessions/{id}/steps` | a step, plus optional `"strict": true` and `"reveal"` | `{ position, revealed, state, events, issues }`, or `422 { error, issues }` |
+| `POST /sessions/{id}/undo` | | the session; drops a queued step first; `409` if there's nothing to undo |
+| `POST /sessions/{id}/cursor` | `{ position, from? }` | the session. Points the viewer at a position, or replays `from`..`position` |
+| `POST /sessions/{id}/prompt` | `{ type, message, ... }` | `201` the open prompt; `409` if one is already open |
+| `DELETE /sessions/{id}/prompt` | | withdraws the open prompt |
+| `GET /sessions/{id}/wait?since=&timeout=` | | `{ events, cursor }`: what the viewer did (long-poll) |
 | `POST /sessions/{id}/fork` | `{ atStep? }` | `201` a new session cut at that position |
 | `POST /sessions/{id}/export` | `{ id?, title?, write?, overwrite? }` | `{ file, path? }`. `write: true` saves `scenarios/<id>.json` (`409` if it exists and `overwrite` isn't set) |
 | `GET /sessions/{id}/events` | | Server-sent events: `session` (the whole session) after every change |
@@ -191,6 +195,62 @@ Every step is checked action by action against the state the previous action pro
 ```json
 { "error": "step rejected", "issues": [{ "severity": "error", "message": "Unknown card \"nope\"", "action": 0 }] }
 ```
+
+## Running an interactive lesson
+
+A lesson is a session where you pace the steps and the viewer answers you. The viewer's side all happens in the browser: a **Next** button, a **Back to live** button if they've scrubbed away, and your prompt in the scene panel (it never covers the board).
+
+**Pacing.** Add `"reveal"` to a step. Omitted, it shows at once. `{ "afterMs": 3000 }` shows it 3 seconds after the step before it shows. `"onNext"` waits for the viewer's Next click. Queued steps show in order, and a step posted without `reveal` behind queued ones waits its turn. `state` and new steps always build on every step, queued or not; `lesson.revealed` is the last position the viewer can see, `lesson.queued` how many are waiting. Undo drops the last queued step first.
+
+**Pointing.** `POST /cursor { "position": 5 }` moves viewers who are following along to position 5. `{ "from": 3, "position": 5 }` replays 3 to 5. A viewer who has scrubbed elsewhere isn't moved; they get Back to live. Only shown positions are allowed. Each reveal moves the cursor to the new step.
+
+**Prompts.** One at a time, and it appears once nothing is queued. `message` is markdown.
+
+| `type` | Extra fields | The viewer | The `answer` event carries |
+| --- | --- | --- | --- |
+| `ack` | `button?` (default "Got it") | clicks it | nothing else |
+| `choice` | `options` (2 or more) | picks one | `choice: { index, option }` |
+| `text` | `placeholder?` | types an answer | `text` |
+| `move` | | plays on the board, then clicks Done | `steps`: positions of the steps they made |
+
+**Listening.** `GET /sessions/{id}/wait?since=<cursor>&timeout=<seconds>` returns as soon as there are events after `since`, or `{ "events": [], "cursor": <since> }` after the timeout (default 300, max 540: under the 10 minutes a tool call can run). Always pass the returned `cursor` as the next `since`. Without `since` it waits for the next new event. Events:
+
+- `revealed` `{ position, via: "now" | "next" | "timer" }`: a step became visible (`next` means the viewer clicked Next).
+- `step` `{ position, step }`: the viewer made a move. Their steps have `"author": "user"`; yours are stamped `"claude"`. While steps are queued the viewer can't move.
+- `undo` `{ position }`: the viewer undid a step.
+- `answer` `{ prompt: { id, type }, ... }`: the viewer answered, as in the table above.
+
+Lesson state (the queue, cursor, prompt and event log) is in memory: if the API restarts, every step shows and cursors start again from 0.
+
+The loop: queue a beat of steps, ask, wait, react.
+
+```sh
+API=http://127.0.0.1:5181/api
+ID=$(curl -s -X POST $API/sessions -H 'content-type: application/json' \
+  -d '{"scenario":"free-table","atStep":1,"title":"Lesson: opening"}' | jq -r .id)
+post() { curl -s -X POST "$API/sessions/$ID/$1" -H 'content-type: application/json' -d "$2"; }
+
+# Where the event log is now, so we only hear about what happens next
+CURSOR=$(curl -s "$API/sessions/$ID/wait?timeout=0" | jq .cursor)
+
+# Two beats, each shown when the viewer clicks Next
+post steps '{"label":"Draw for turn","reveal":"onNext","actions":[{"type":"draw","player":"p1"}]}' >/dev/null
+post steps '{"label":"Into Main Phase 1","narration":"Now you have **6** cards.","reveal":"onNext",
+  "actions":[{"type":"phase","phase":"main1"}]}' >/dev/null
+
+# Then hand them the board
+post prompt '{"type":"move","message":"Your turn: **Normal Summon** a monster, then click Done."}' | jq -c .
+
+# Wait for what they do; loop until the answer arrives
+while :; do
+  R=$(curl -s "$API/sessions/$ID/wait?since=$CURSOR&timeout=300")
+  CURSOR=$(jq .cursor <<<"$R")
+  jq -c '.events[]' <<<"$R"
+  jq -e '.events[] | select(.type == "answer")' <<<"$R" >/dev/null && break
+done
+```
+
+Keep each `wait` call under your tool's time limit, and react to each event: comment on the viewer's move in the next step's narration, or `undo` and explain if it was illegal.
 
 ## Playing well
 
