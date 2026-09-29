@@ -48,7 +48,13 @@ type TableProps = {
   branchLabel?: string
   // Start a live API session at a position (when the server is running).
   onGoLive?: (position: number) => void
-  lesson?: ReactNode // live lesson controls (Next, prompts), under the playback controls
+  // The scene panel's dock, pinned to its bottom: what you're being asked
+  // (lesson controls, a game's question). It scrolls rather than grow past
+  // a cap, so it never pushes the rest off.
+  dock?: ReactNode
+  // A chat takes the middle of the panel in place of the narration, with
+  // its input under the dock.
+  chat?: { log: ReactNode; input: ReactNode }
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -59,7 +65,24 @@ type TableProps = {
   onCardDrop?: (iid: Iid, to: ZoneRef) => void
 }
 
-export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuItems, onBranch, branchLabel = 'Branch', onGoLive, lesson, choosable, onChoose, cardActions, draggable, onCardDrop }: TableProps) {
+export function Table({
+  scenario,
+  nav,
+  Renderer = Board2D,
+  onStep,
+  onUndo,
+  menuItems,
+  onBranch,
+  branchLabel = 'Branch',
+  onGoLive,
+  dock,
+  chat,
+  choosable,
+  onChoose,
+  cardActions,
+  draggable,
+  onCardDrop,
+}: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
   const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
   // The scene panel slides off to the left. Open by default unless the
@@ -110,7 +133,8 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
             {freePlay && <FreePlayMenu fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />}
           </>
         }
-        status={<StatusBar view={view} lpChanges={lpChanges} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />} />
+        status={<StatusBar view={view} lpChanges={lpChanges} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
+      />
 
       <main className="relative min-h-0 flex-1">
         <Renderer
@@ -135,14 +159,15 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           }}
         />
 
-        {/* The scene panel: playback controls on top, so they don't move as
-            the narration below changes length. It floats top-left and slides
-            off to the left; on a phone it's a sheet that slides down off the
-            bottom. Either way its handle stays on screen. */}
+        {/* The scene panel: a slim playback bar on top, the narration (or a
+            chat) in the middle taking what room there is, and the dock at the
+            bottom. It floats top-left and slides off to the left; on a phone
+            it's a sheet that slides down off the bottom. Either way its
+            handle stays on screen. With a chat it's full height. */}
         <div
-          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex max-h-[55%] flex-col gap-2 transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:max-h-[calc(100%-1.5rem)] sm:w-96 ${
-            panelOpen ? '' : 'translate-y-[calc(100%+0.75rem)] sm:translate-y-0 sm:-translate-x-[calc(100%+0.75rem)]'
-          }`}
+          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 ${
+            chat ? 'h-[55%] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
+          } ${panelOpen ? '' : 'translate-y-[calc(100%+0.75rem)] sm:translate-y-0 sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
           data-open={panelOpen}
         >
@@ -156,8 +181,8 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
             <span className="sm:hidden">{panelOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}</span>
             <span className="hidden sm:block">{panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>
           </button>
-          <div className="panel flex min-h-0 flex-col">
-            <div className="shrink-0 border-b border-line px-3 py-2.5">
+          <div className={`panel flex min-h-0 flex-col ${chat ? 'flex-1' : ''}`}>
+            <div className="shrink-0 border-b border-line px-2 py-2">
               <StepControls
                 position={position}
                 labels={scenario.game.steps.map((s, i) => s.label ?? `Step ${i + 1}`)}
@@ -185,18 +210,16 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
                 )}
               </StepControls>
             </div>
-            {lesson && <div className="shrink-0 space-y-2.5 border-b border-line px-3 py-2.5">{lesson}</div>}
-            <div className="min-h-0 overflow-y-auto">
-              <NarrationPanel
-                step={step}
-                position={position}
-                description={scenario.description}
-                intentCard={face(intentIid)}
-                warnings={stepWarnings}
-              />
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              {chat ? (
+                chat.log
+              ) : (
+                <NarrationPanel step={step} position={position} description={scenario.description} intentCard={face(intentIid)} warnings={stepWarnings} />
+              )}
             </div>
+            {dock && <div className="max-h-[35vh] shrink-0 space-y-2.5 overflow-y-auto border-t border-line px-3 py-2.5 sm:max-h-[45vh]">{dock}</div>}
+            {chat && <div className="shrink-0 border-t border-line px-3 py-2">{chat.input}</div>}
           </div>
-          <ChainList view={view} />
         </div>
 
         <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
@@ -215,6 +238,10 @@ export function Table({ scenario, nav, Renderer = Board2D, onStep, onUndo, menuI
           <span className="hidden sm:inline">Focus</span>
           <Crosshair size={14} className="sm:hidden" aria-hidden />
         </label>
+
+        <div className="absolute right-3 top-14 z-10 max-h-[40%] w-56 overflow-y-auto sm:w-64">
+          <ChainList view={view} />
+        </div>
       </main>
 
       <CardInspector

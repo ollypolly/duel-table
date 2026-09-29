@@ -17,7 +17,7 @@ import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
 import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
-import { ClaudePanel } from '../Game/ClaudePanel'
+import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
@@ -176,7 +176,21 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       <Table
         scenario={result.scenario}
         nav={liveNav}
-        lesson={
+        chat={
+          game?.claude && {
+            log: <ClaudeChat claude={game.claude} />,
+            input: (
+              <ClaudeInput
+                claude={game.claude}
+                onChat={(text) => report(api.chat(id, text))}
+                onStop={() => report(api.stopClaude(id))}
+                onResume={() => report(api.resumeClaude(id))}
+                onSettings={(s) => report(api.claudeSettings(id, s))}
+              />
+            ),
+          }
+        }
+        dock={
           lesson &&
           (game || away || lesson.queued > 0 || !!lesson.prompt) && (
             <>
@@ -193,15 +207,6 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               {game && lesson.queued === 0 && (
                 <GamePanel game={game} state={result.scenario.timeline.at(-1)!.state} choice={choice} onChoice={setChoice} onAnswer={answerGame} busy={busy} />
               )}
-              {game?.claude && (
-                <ClaudePanel
-                  claude={game.claude}
-                  onChat={(text) => report(api.chat(id, text))}
-                  onStop={() => report(api.stopClaude(id))}
-                  onResume={() => report(api.resumeClaude(id))}
-                  onSettings={(s) => report(api.claudeSettings(id, s))}
-                />
-              )}
             </>
           )
         }
@@ -213,7 +218,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         cardActions={prompt && !away ? cardActions : undefined}
         draggable={away ? undefined : draggable}
         onCardDrop={prompt && !away ? dropCard : undefined}
-        onBranch={(position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
+        // Forking a game doesn't cut its saved answers yet, so it's off for games.
+        onBranch={game ? undefined : (position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
         branchLabel="Fork"
       />
     )

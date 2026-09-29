@@ -16,12 +16,15 @@ const setup = (position: number) => {
       onSpeed={vi.fn()}
     />,
   )
-  return { onGoTo, onPlaying }
+  return { onGoTo, onPlaying, openDrawer: () => userEvent.click(screen.getByTitle('Playback: scrub, speed, jump to a step')) }
 }
 
 describe('StepControls', () => {
-  it('lists setup plus every step label and shows the current one', () => {
-    setup(2)
+  it('shows the current step, and lists every step in the drawer', async () => {
+    const { openDrawer } = setup(2)
+    expect(screen.getByText('Summon LV5')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Jump to step' })).toBeNull()
+    await openDrawer()
     const jump = screen.getByRole('combobox', { name: 'Jump to step' })
     expect(jump).toHaveValue('2')
     expect(screen.getByRole('option', { name: '2/3 · Summon LV5' })).toBeInTheDocument()
@@ -29,8 +32,9 @@ describe('StepControls', () => {
   })
 
   it('steps and jumps', async () => {
-    const { onGoTo, onPlaying } = setup(1)
+    const { onGoTo, onPlaying, openDrawer } = setup(1)
     await userEvent.click(screen.getByTitle('Next (→)'))
+    await openDrawer()
     await userEvent.click(screen.getByTitle('Last (End)'))
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Jump to step' }), '3/3 · Ojamagic')
     await userEvent.click(screen.getByTitle('Play/pause (space)'))
@@ -38,8 +42,8 @@ describe('StepControls', () => {
     expect(onPlaying).toHaveBeenCalledWith(true)
   })
 
-  it('disables back buttons at the start', () => {
-    setup(0)
+  it('disables back buttons at the start', async () => {
+    await setup(0).openDrawer()
     expect(screen.getByTitle('Previous (←)')).toBeDisabled()
     expect(screen.getByTitle('First (Home)')).toBeDisabled()
   })
