@@ -76,7 +76,7 @@ export default function App() {
           }
           title="Sessions on the local API"
         >
-          <MenuItem onClick={() => setNewGameOpen(true)}>New game against the bot…</MenuItem>
+          <MenuItem onClick={() => setNewGameOpen(true)}>New game…</MenuItem>
           <MenuLabel>Open a session</MenuLabel>
           {liveSessions.length === 0 && <MenuItem disabled>No sessions yet</MenuItem>}
           {liveSessions.map((s) => (

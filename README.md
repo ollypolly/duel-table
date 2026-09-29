@@ -1,41 +1,67 @@
 # Duel Table
 
-A local web tool for learning Yu-Gi-Oh! by stepping through scripted games. Each scenario is a list of steps that move cards around a two-player board, with narration explaining what happened and why. You can pause, rewind, fork from any step and play on by hand.
+A local web tool for learning Yu-Gi-Oh!. Step through scripted games with narration explaining each play, fork from any step and play on by hand, or play real games on the YGOPro rules engine against a bot or against Claude.
 
-It tracks where cards are, like a real table. It doesn't enforce rules. See [PLAN.md](PLAN.md) for the design.
+See [PLAN.md](PLAN.md) for the design.
+
+## Bring your own intelligence
+
+Everything works without AI. A Claude login adds intelligence on top.
+
+- **Without Claude:** preset scenarios and lessons, free play and branches, and games on the rules engine against a bot that makes random legal moves.
+- **With Claude:** Claude as your opponent in those games. It chats, can coach you, and, if you show it your cards, advises on your position.
+
+Claude runs through the [Agent SDK](https://docs.claude.com/en/docs/agent-sdk/overview) on the Claude Code login of the machine running the server. There's no login inside the app: run `claude` and `/login` there, and the Claude option in **New game** turns on. Usage comes out of your Claude plan; the app shows what it would have cost on the API.
 
 ## Running it
 
 ```sh
 npm install
-npm run fetch-cards   # downloads card data + images from YGOPRODeck (once)
+npm run fetch-cards   # card data and images from YGOPRODeck (once)
+npm run fetch-ocg     # the rules engine's scripts and card database (once, for games)
 npm run dev
 ```
 
-Card images go in `public/cards/` and aren't committed. YGOPRODeck asks that images are self-hosted rather than hotlinked, so run `fetch-cards` after cloning.
+Then open http://localhost:5173.
 
-## Scripts
+Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither is committed. YGOPRODeck asks that images are self-hosted rather than hotlinked.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Vite on :5173 plus the API on :5181 (proxied at `/api`). Scenario files hot-reload. |
+| `npm run dev` | Vite on :5173 plus the API on :5181 (proxied at `/api`). Scenario files and prompts reload as you edit them. |
 | `npm run web` / `npm run api` | Just one of the two |
 | `npm test` | Vitest, once |
 | `npm run typecheck` | `tsc -b` |
 | `npm run lint` | oxlint |
 | `npm run fetch-cards` | Rebuild `data/cards.json` from every card named in `decks/` and `scenarios/`, and download missing images |
+| `npm run fetch-ocg` | Download the YGOPro scripts, card database and strings into `data/ocg/` |
 
 ## In the browser
 
-- Step with ← → or the controls at the top of the scene panel. The narration under them folds away.
-- Hover a card to read it full screen; click to pin it (Esc closes). Click a Deck, GY or other pile to see what's in it.
-- The camera follows each step's action. Untick **Focus** to pan (drag) and zoom (scroll or pinch) yourself.
-- **☰ → Sleeves, deck boxes & playmats** sets each seat's images. They're kept in this browser only. Importing a branch is in the same menu.
-- **Branch** forks from the current step so you can play on by hand, and **More → Go live** hands the board to the API below. In free play, click a card then a zone to move it; draws, shuffles, LP, next turn and undo are in the **Free play** menu.
+- Step with ← → or the controls at the top of the scene panel. The panel slides away to the left (to the bottom on a phone).
+- Click a card to read it full screen, with whatever you can do with it. Click a Deck, GY or other pile to see what's in it.
+- The camera follows each step's action. Pan or zoom the board, or untick **Focus**, to move it yourself. Focus is back on at each page load.
+- **Branch** forks from the current step so you can play on by hand. In free play, drag a card onto a zone, or click it for Move, Flip, Position and material options. Draws, shuffles, LP, next turn and undo are in the **Free play** menu.
+- **☰ → Sleeves, deck boxes & playmats** sets each seat's images, kept in this browser only.
+
+## Playing a game
+
+**Live → New game…** picks your deck, the opponent's deck, and the opponent: the bot, or Claude (with a model, Opus or Sonnet, and whether it coaches you).
+
+The rules engine asks you what to do: the options appear in the scene panel and the cards involved light up. Drag a card from your hand onto a zone to summon, set or activate it, or click it to see its options.
+
+Against Claude, the scene panel also has:
+
+- **Chat.** Say anything at any time. If Claude is mid-turn it reads your message when that run ends.
+- **Coach.** Claude points out misplays, explains its own plays, and answers rules questions.
+- **Show my cards.** Claude sees your hand, face-down cards and the question you're on, so it can tell you the best play and why. It's asked not to use them on its own turn.
+- **Stop / Resume**, the model, and the API-equivalent cost so far.
+
+Claude only sees the table from its side and gets each card's real text. Its prompts are `prompts/game.md` and `prompts/coach.md`, read fresh for each run.
 
 ## Driving it with curl
 
-The local API (`server/`, bound to 127.0.0.1) holds **sessions**: boards in progress that you and the browser both act on. A session is stored in `sessions/<id>.json` as a scenario file, so it replays like any scenario and can be exported to `scenarios/`. The full spec is at `/api/openapi.json`.
+The local API (`server/`, bound to 127.0.0.1) holds **sessions**: boards in progress that the browser follows live. A session is stored in `sessions/<id>.json` as a scenario file, so it replays like any scenario and can be exported to `scenarios/`. The spec is at `/api/openapi.json`, and [docs/API.md](docs/API.md) is the full guide, written for handing to Claude Code.
 
 Positions work like the UI and URLs: `0` is the setup and `n` is "after step n".
 
@@ -59,12 +85,19 @@ curl -s -X POST $API/sessions/s-1a2b3c/steps -H 'content-type: application/json'
 }' | jq '{position, issues}'
 ```
 
-Every step is checked with the table rules first. A physically impossible move (a missing card, an occupied slot) is rejected with `422` and the issues. Warnings, like sending a card to the other player's GY, are returned but still applied unless you pass `"strict": true`.
+These boards check only physical things (a missing card, an occupied slot is a `422`). Rules are enforced only in games on the rules engine.
 
-The full guide, written for handing to Claude (endpoints, state shape, every action type, validation and conventions), is [docs/API.md](docs/API.md).
+In the browser, **More → Go live** starts a session at the current step, and your free-play moves there are posted to it, so you and whatever is driving the API act on the same board. Sessions can also run as **interactive lessons**, with steps shown when you click Next and questions in the scene panel: see [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).
 
-In the browser, "Go live" starts a session at the current step, and free-play moves made there are posted to the session, so both sides act on the same board.
+## Where things are
 
-Sessions can also run as **interactive lessons**: Claude queues steps that show when you click **Next** (or after a delay), points your view at a step or replays a range, and asks you things (a question, a choice, or "your move") in the scene panel. It long-polls `GET /sessions/{id}/wait` to hear what you did. See [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).
-
-**Play against Claude.** The same loop runs a game: Claude plays the top seat through the API and hands you the board with a "your move" prompt each turn. Point a Claude session at [docs/API.md](docs/API.md) and ask it to play you (see [Playing a game against the viewer](docs/API.md#playing-a-game-against-the-viewer)). The table doesn't enforce rules, so both of you are on the honour system, and Claude sees your moves when you click Done rather than as you make them.
+| Path | What |
+| --- | --- |
+| `src/engine/` | The table: board state and actions, pure and replayable |
+| `src/components/` | The UI. `Board/` draws the board, `Table/` wraps it with the scene panel |
+| `server/` | The local API: sessions, lessons, decks |
+| `server/ocg/` | Games on the YGOPro core, translated into our steps |
+| `server/claude/` | Claude as a player: the agent, what it sees, and the chat |
+| `prompts/` | Claude's system prompts |
+| `scenarios/`, `decks/` | Content, as JSON |
+| `sessions/` | Live sessions and games (gitignored) |

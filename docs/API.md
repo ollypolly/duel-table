@@ -1,6 +1,6 @@
 # Duel Table API: a guide for Claude
 
-You are driving a Yu-Gi-Oh table that a human is watching in their browser. The table is a **manual simulator**: it moves cards where you tell it to and checks only physical things (does the card exist, is the slot free). It does **not** know card effects, costs, timing or legality. Getting the game right is your job; the API just keeps the board honest and shows it.
+You are driving a Yu-Gi-Oh table that a human is watching in their browser. The table is a **manual simulator**: it moves cards where you tell it to and checks only physical things (does the card exist, is the slot free). It does **not** know card effects, costs, timing or legality. Getting the game right is your job; the API just keeps the board honest and shows it. (Games on the rules engine are the exception: see [Games](#games-on-the-rules-engine).)
 
 - Base URL: `http://127.0.0.1:5181/api` (local only; start it with `npm run dev` or `npm run api`)
 - Machine-readable spec: `GET /api/openapi.json`
@@ -48,6 +48,12 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 | `GET /decks` | | `[{ id, name, size: { main, extra } }]` |
 | `GET /decks/{id}` | | the deck with every card's text and stats (see [Decks](#decks)) |
 | `POST /decks` | `{ id, name, list? \| cards?, fetch?, overwrite? }` | `201` the saved deck; `422` unknown names with suggestions; `409` if it exists |
+| `POST /games` | `{ deck, opponentDeck?, seed?, bots?, claude?, model?, coach?, title? }` | `201` a game session (see [Games](#games-on-the-rules-engine)) |
+| `POST /sessions/{id}/game/answer` | `{ id, choices }` | the game, after the viewer's answer |
+| `GET /claude` | | `{ available, email?, plan? }`: whether this machine has a Claude login |
+| `POST /sessions/{id}/claude/chat` | `{ text }` | the game; the viewer's message to Claude |
+| `POST /sessions/{id}/claude/stop`, `/resume` | | the game |
+| `POST /sessions/{id}/claude/settings` | `{ model?, coach?, share? }` | the game |
 
 Creating a session:
 
@@ -254,15 +260,15 @@ Keep each `wait` call under your tool's time limit, and react to each event: com
 
 ### Playing a game against the viewer
 
-The same loop runs a real game: you play `p2`, the viewer plays `p1` in the browser.
+For a real game, start one on the rules engine (below): it enforces the rules and hidden information for both sides. The lesson loop above can still run an honour-system game on a plain table, but the table won't stop illegal moves from either side, and you must not read the viewer's hand or Deck order from `state`.
 
-1. Create the session from decks (`{ "deck": "...", "opponentDeck": "..." }`), then post the setup step: shuffle both Decks, draw 5 each. Tell the viewer the session id so they can open it.
-2. **Their turn:** post a `move` prompt ("Your turn. Click Done when you pass"), then `wait`. Each `step` event is one of their moves; read it as it arrives.
-3. **Response windows:** you only hear about the viewer's moves as events, so you can't cut in mid-move. When they do something you'd respond to (an activation, a summon that triggers your hand trap), post your response as steps right after: push your chain link and resolve the chain newest first. If they're still inside a `move` prompt, withdraw it (`DELETE /prompt`), respond, then open a new one for the rest of their turn.
-4. **Your turn:** post each play as its own step with narration saying what you did and why, pacing with `{ "afterMs": 1500 }` so they can follow. Ask with a `choice` prompt whenever they could respond ("Do you chain anything?" with their plausible options plus "No").
-5. **Their illegal moves:** the table doesn't enforce rules. Explain in a step's narration or an `ack` prompt, and `undo` their step if they agree.
+## Games on the rules engine
 
-Play fair. `state` shows their hand and Deck order: don't use them. Decide only from what a real opponent would know (public zones, card counts, what they revealed), and don't read your own Deck order before drawing.
+`POST /games` starts a session whose steps come from the YGOPro core (OCG Core), with the rules enforced. `bots` (default `["p2"]`) are answered by a random bot, with its steps paced so they can be watched. `claude` puts the in-app Claude on that side instead (`501` without a Claude login), with `model` (`opus` or `sonnet`) and `coach` (default `true`).
+
+- **Questions.** When the core needs the viewer (`p1`) to decide, `game.prompt` in the session holds a numbered question: `{ id, player, kind, message, options: [{ label, card?, group? }], min, max }`. Answer with `POST /sessions/{id}/game/answer` and `{ "id": <prompt id>, "choices": [<option indices>] }`. Trivial questions (one legal option, zone placement, a chance to chain when nothing happened) are answered automatically.
+- **Other fields.** `game.bots`, `game.waitingFor` (who the core is waiting on), `game.winner` when it's over, and `game.claude` (chat, status, settings, cost) when Claude plays.
+- Game sessions refuse posted steps and undo (`409`). They're rebuilt after a restart by replaying the saved answers (`duel.responses` in the session file).
 
 ## Playing well
 

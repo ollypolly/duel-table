@@ -260,7 +260,6 @@ Endpoints (all JSON, all validated by Zod, all under `/api`):
 - Sessions are held in memory and written to `sessions/<id>.json` after every change, so they survive restarts and Claude can read them directly.
 - Browser: a **Live** mode alongside scenario playback. Pick or create a session; the board follows its SSE stream; free-play moves the owner makes are POSTed as steps, so Claude and the owner act on the same board. Scenario playback keeps working without the server (pure client-side replay).
 - Deep link for live mode: `?session=<id>`.
-- The README should include a short "driving it with curl" section with a worked example (create session → apply a move → watch the browser update), since that's how Claude will use it before MCP exists.
 
 ## Persistence
 
@@ -270,36 +269,7 @@ Endpoints (all JSON, all validated by Zod, all under `/api`):
 
 ## Milestones
 
-Commit at the end of each milestone (or more often). Each one should be verified in a real browser, not just by type-checking.
-
-1. **Scaffold.** Vite react-ts, Tailwind v4, Vitest, ESLint as scaffolded, folder structure above, `git init`, README with how to run.
-2. **Card data.** `fetch-cards` script, `data/cards.json` for the Chazz deck list, images downloaded, `cardDb.ts` with tests.
-3. **Engine.** Types, `applyAction` returning `{ state, events }` for every action, setup from a scenario, seeded shuffle, `stateAt`, derived-value selectors (current ATK/name from modifiers), `history`/`turnFlags` bookkeeping, the `RulesProvider` interface with `tableRules`, and the empty card script registry. Thorough Vitest coverage here, since it's pure and it's what Level 2 reuses: every action, determinism of replay, shuffle reproducibility, modifiers expiring on `nextTurn`, and `tableRules` reporting issues (e.g. moving a card into an occupied monster slot) without throwing.
-4. **Static board.** Render a `BoardState` with all zones, card faces from local images, detail panel, pile viewer.
-5. **Playback.** Scenario loading + Zod validation, narration, step controls, keyboard shortcuts, persisted position. Scenario picker.
-6. **First real scenario.** Port the example game below.
-7. **Free-play + branches.** Drag (or click-to-select, click-to-place) cards between zones from any step; record as actions; save/export/import branches.
-8. **Local API + live mode.** Session service with tests (create, apply, undo, fork, export, persistence to disk), Hono routes from Zod schemas, OpenAPI spec, SSE, browser Live mode, README curl walkthrough. Verify end to end: a `curl` POST moves a card in an open browser tab.
-9. **Polish.** Motion animations between zones, highlights/arrows, empty-state and error screens for invalid scenarios.
-
-## Seed content
-
-### Deck: `decks/chazz-armed-ojama.json`
-
-Source of truth is the owner's Obsidian note: `/Users/olly/vaults/Notes/Gaming/Cards/Yugioh/Ojama Deck/Chazz Deck.md`, section **Target Deck (video build)**. Read it and transcribe the 40-card Main Deck and the core Extra Deck (skip the optional generic Links for now; pad the Extra Deck with Ojama King/Knight and a second XYZ-Dragon Cannon as the note suggests). Deck file shape: `{ id, name, main: [{ name, count }], extra: [{ name, count }] }`.
-
-### Scenario: `scenarios/ojama-vs-super-quant-t1-t3.json`
-
-Port this example (worked out in conversation; the narration should keep this beginner-friendly tone):
-
-- **T1 (you, going first).** Hand: Ojamatch, Ojamagic, Ojamassimilation, Fusion Tag, Ash Blossom. Ojamatch sending Ojamagic → add Armed Dragon Thunder LV5 + an Ojama → Normal Summon Thunder LV5. Ojamagic triggers (sent from hand) → add Ojamas. Thunder LV5 sends a monster from hand → Special Summon Armed Dragon LV7. Ojamassimilation revealing XYZ-Dragon Cannon, banish 3 Ojamas → X-Head Cannon, Y-Dragon Head, Z-Metal Tank → banish them → XYZ-Dragon Cannon. Can't use Fusion Tag (no spare monster; tagging LV7 would banish it). End: LV7 + XYZ-Dragon Cannon; hand Ash Blossom + Fusion Tag.
-- **T2 (Super Quant).** Normal Summons a pilot that searches → you Ash Blossom it. Makes a Zord from a second pilot anyway. The Zord bounces XYZ-Dragon Cannon to the Extra Deck (X/Y/Z stay banished). Plays Super Quantal Mech Ship Magnacarrier. No attack (LV7 is 2800). End.
-- **T3 (you).** Draw Forbidden Droplet. Banish Ojamassimilation from GY → shuffle the 3 banished Ojamas into the Deck, draw 1 (Ojamagic). Activate Ojamagic → resolves → sent from field to GY → add Yellow/Green/Black. LV7 attacks and destroys the Zord. Set Forbidden Droplet. End: LV7 + set Droplet; hand Fusion Tag + 3 Ojamas.
-- **Closing narration:** the route back to the boss: next turn Ojamassimilation revealing VW-Tiger Catapult → V-Tiger Jet + W-Wing Catapult → VW-Tiger Catapult; Fusion Tag renames an Ojama to "XYZ-Dragon Cannon"; combine → VWXYZ-Dragon Catapult Cannon; banish VWXYZ + LV7 → Armed Dragon Catapult Cannon.
-
-Super Quant card names (verify against the API; fall back to custom cards if any don't resolve): Super Quantum Red Layer, Super Quantum Blue Layer, Super Quantal Mech Beast Grampulse, Super Quantal Mech Ship Magnacarrier, Super Quantal Mech King Great Magnus. Pick a real pilot/Zord pair whose effects roughly match the story above, and adjust the narration to their actual text. Where an effect in the story doesn't match the real card, prefer the real card and note it in the narration.
-
-**Accuracy:** the example was reasoned from a deck-profile video transcript, not the real card texts. When porting, read each card's `desc` from the DB and make sure the narration doesn't contradict it. Flag any mismatch in the final summary rather than silently changing the story.
+Level 1 is built: scaffold, card data, engine, board, playback, the first scenario (`scenarios/ojama-vs-super-quant-t1-t3.json`, from the owner's Chazz deck note), free play and branches, the local API with live mode, and polish. Git history has the detail. Each milestone was verified in a real browser, and later work should be too.
 
 ## Level 2: Claude in the app
 
