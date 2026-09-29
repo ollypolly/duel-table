@@ -1,1 +1,118 @@
 @import "tailwindcss";
+
+/* Design tokens. Dark, glassy panels with gold and cyan accents, after the
+   Yu-Gi-Oh! Master Duel UI: gold for "yours / act", cyan for focus and
+   information, crimson for the opponent. Components use these names, never
+   raw palette colours, so a retheme happens here. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Oxanium", "Inter", ui-sans-serif, sans-serif;
+
+  --color-bg: #05070e;
+  --color-surface: #0c1122;
+  --color-raised: #161d36;
+  --color-raised-hover: #212b4d;
+  --color-line: #2a3458;
+  --color-ink: #e9edf8;
+  --color-muted: #8d97b8;
+  --color-faint: #5a6485;
+
+  --color-gold: #e6b84c;
+  --color-gold-soft: #f5d88a;
+  --color-accent: #45cdff;
+  --color-p1: #45cdff;
+  --color-p2: #ff5470;
+
+  --color-spell: #1db592;
+  --color-trap: #c4448d;
+  --color-chain: #c28bff;
+  --color-warn: #ffc65c;
+  --color-danger: #ff6b85;
+  --color-ok: #48e0a4;
+}
+
+@layer base {
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+  }
+  select,
+  input {
+    @apply rounded-md border border-line bg-raised text-ink;
+  }
+}
+
+/* A glass panel with a gold hairline along the top edge. */
+@utility panel {
+  position: relative;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--color-gold) 45%, transparent),
+    0 20px 50px -20px rgb(0 0 0 / 0.8);
+}
+
+/* Buttons: btn is the quiet default, btn-primary the one main action. */
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  border-radius: 0.4rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-raised);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--color-ink);
+  transition: background-color 0.15s, border-color 0.15s;
+  &:hover:not(:disabled) {
+    background: var(--color-raised-hover);
+    border-color: color-mix(in oklab, var(--color-accent) 40%, var(--color-line));
+  }
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+@utility btn-primary {
+  border-color: var(--color-gold);
+  background: linear-gradient(180deg, var(--color-gold-soft), var(--color-gold));
+  color: var(--color-bg);
+  font-weight: 600;
+  &:hover:not(:disabled) {
+    background: var(--color-gold-soft);
+    border-color: var(--color-gold-soft);
+  }
+}
+
+/* Narration markdown. */
+.prose-narration {
+  & p + p { margin-top: 0.6em; }
+  & strong { color: var(--color-gold-soft); font-weight: 600; }
+  & em { color: var(--color-ink); }
+  & code { font-size: 0.9em; color: var(--color-accent); }
+  & ul { list-style: disc; padding-left: 1.2em; margin-top: 0.4em; }
+}
+
+/* The playmat: near-black, lit from each side in its player's colour, with a
+   faint hex grid. */
+.playmat {
+  border: 1px solid color-mix(in oklab, var(--color-line) 70%, transparent);
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 100%, color-mix(in oklab, var(--color-p1) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in oklab, var(--color-p2) 12%, transparent), transparent 70%),
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--color-gold) 7%, transparent), transparent 35%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48.5' viewBox='0 0 28 48.5'%3E%3Cpath d='M14 0 28 8.1v16.2L14 32.4 0 24.3V8.1zM14 32.4v16.1' fill='none' stroke='%23ffffff' stroke-opacity='0.035'/%3E%3C/svg%3E"),
+    #070b17;
+  box-shadow: inset 0 0 80px rgb(0 0 0 / 0.6);
+}
+
+.zone {
+  background: color-mix(in oklab, currentColor 4%, transparent);
+  &:hover {
+    background: color-mix(in oklab, currentColor 12%, transparent);
+    border-color: currentColor;
+  }
+}

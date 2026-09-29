@@ -21,41 +21,49 @@ export function StatusBar({
   lpChanges?: Partial<Record<Player, number>> // LP change in the current step
   onPhase?: (phase: Phase) => void
 }) {
-  const lp = (p: Player) => (
-    <span className={`flex items-baseline gap-1.5 ${view.activePlayer === p ? 'text-sky-200' : 'text-slate-300'}`}>
-      <span className="text-xs">{view.players[p].name}</span>
-      <span className="font-mono text-base font-bold" data-testid={`lp-${p}`}>
-        {view.players[p].lp}
-      </span>
-      {!!lpChanges[p] && (
-        <span className={`font-mono text-xs ${lpChanges[p] < 0 ? 'text-rose-400' : 'text-emerald-400'}`} data-testid={`lp-change-${p}`}>
-          {lpChanges[p] > 0 && '+'}
-          {lpChanges[p]}
-        </span>
-      )}
-    </span>
-  )
+  const lp = (p: Player) => {
+    const active = view.activePlayer === p
+    return (
+      <div className={`flex items-center gap-2 ${p === 'p1' ? 'flex-row-reverse text-right' : ''}`}>
+        <span className={`h-7 w-1 rounded-full ${p === 'p1' ? 'bg-p1' : 'bg-p2'} ${active ? 'shadow-[0_0_10px_currentColor]' : 'opacity-40'}`} />
+        <div className="leading-none">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-muted">{view.players[p].name}</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className={`font-display text-xl font-bold tabular-nums ${active ? 'text-ink' : 'text-ink/70'}`} data-testid={`lp-${p}`}>
+              {view.players[p].lp}
+            </span>
+            {!!lpChanges[p] && (
+              <span className={`font-display text-xs font-semibold ${lpChanges[p] < 0 ? 'text-danger' : 'text-ok'}`} data-testid={`lp-change-${p}`}>
+                {lpChanges[p] > 0 && '+'}
+                {lpChanges[p]}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className="flex items-center gap-4 text-sm">
+    <div className="flex items-center gap-5">
       {lp('p2')}
-      <span className="flex items-center gap-2">
-        <span className="text-xs text-slate-400">
-          Turn {view.turn} · {view.players[view.activePlayer].name}
+      <div className="flex flex-col items-center gap-1">
+        <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted">
+          Turn {view.turn} · <span className={view.activePlayer === 'p1' ? 'text-p1' : 'text-p2'}>{view.players[view.activePlayer].name}</span>
         </span>
-        <span className="flex gap-0.5">
+        <span className="flex gap-0.5 rounded-md border border-line bg-surface p-0.5">
           {PHASES.map(([phase, short]) => (
             <button
               type="button"
               key={phase}
               disabled={!onPhase || view.phase === phase}
               onClick={() => onPhase?.(phase)}
-              className={`rounded px-1.5 py-0.5 font-mono text-xs ${view.phase === phase ? 'bg-sky-500 text-white' : 'text-slate-500'} ${onPhase ? 'enabled:hover:bg-slate-700 enabled:hover:text-slate-200' : ''}`}
+              className={`rounded px-1.5 py-0.5 font-display text-[11px] font-bold ${view.phase === phase ? 'bg-gold text-bg' : 'text-faint'} ${onPhase ? 'enabled:hover:bg-raised enabled:hover:text-ink' : ''}`}
             >
               {short}
             </button>
           ))}
         </span>
-      </span>
+      </div>
       {lp('p1')}
     </div>
   )
@@ -65,17 +73,16 @@ export function StatusBar({
 export function ChainList({ view }: { view: BoardView }) {
   if (view.chain.length === 0) return null
   return (
-    <div className="rounded-lg border border-fuchsia-400/40 bg-fuchsia-950/60 px-3 py-2" data-testid="chain">
-      <p className="text-xs font-semibold text-fuchsia-300">Chain</p>
+    <div className="panel px-3 py-2" data-testid="chain">
+      <p className="font-display text-xs font-bold uppercase tracking-widest text-chain">Chain</p>
       <ol className="mt-1 space-y-0.5 text-xs">
         {[...view.chain].reverse().map((l) => (
           <li key={l.number}>
-            <span className="font-mono text-fuchsia-300">CL{l.number}</span> {l.label ?? l.card.name}{' '}
-            <span className="text-slate-400">({view.players[l.player].name})</span>
+            <span className="font-display font-bold text-chain">CL{l.number}</span> {l.label ?? l.card.name} <span className="text-muted">({view.players[l.player].name})</span>
           </li>
         ))}
       </ol>
-      <p className="mt-1 text-[10px] text-slate-400">Resolves top to bottom (last in, first out)</p>
+      <p className="mt-1 text-[10px] text-faint">Resolves top to bottom (last in, first out)</p>
     </div>
   )
 }

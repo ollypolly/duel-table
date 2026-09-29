@@ -65,7 +65,7 @@ export default function App() {
       {liveSessions && (
         <select
           aria-label="Live session"
-          className="max-w-[11rem] rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-sm"
+          className="max-w-[11rem] rounded-md border border-line bg-surface px-2 py-1 text-sm"
           value={sessionId ?? ""}
           onChange={(e) => openSession(e.target.value || undefined, Infinity)}
         >
@@ -84,7 +84,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+    <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink">
       {sessionId ? (
         <LiveTable key={sessionId} id={sessionId} nav={nav} />
       ) : result?.ok ? (

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 // phase) on the right when a scenario is open.
 export function TopBar({ nav, status }: { nav: ReactNode; status?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-800/80 px-4 py-1.5">
+    <header className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-line px-4 py-1.5">
       {nav}
       {status && <div className="ml-auto">{status}</div>}
     </header>

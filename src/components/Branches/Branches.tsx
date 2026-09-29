@@ -8,7 +8,7 @@ import { resolveScenario } from '../../scenarios/resolve'
 import { useBranchStore } from '../../store/branchStore'
 import { usePlayerStore } from '../../store/playerStore'
 
-const btn = 'rounded-md bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700'
+const btn = 'rounded-md bg-raised px-2 py-1 text-xs hover:bg-raised-hover'
 
 export function BranchActions({ id }: { id: string }) {
   const { branches, remove } = useBranchStore()
@@ -32,7 +32,7 @@ export function BranchActions({ id }: { id: string }) {
       </button>
       {confirming ? (
         <>
-          <button type="button" className="rounded-md bg-rose-700 px-2 py-1 text-xs text-white hover:bg-rose-600" onClick={() => remove(id)}>
+          <button type="button" className="btn bg-danger text-bg hover:bg-danger/80" onClick={() => remove(id)}>
             Delete for good
           </button>
           <button type="button" className={btn} onClick={() => setConfirming(false)}>
@@ -82,7 +82,7 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
   return (
     <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-sm">
       {error && (
-        <span role="alert" className="max-w-md truncate text-xs text-rose-300" title={error}>
+        <span role="alert" className="max-w-md truncate text-xs text-danger" title={error}>
           Import failed: {error}
         </span>
       )}

@@ -1,22 +1,22 @@
-// Transient UI state (not persisted): which card is hovered or selected (and
-// where it is on screen, for the detail popover) and which pile is open.
+// Transient UI state (not persisted): the hovered card, the card open in the
+// inspector, the card selected for a free-play move, and the open pile.
 import { create } from 'zustand'
-import type { ScreenRect } from '../components/Board/BoardRenderer'
 import type { Iid, ZoneRef } from '../engine'
 
 type UiState = {
   hovered?: Iid
-  hoverAnchor?: ScreenRect
-  selected?: Iid // clicked: its popover stays open until dismissed
-  selectAnchor?: ScreenRect
+  inspected?: Iid // pinned open in the inspector until closed
+  selected?: Iid // free-play: the card the next zone click moves
   openPile?: ZoneRef
-  hover: (iid?: Iid, anchor?: ScreenRect) => void
-  select: (iid?: Iid, anchor?: ScreenRect) => void
+  hover: (iid?: Iid) => void
+  inspect: (iid?: Iid) => void
+  select: (iid?: Iid) => void
   openPileViewer: (ref?: ZoneRef) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
-  hover: (hovered, hoverAnchor) => set({ hovered, hoverAnchor }),
-  select: (selected, selectAnchor) => set({ selected, selectAnchor }),
+  hover: (hovered) => set({ hovered }),
+  inspect: (inspected) => set({ inspected }),
+  select: (selected) => set({ selected }),
   openPileViewer: (openPile) => set({ openPile }),
 }))

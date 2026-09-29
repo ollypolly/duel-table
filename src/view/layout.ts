@@ -54,3 +54,16 @@ export const BOUNDS = (() => {
 
 // Where Xyz materials peek out from under their monster.
 export const MATERIAL_OFFSET = 0.09
+
+// What a renderer's camera should frame. A player's area is their half plus
+// the opponent's Monster Zones (what they'd attack or target) and the Extra
+// Monster Zones.
+export type FocusArea = 'all' | Player
+export type Region = { minX: number; minY: number; width: number; height: number }
+
+export function focusRegion(area: FocusArea): Region {
+  if (area === 'all') return BOUNDS
+  const oppMonsterTop = -(ROW + CARD.h / 2 + 0.15)
+  const height = BOUNDS.minY + BOUNDS.height - oppMonsterTop
+  return { minX: BOUNDS.minX, minY: area === 'p1' ? oppMonsterTop : BOUNDS.minY, width: BOUNDS.width, height }
+}

@@ -6,11 +6,11 @@ import type { ReactNode } from 'react'
 // actions or advice as children.
 export function ScenarioErrors({ id, errors, children }: { id: string; errors: string[]; children?: ReactNode }) {
   return (
-    <div className="mx-auto mt-12 max-w-3xl rounded-xl border border-red-500/40 bg-red-950/40 p-6" role="alert">
-      <h2 className="text-lg font-semibold text-red-200">
+    <div className="mx-auto mt-12 max-w-3xl rounded-xl border border-danger/40 bg-danger/40 p-6" role="alert">
+      <h2 className="text-lg font-semibold text-danger">
         <code>{children ? id : `scenarios/${id}.json`}</code> can't be loaded
       </h2>
-      <ul className="mt-4 space-y-2 font-mono text-sm text-red-100">
+      <ul className="mt-4 space-y-2 font-mono text-sm text-danger">
         {errors.map((e) => (
           <li key={e} className="whitespace-pre-wrap">
             {e}
@@ -20,7 +20,7 @@ export function ScenarioErrors({ id, errors, children }: { id: string; errors: s
       {children ? (
         <div className="mt-4 flex items-center gap-2 text-sm">{children}</div>
       ) : (
-        <p className="mt-4 text-sm text-slate-400">Fix the file and save; it reloads automatically.</p>
+        <p className="mt-4 text-sm text-muted">Fix the file and save; it reloads automatically.</p>
       )}
     </div>
   )
@@ -28,7 +28,7 @@ export function ScenarioErrors({ id, errors, children }: { id: string; errors: s
 
 export function EmptyState() {
   return (
-    <div className="mx-auto mt-12 max-w-xl text-center text-slate-400">
+    <div className="mx-auto mt-12 max-w-xl text-center text-muted">
       <p className="text-lg">No scenarios yet.</p>
       <p className="mt-2 text-sm">
         Add a JSON file to <code>scenarios/</code> (see PLAN.md for the format) and it appears here.

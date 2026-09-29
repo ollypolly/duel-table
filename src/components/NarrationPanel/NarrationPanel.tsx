@@ -31,22 +31,22 @@ export function NarrationPanel({
   return (
     <section className="space-y-3 p-4 pr-7" data-testid="narration" aria-live="polite">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="font-semibold leading-tight">{step ? (step.label ?? `Step ${position}`) : 'Setup'}</h2>
-        <span className="shrink-0 font-mono text-xs text-slate-500">
+        <h2 className="font-display font-semibold leading-tight">{step ? (step.label ?? `Step ${position}`) : 'Setup'}</h2>
+        <span className="shrink-0 font-mono text-xs text-faint">
           {position}/{total}
         </span>
       </div>
       {step?.intent && (
-        <span className="inline-block rounded-full bg-sky-900 px-2 py-0.5 text-xs text-sky-200">
+        <span className="inline-block rounded-full bg-accent/15 px-2 py-0.5 text-xs text-accent">
           {INTENT_LABELS[step.intent.type]}
           {intentCard && `: ${intentCard.name}`}
         </span>
       )}
-      <div className="prose-narration text-sm leading-relaxed text-slate-200">
+      <div className="prose-narration text-sm leading-relaxed text-ink">
         <Markdown>{step ? (step.narration ?? '') : (description ?? 'Press → to start.')}</Markdown>
       </div>
       {warnings.length > 0 && (
-        <ul className="space-y-1 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-200">
+        <ul className="space-y-1 rounded border border-warn/40 bg-warn/10 p-2 text-xs text-warn">
           {warnings.map((w) => (
             <li key={w}>⚠ {w}</li>
           ))}

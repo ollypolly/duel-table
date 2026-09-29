@@ -79,7 +79,7 @@ duel-table/
       branchStore.ts      # user-made branches (persisted)
       uiStore.ts          # selected card, open pile viewer (not persisted)
     components/
-      Board/ Zone/ CardView/ CardDetailPanel/ Hand/ PileViewer/
+      Board/ Zone/ CardView/ CardDetail/ CardInspector/ Hand/ PileViewer/
       StepControls/ NarrationPanel/ ScenarioPicker/
     App.tsx
 ```

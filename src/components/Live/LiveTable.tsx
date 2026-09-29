@@ -45,17 +45,17 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       {nav}
       <span className="flex items-center gap-2 text-sm">
         <span className="relative flex h-2 w-2">
-          <span className={`absolute inline-flex h-full w-full rounded-full ${connection ? 'bg-amber-400' : 'animate-ping bg-emerald-400/70'}`} />
-          <span className={`relative inline-flex h-2 w-2 rounded-full ${connection ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+          <span className={`absolute inline-flex h-full w-full rounded-full ${connection ? 'bg-warn' : 'animate-ping bg-ok/70'}`} />
+          <span className={`relative inline-flex h-2 w-2 rounded-full ${connection ? 'bg-warn' : 'bg-ok'}`} />
         </span>
-        <span className="text-emerald-300">Live</span>
-        {connection && <span className="text-amber-300">{connection}</span>}
+        <span className="text-ok">Live</span>
+        {connection && <span className="text-warn">{connection}</span>}
         {rejected && (
-          <span role="alert" className="text-rose-300">
+          <span role="alert" className="text-danger">
             {rejected}
           </span>
         )}
-        <button type="button" className="rounded-md bg-slate-800 px-2 py-0.5 text-xs hover:bg-slate-700" onClick={() => openSession(undefined)}>
+        <button type="button" className="rounded-md bg-raised px-2 py-0.5 text-xs hover:bg-raised-hover" onClick={() => openSession(undefined)}>
           Leave
         </button>
       </span>
@@ -77,10 +77,10 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     <>
       <TopBar nav={liveNav} />
       {!result ? (
-        <p className="mt-12 text-center text-slate-400">{connection || 'Connecting…'}</p>
+        <p className="mt-12 text-center text-muted">{connection || 'Connecting…'}</p>
       ) : (
         <ScenarioErrors id={result.id} errors={result.errors}>
-          <span className="text-slate-400">The session's file doesn't resolve in the browser. Check that scenarios/ matches the server.</span>
+          <span className="text-muted">The session's file doesn't resolve in the browser. Check that scenarios/ matches the server.</span>
         </ScenarioErrors>
       )}
     </>

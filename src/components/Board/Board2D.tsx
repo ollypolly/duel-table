@@ -1,14 +1,20 @@
 // The 2D board: absolutely positions zones and cards from the shared layout,
-// in % of a fixed-aspect container, so it scales with the window. Every card
-// is a direct child keyed by iid, so moving between zones animates via CSS;
-// Motion handles what CSS can't: cards leaving, flips and arrows drawing in.
+// in % of a fixed-aspect "world" sized so the whole table fits. A camera pans
+// and zooms the world to frame the focus area. Every card is a direct child
+// keyed by iid, so moving between zones animates via CSS; Motion handles what
+// CSS can't: the camera, cards leaving, flips and arrows drawing in.
 import { AnimatePresence, motion } from 'motion/react'
-import type { CSSProperties } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Iid } from '../../engine'
 import type { PlacedCard, ZoneView } from '../../view/boardView'
-import { BOUNDS, CARD, type Point } from '../../view/layout'
+import { BOUNDS, CARD, focusRegion, type FocusArea, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
-import type { BoardRendererProps, ScreenRect } from './BoardRenderer'
+import type { BoardRendererProps } from './BoardRenderer'
+
+const MAX_ZOOM = 2.2
+// A focused view may crop the table's sides by this much, so narrow (phone)
+// screens can still zoom in on one player's half.
+const MAX_SIDE_CROP = 0.35
 
 // Position only; rotation is applied to the card inside so labels stay upright.
 const box = (p: Point): CSSProperties => ({
@@ -18,66 +24,86 @@ const box = (p: Point): CSSProperties => ({
   height: `${(CARD.h / BOUNDS.height) * 100}%`,
 })
 
-export function Board2D({ view, selected, onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
+function useSize(ref: React.RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState<{ w: number; h: number }>()
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return size
+}
+
+// Scale and offset (px) that frame a focus area in a viewport of this size.
+function camera(size: { w: number; h: number }, focus: FocusArea) {
+  const worldW = Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
+  const unit = worldW / BOUNDS.width
+  const r = focusRegion(focus)
+  const fitW = size.w / (r.width * unit)
+  const scale = Math.min(MAX_ZOOM, focus === 'all' ? fitW : fitW / (1 - MAX_SIDE_CROP), size.h / (r.height * unit))
+  const cx = (r.minX + r.width / 2 - BOUNDS.minX) * unit
+  const cy = (r.minY + r.height / 2 - BOUNDS.minY) * unit
+  return { worldW, scale, x: size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
+}
+
+export function Board2D({ view, selected, focus = 'all', onCardClick, onCardHover, onZoneClick }: BoardRendererProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const size = useSize(ref)
+  const cam = size && camera(size, focus)
   return (
-    <div
-      className="@container relative w-full select-none overflow-hidden rounded-xl bg-gradient-to-b from-indigo-950 via-slate-900 to-emerald-950 shadow-inner"
-      style={{ aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}` }}
-      data-testid="board"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-white/10" />
-      {view.zones.map((z) => (
-        <ZoneOutline key={z.key} zone={z} onClick={() => onZoneClick?.(z.ref)} />
-      ))}
-      <AnimatePresence initial={false}>
-        {view.cards.map((c) => (
-          <BoardCard
-            key={c.iid}
-            card={c}
-            selected={selected === c.iid}
-            onClick={(anchor) => onCardClick?.(c.iid, anchor)}
-            onHover={onCardHover}
-          />
-        ))}
-      </AnimatePresence>
-      {view.zones
-        .filter((z) => z.kind === 'pile' && z.count > 0)
-        .map((z) => (
-          <span
-            key={z.key}
-            className="pointer-events-none absolute z-[60] flex items-end justify-center"
-            style={box(z.placement)}
-          >
-            <span className="mb-[-0.6cqw] rounded-full bg-black/85 px-[0.6cqw] font-mono text-[1cqw] text-white">{z.count}</span>
-          </span>
-        ))}
-      <svg
-        className="pointer-events-none absolute inset-0 z-50 h-full w-full"
-        viewBox={`${BOUNDS.minX} ${BOUNDS.minY} ${BOUNDS.width} ${BOUNDS.height}`}
+    <div ref={ref} className="relative isolate h-full w-full overflow-hidden" data-testid="board" data-focus={focus}>
+      {/* Remounts once measured so the camera starts in place rather than easing in. */}
+      <motion.div
+        key={cam ? 'measured' : 'unmeasured'}
+        className="playmat @container absolute left-0 top-0 origin-top-left select-none rounded-2xl"
+        style={{ width: cam ? cam.worldW : '100%', aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}` }}
+        initial={false}
+        animate={cam ? { x: cam.x, y: cam.y, scale: cam.scale } : undefined}
+        transition={{ type: 'spring', stiffness: 90, damping: 20 }}
       >
-        <defs>
-          <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24" />
-          </marker>
-        </defs>
-        {view.arrows.map((a) => (
-          <motion.line
-            key={`${a.fromIid}>${a.toIid}`}
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            x1={a.from.x}
-            y1={a.from.y}
-            x2={a.to.x}
-            y2={a.to.y}
-            stroke="#fbbf24"
-            strokeWidth={0.07}
-            strokeLinecap="round"
-            markerEnd="url(#arrowhead)"
-            className="drop-shadow"
-          />
+        <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+        {view.zones.map((z) => (
+          <ZoneOutline key={z.key} zone={z} onClick={() => onZoneClick?.(z.ref)} />
         ))}
-      </svg>
+        <AnimatePresence initial={false}>
+          {view.cards.map((c) => (
+            <BoardCard key={c.iid} card={c} selected={selected === c.iid} onClick={() => onCardClick?.(c.iid)} onHover={onCardHover} />
+          ))}
+        </AnimatePresence>
+        {view.zones
+          .filter((z) => z.kind === 'pile' && z.count > 0)
+          .map((z) => (
+            <span key={z.key} className="pointer-events-none absolute z-[60] flex items-end justify-center" style={box(z.placement)}>
+              <span className="mb-[-0.7cqw] rounded-full border border-line bg-bg/90 px-[0.7cqw] font-display text-[1cqw] font-semibold text-ink">{z.count}</span>
+            </span>
+          ))}
+        <svg className="pointer-events-none absolute inset-0 z-50 h-full w-full" viewBox={`${BOUNDS.minX} ${BOUNDS.minY} ${BOUNDS.width} ${BOUNDS.height}`}>
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--color-gold)" />
+            </marker>
+          </defs>
+          {view.arrows.map((a) => (
+            <motion.line
+              key={`${a.fromIid}>${a.toIid}`}
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              x1={a.from.x}
+              y1={a.from.y}
+              x2={a.to.x}
+              y2={a.to.y}
+              stroke="var(--color-gold)"
+              strokeWidth={0.07}
+              strokeLinecap="round"
+              markerEnd="url(#arrowhead)"
+              className="drop-shadow-[0_0_0.1px_var(--color-gold)]"
+            />
+          ))}
+        </svg>
+      </motion.div>
     </div>
   )
 }
@@ -89,12 +115,12 @@ function ZoneOutline({ zone, onClick }: { zone: ZoneView; onClick: () => void })
       type="button"
       onClick={onClick}
       aria-label={`${zone.ref.player ?? ''} ${zone.label}${pile ? ` (${zone.count})` : ''}`}
-      className={`absolute rounded-[6%] border border-dashed text-white/35 transition-colors hover:border-white/50 hover:bg-white/5 ${
-        zone.ref.zone === 'extraMonster' ? 'border-sky-300/30' : 'border-white/20'
+      className={`zone absolute rounded-[6%] border transition-colors ${
+        zone.ref.zone === 'extraMonster' ? 'border-gold/40 text-gold/50' : zone.ref.player === 'p2' ? 'border-p2/25 text-p2/40' : 'border-p1/25 text-p1/40'
       }`}
       style={box(zone.placement)}
     >
-      <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-[4%] text-center text-[0.9cqw] leading-tight">
+      <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 px-[4%] text-center font-display text-[0.75cqw] font-semibold uppercase leading-tight tracking-wider">
         {zone.label}
       </span>
     </button>
@@ -109,8 +135,8 @@ function BoardCard({
 }: {
   card: PlacedCard
   selected: boolean
-  onClick: (anchor: ScreenRect) => void
-  onHover?: (iid: Iid | undefined, anchor?: ScreenRect) => void
+  onClick: () => void
+  onHover?: (iid: Iid | undefined) => void
 }) {
   const onField = card.stackIndex === undefined && card.handIndex === undefined && card.materialOf === undefined
   const isMonsterZone = card.zone.zone === 'monster' || card.zone.zone === 'extraMonster'
@@ -130,19 +156,19 @@ function BoardCard({
       data-iid={card.iid}
       onClick={(e) => {
         e.stopPropagation()
-        onClick(e.currentTarget.getBoundingClientRect())
+        onClick()
       }}
-      onKeyDown={(e) => e.key === 'Enter' && onClick(e.currentTarget.getBoundingClientRect())}
-      onMouseEnter={(e) => onHover?.(card.iid, e.currentTarget.getBoundingClientRect())}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      onMouseEnter={() => onHover?.(card.iid)}
       onMouseLeave={() => onHover?.(undefined)}
-      className={`absolute cursor-pointer text-[1.6cqw] transition-[left,top] duration-300 ease-out hover:brightness-110 motion-reduce:transition-none ${inPile ? 'pointer-events-none' : ''}`}
+      className={`absolute cursor-pointer text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out hover:-translate-y-[0.4cqw] hover:brightness-110 motion-reduce:transition-none ${inPile ? 'pointer-events-none' : ''}`}
       style={{ ...box(card.placement), zIndex: z }}
     >
       <div
         style={{ transform: `rotate(${card.placement.rotation + (isMonsterZone && card.position === 'def' ? 90 : 0)}deg)` }}
         className={`h-full w-full rounded-[5%] transition-transform duration-300 ${
-          card.highlighted ? 'shadow-[0_0_1.2cqw_0.3cqw_rgba(251,191,36,0.9)] ring-2 ring-amber-300' : 'shadow-md shadow-black/60'
-        } ${selected ? 'outline outline-2 outline-offset-2 outline-sky-300' : ''} ${card.revealed ? 'ring-2 ring-fuchsia-400' : ''}`}
+          card.highlighted ? 'shadow-[0_0_1.4cqw_0.3cqw_var(--color-gold)] ring-2 ring-gold' : 'shadow-lg shadow-black/70'
+        } ${selected ? 'outline outline-2 outline-offset-2 outline-accent' : ''} ${card.revealed ? 'ring-2 ring-chain' : ''}`}
       >
         {/* A flip when the face shown changes; initial={false} skips it when the card first appears. */}
         <AnimatePresence mode="wait" initial={false}>
@@ -160,16 +186,16 @@ function BoardCard({
       </div>
       {onField && isMonsterZone && card.visible && card.atk !== undefined && (
         <div
-          className={`absolute left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-[0.5cqw] font-mono text-[0.95cqw] ${
-            card.controller === 'p1' ? '-bottom-[1.4cqw]' : '-top-[1.4cqw]'
-          } ${modified ? 'text-amber-300' : 'text-white'}`}
+          className={`absolute left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded border border-line bg-bg/90 px-[0.5cqw] font-display text-[1cqw] font-semibold ${
+            card.controller === 'p1' ? '-bottom-[1.5cqw]' : '-top-[1.5cqw]'
+          } ${modified ? 'text-warn' : 'text-ink'}`}
         >
           {card.atk}
           {card.def !== undefined && ` / ${card.def}`}
         </div>
       )}
       {card.modifiers.length > 0 && card.visible && (
-        <div className="absolute -right-[0.6cqw] -top-[0.6cqw] z-10 rounded-full bg-amber-400 px-[0.45cqw] text-[0.9cqw] font-bold text-black">
+        <div className="absolute -right-[0.6cqw] -top-[0.6cqw] z-10 rounded-full bg-warn px-[0.45cqw] font-display text-[0.9cqw] font-bold text-bg">
           {card.modifiers.length}
         </div>
       )}

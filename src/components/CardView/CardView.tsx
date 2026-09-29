@@ -8,8 +8,8 @@ const FRAME_COLOURS: Record<string, string> = {
   xyz: 'bg-neutral-800 text-white',
   link: 'bg-sky-700 text-white',
   ritual: 'bg-blue-300',
-  spell: 'bg-teal-500 text-white',
-  trap: 'bg-pink-700 text-white',
+  spell: 'bg-spell text-white',
+  trap: 'bg-trap text-white',
 }
 
 // One card, face or back. Sized by its parent (fills it).
@@ -41,10 +41,11 @@ export function CardView({ card, showFace }: { card: CardFace; showFace?: boolea
   )
 }
 
+// The classic brown back with its dark swirl, drawn rather than scanned.
 export function CardBack() {
   return (
-    <div className="flex h-full w-full items-center justify-center rounded-[4%] border border-black/40 bg-gradient-to-br from-amber-900 to-stone-900">
-      <div className="h-[55%] w-[60%] rounded-[50%] border-2 border-amber-600/60 bg-gradient-to-br from-stone-800 to-amber-950" />
+    <div className="flex h-full w-full items-center justify-center rounded-[4%] border border-black/50 bg-[radial-gradient(ellipse_at_30%_20%,#9a5a22,#4a2410_55%,#1d0d06)]">
+      <div className="h-[58%] w-[62%] rounded-[50%] border-[0.12em] border-gold/60 bg-[radial-gradient(circle_at_40%_35%,#3a2a24,#0c0806_70%)] shadow-[0_0_0.4em_rgb(0_0_0/0.8)_inset]" />
     </div>
   )
 }
