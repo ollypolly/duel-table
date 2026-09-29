@@ -1,0 +1,42 @@
+// Playback position, persisted so a reload lands where you were. `position`
+// is 0 for the setup and n for "after step n".
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+
+export const SPEEDS = [0.5, 1, 2, 4] as const
+export const BASE_STEP_MS = 2500
+
+type PlayerState = {
+  scenarioId?: string
+  position: number
+  speed: number
+  playing: boolean
+  open: (scenarioId: string, position?: number) => void
+  goTo: (position: number) => void
+  setSpeed: (speed: number) => void
+  setPlaying: (playing: boolean) => void
+}
+
+type Persisted = Pick<PlayerState, 'position' | 'speed'> & { scenarioId: string | undefined }
+
+export const usePlayerStore = create<PlayerState>()(
+  persist(
+    (set) => ({
+      position: 0,
+      speed: 1,
+      playing: false,
+      open: (scenarioId, position = 0) => set({ scenarioId, position, playing: false }),
+      goTo: (position) => set({ position }),
+      setSpeed: (speed) => set({ speed }),
+      setPlaying: (playing) => set({ playing }),
+    }),
+    {
+      name: 'duel-table/player',
+      version: 1,
+      partialize: ({ scenarioId, position, speed }): Persisted => ({ scenarioId, position, speed }),
+      // Only called when the stored version differs. No older versions exist
+      // yet, so anything unrecognised starts fresh.
+      migrate: (): Persisted => ({ scenarioId: undefined, position: 0, speed: 1 }),
+    },
+  ),
+)

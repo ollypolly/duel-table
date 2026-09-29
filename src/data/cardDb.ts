@@ -34,7 +34,7 @@ export const isMonster = (c: CardData) => c.type.includes('Monster')
 
 const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-function levenshtein(a: string, b: string): number {
+export function levenshtein(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {
     let prev = row[0]

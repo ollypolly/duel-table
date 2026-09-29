@@ -1,49 +1,34 @@
-import { useMemo } from 'react'
-import { Board2D } from './components/Board/Board2D'
-import { CardDetailPanel } from './components/CardDetailPanel/CardDetailPanel'
-import { PileViewer } from './components/PileViewer/PileViewer'
-import { PlayersPanel } from './components/PlayersPanel/PlayersPanel'
-import { cardDb } from './data/cards'
+import { useEffect } from 'react'
+import { ScenarioErrors, EmptyState } from './components/ScenarioErrors/ScenarioErrors'
+import { ScenarioPicker } from './components/ScenarioPicker/ScenarioPicker'
+import { Table } from './components/Table/Table'
 import { scenarioResults } from './scenarios/load'
-import { useUiStore } from './store/uiStore'
-import { buildBoardView, cardFace } from './view/boardView'
+import { usePlayerStore } from './store/playerStore'
+
+const idOf = (r: (typeof scenarioResults)[number]) => (r.ok ? r.scenario.id : r.id)
 
 export default function App() {
-  const first = scenarioResults.find((r) => r.ok)
-  const entry = first?.ok ? first.scenario.timeline.at(-1)! : undefined
-  const view = useMemo(() => entry && buildBoardView(entry.state, cardDb), [entry])
-  const { hovered, selected, openPile, hover, select, openPileViewer } = useUiStore()
-  if (!entry || !view) return <p className="p-6 text-white">No scenarios</p>
+  const { scenarioId, open } = usePlayerStore()
+  const result =
+    scenarioResults.find((r) => idOf(r) === scenarioId) ?? scenarioResults.find((r) => r.ok) ?? scenarioResults[0]
+  const currentId = result && idOf(result)
 
-  const shown = hovered ?? selected
-  const shownFace = shown && entry.state.cards[shown] ? cardFace(entry.state, shown, cardDb) : undefined
-  const materials = shown ? (entry.state.cards[shown]?.materials ?? []).map((m) => cardFace(entry.state, m, cardDb)) : []
-  const pile = openPile && view.zones.find((z) => z.kind === 'pile' && z.ref.player === openPile.player && z.ref.zone === openPile.zone)
+  useEffect(() => {
+    if (currentId && currentId !== scenarioId) open(currentId)
+  }, [currentId, scenarioId, open])
 
   return (
-    <div className="grid min-h-screen grid-cols-[14rem_1fr_20rem] gap-4 bg-slate-950 p-4 text-slate-100">
-      <PlayersPanel view={view} />
-      <main>
-        <Board2D
-          view={view}
-          events={entry.events}
-          selected={selected}
-          onCardClick={(iid) => select(selected === iid ? undefined : iid)}
-          onCardHover={hover}
-          onZoneClick={(ref) => view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone) && openPileViewer(ref)}
-        />
-      </main>
-      <div className="rounded-xl bg-slate-900">
-        <CardDetailPanel card={shownFace} materials={materials} />
-      </div>
-      {pile && (
-        <PileViewer
-          zone={pile}
-          playerName={view.players[pile.ref.player!].name}
-          onClose={() => openPileViewer(undefined)}
-          onCardClick={select}
-          onCardHover={hover}
-        />
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <header className="flex items-center gap-6 border-b border-slate-800 px-4 py-2">
+        <h1 className="font-bold tracking-tight">Duel Table</h1>
+        {scenarioResults.length > 0 && <ScenarioPicker results={scenarioResults} value={currentId} onChange={(id) => open(id)} />}
+      </header>
+      {!result ? (
+        <EmptyState />
+      ) : result.ok ? (
+        <Table key={result.scenario.id} scenario={result.scenario} />
+      ) : (
+        <ScenarioErrors id={result.id} errors={result.errors} />
       )}
     </div>
   )

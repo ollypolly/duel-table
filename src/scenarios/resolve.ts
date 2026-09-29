@@ -4,7 +4,7 @@
 // Pure: callers pass in the raw JSON, decks and card DB.
 import { z } from 'zod'
 import type { CardDb } from '../data/cardDb'
-import { isExtraDeckCard } from '../data/cardDb'
+import { isExtraDeckCard, levenshtein } from '../data/cardDb'
 import {
   createInitialState,
   StepError,
@@ -209,9 +209,10 @@ function dryRun(game: ScriptedGame): { timeline: TimelineEntry[]; warnings: stri
 }
 
 function closeIids(target: string, iids: string[]): string[] {
-  const stem = target.replace(/-\d+$/, '')
-  const sameStem = iids.filter((i) => i.replace(/-\d+$/, '') === stem)
-  if (sameStem.length) return sameStem.slice(0, 5)
-  const words = stem.split('-').filter((w) => w.length > 2)
-  return iids.filter((i) => words.some((w) => i.includes(w))).slice(0, 5)
+  return iids
+    .map((iid) => ({ iid, d: levenshtein(target, iid) }))
+    .filter((x) => x.d <= Math.max(3, target.length / 3))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 3)
+    .map((x) => x.iid)
 }
