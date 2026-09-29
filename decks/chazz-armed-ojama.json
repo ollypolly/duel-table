@@ -1,0 +1,40 @@
+{
+  "id": "chazz-armed-ojama",
+  "name": "Chazz: Armed Ojama VWXYZ",
+  "main": [
+    { "name": "Ojama Yellow", "count": 1 },
+    { "name": "Ojama Green", "count": 1 },
+    { "name": "Ojama Black", "count": 1 },
+    { "name": "V-Tiger Jet", "count": 1 },
+    { "name": "W-Wing Catapult", "count": 1 },
+    { "name": "X-Head Cannon", "count": 1 },
+    { "name": "Y-Dragon Head", "count": 1 },
+    { "name": "Z-Metal Tank", "count": 1 },
+    { "name": "Armed Dragon Thunder LV3", "count": 1 },
+    { "name": "Armed Dragon Thunder LV5", "count": 1 },
+    { "name": "Armed Dragon LV5", "count": 1 },
+    { "name": "Armed Dragon LV7", "count": 1 },
+    { "name": "Ash Blossom & Joyous Spring", "count": 3 },
+    { "name": "Ojamatch", "count": 3 },
+    { "name": "Ojamassimilation", "count": 3 },
+    { "name": "Ojamagic", "count": 3 },
+    { "name": "Fusion Tag", "count": 3 },
+    { "name": "Forbidden Droplet", "count": 3 },
+    { "name": "Foolish Burial Goods", "count": 2 },
+    { "name": "Foolish Burial", "count": 1 },
+    { "name": "Triple Tactics Talent", "count": 1 },
+    { "name": "Called by the Grave", "count": 1 },
+    { "name": "Ojama Pajama", "count": 2 },
+    { "name": "Infinite Impermanence", "count": 3 }
+  ],
+  "extra": [
+    { "name": "Armed Dragon Catapult Cannon", "count": 1 },
+    { "name": "VWXYZ-Dragon Catapult Cannon", "count": 1 },
+    { "name": "VW-Tiger Catapult", "count": 1 },
+    { "name": "XYZ-Dragon Cannon", "count": 2 },
+    { "name": "XY-Dragon Cannon", "count": 1 },
+    { "name": "YZ-Tank Dragon", "count": 1 },
+    { "name": "Ojama King", "count": 1 },
+    { "name": "Ojama Knight", "count": 1 }
+  ]
+}
