@@ -114,8 +114,13 @@ export function Table({
   const talker = activity?.who ?? scenario.timeline.at(-1)!.state.players.p2.name
   const [seen, setSeen] = useState(messages)
   if (panelOpen && seen !== messages) setSeen(messages)
+  // Your move counts as seen once you've opened the panel on it, until the next one.
+  const action = !!activity?.action
+  const [actionSeen, setActionSeen] = useState(false)
+  if (action && panelOpen && !actionSeen) setActionSeen(true)
+  if (!action && actionSeen) setActionSeen(false)
   const typing = !panelOpen && !!activity?.typing
-  const alert = !panelOpen && (messages > seen || !!activity?.action)
+  const alert = !panelOpen && (messages > seen || (action && !actionSeen))
   const openPanel = useCallback(() => setPanelOpen(true), [])
   const last = scenario.game.steps.length
   const position = Math.min(Math.max(0, rawPosition), last)
