@@ -1,0 +1,716 @@
+{
+  "id": "armed-ojama-links-vs-super-quant",
+  "title": "Armed Ojama vs Super Quant: banish the Magnacarrier",
+  "description": "You're on **Armed Ojama**, going second into a Super Quant board of **Magnacarrier** and two Mech Beasts. One more Mech Beast and they have **Great Magnus**.\n\nThis lesson uses the Links you added: why **banishing** Magnacarrier matters more than destroying it, and how **S:P Little Knight** and **TY-PHON** clear the board.\n\nPress **→** to step through.",
+  "seed": 7,
+  "players": {
+    "p1": {
+      "name": "You",
+      "deck": "chazz-armed-ojama"
+    },
+    "p2": {
+      "name": "Friend",
+      "deck": "super-quant"
+    }
+  },
+  "setup": {
+    "p1": {
+      "hand": ["Infinite Impermanence", "Ojamatch", "Ojama Yellow", "Ojama Green", "Ojamassimilation"],
+      "deck": ["Foolish Burial Goods"]
+    },
+    "p2": {
+      "monster": [
+        null,
+        {
+          "name": "Super Quantal Mech Beast Grampulse",
+          "materials": ["Super Quantum Blue Layer"]
+        },
+        {
+          "name": "Super Quantal Mech Beast Aeroboros",
+          "materials": ["Super Quantum Green Layer"]
+        }
+      ],
+      "fieldSpell": ["Super Quantal Mech Ship Magnacarrier"],
+      "gy": ["Super Quantal Alphan Spike", "Super Quantal Alphan Spike"]
+    }
+  },
+  "start": {
+    "turn": 2,
+    "activePlayer": "p1",
+    "phase": "draw"
+  },
+  "steps": [
+    {
+      "label": "Turn 2: Friend's board",
+      "narration": "Friend went first and spent their whole hand on this: **Super Quantal Mech Ship Magnacarrier** turned Green Layer into **Aeroboros** (2200) and Blue Layer into **Grampulse** (1800), discarding two **Alphan Spikes** to pay for it. Each Mech Beast still has its Layer attached, and Friend has no cards left in hand.\n\nYou draw **Foolish Burial Goods**. Your hand: **Infinite Impermanence**, **Ojamatch**, **Ojama Yellow**, **Ojama Green**, **Ojamassimilation** and Foolish Burial Goods.\n\nThis lesson is about the Links you added to the Extra Deck.",
+      "actions": [
+        {
+          "type": "draw",
+          "player": "p1"
+        },
+        {
+          "type": "phase",
+          "phase": "main1"
+        },
+        {
+          "type": "highlight",
+          "cards": ["p2-super-quantal-mech-beast-aeroboros-1", "p2-super-quantal-mech-beast-grampulse-1", "p2-super-quantal-mech-ship-magnacarrier-1"]
+        }
+      ]
+    },
+    {
+      "label": "The target: Magnacarrier",
+      "narration": "Friend has two Mech Beasts. One more next turn, then they send Magnacarrier to the GY for **Great Magnus**, which your deck can't answer once it's out. Magnacarrier is the only way this deck summons Magnus, and Friend's list runs **one copy**.\n\nSo this turn's job is to get rid of Magnacarrier **for good**, and against Quant that means **banish**, not destroy:\n\n- **Red Layer** can add a \"Super Quant\" card from the GY to the hand, and Magnacarrier is one.\n- **Blue Layer** in the GY shuffles Super Quant cards back into the Deck, where the next Blue Layer can search it. Blue Layer is sitting under Grampulse right now, and hits the GY the moment Grampulse leaves the field.\n\nSo **Knightmare Phoenix** (destroy) and **Knightmare Unicorn** (shuffle into the Deck) only slow it down. **S:P Little Knight** banishes it.",
+      "actions": [
+        {
+          "type": "highlight",
+          "cards": ["p2-super-quantal-mech-ship-magnacarrier-1"]
+        }
+      ]
+    },
+    {
+      "label": "Impermanence Aeroboros first",
+      "narration": "Activate **Infinite Impermanence** from your hand on **Aeroboros**, while you still control no cards.\n\nWith Green Layer attached, Aeroboros can flip a face-up monster face-down on your turn. A face-down Thunder can't use its effect, and a face-down monster **can't be Link Material**, so one flip breaks this whole line.\n\nGrampulse's Quick Effect only destroys a Spell/Trap. Your Spells here are Normal and Quick-Play, and those still resolve if they're destroyed on the chain, so it can't stop anything.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-infinite-impermanence-1"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-infinite-impermanence-1",
+          "to": {
+            "player": "p1",
+            "zone": "spellTrap",
+            "slot": 2
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-infinite-impermanence-1",
+          "label": "Impermanence: negate Aeroboros"
+        },
+        {
+          "type": "arrow",
+          "from": "p1-infinite-impermanence-1",
+          "to": "p2-super-quantal-mech-beast-aeroboros-1"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "modify",
+          "modifier": {
+            "id": "impermanence-negate",
+            "target": "p2-super-quantal-mech-beast-aeroboros-1",
+            "kind": "negated",
+            "until": "endOfTurn",
+            "source": "p1-infinite-impermanence-1",
+            "label": "Effects negated (Infinite Impermanence)"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-infinite-impermanence-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "reason": "rule"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Ojamatch",
+      "narration": "**Ojamatch**, sending **Ojama Yellow** from your hand. It adds **Ojama Black** and **Armed Dragon Thunder LV3**, and you Normal Summon Thunder LV3 straight away. Summon **1**.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-ojamatch-1"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-ojamatch-1",
+          "to": {
+            "player": "p1",
+            "zone": "spellTrap",
+            "slot": 2
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-ojama-yellow-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-ojamatch-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-ojamatch-1",
+          "label": "Ojamatch: add Ojama Black and Thunder LV3"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p1-ojama-black-1",
+          "to": {
+            "player": "p1",
+            "zone": "hand"
+          },
+          "cause": {
+            "card": "p1-ojamatch-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-thunder-lv3-1",
+          "to": {
+            "player": "p1",
+            "zone": "hand"
+          },
+          "cause": {
+            "card": "p1-ojamatch-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-ojamatch-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "reason": "rule"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-thunder-lv3-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 2
+          },
+          "summon": "normal"
+        }
+      ]
+    },
+    {
+      "label": "Thunder LV3 into Thunder LV5",
+      "narration": "**Thunder LV3**: send **Ojama Black** from your hand, and it sends itself to the GY to Special Summon **Armed Dragon Thunder LV5** from the Deck. Summon **2**.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-armed-dragon-thunder-lv3-1"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-ojama-black-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv3-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-armed-dragon-thunder-lv3-1",
+          "label": "Thunder LV3: level up"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-thunder-lv3-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv3-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-thunder-lv5-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 2
+          },
+          "summon": "special",
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv3-1",
+            "reason": "effect"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Thunder LV5 into LV7",
+      "narration": "**Thunder LV5**: send **Ojama Green** from your hand to Special Summon **Armed Dragon LV7** (2800) from the Deck. Summon **3**.\n\nAll three Ojamas are in the GY now, ready for Ojamassimilation.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-armed-dragon-thunder-lv5-1"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-ojama-green-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv5-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-armed-dragon-thunder-lv5-1",
+          "label": "Thunder LV5: level up"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-thunder-lv5-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv5-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-armed-dragon-lv7-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 2
+          },
+          "summon": "special",
+          "cause": {
+            "card": "p1-armed-dragon-thunder-lv5-1",
+            "reason": "effect"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Ojamassimilation: X, Y and Z",
+      "narration": "**Ojamassimilation**: reveal **XYZ-Dragon Cannon**, banish the three Ojamas, and Special Summon **X-Head Cannon**, **Y-Dragon Head** and **Z-Metal Tank** from the Deck. Summons **4 to 6**.\n\nYou're **not** making XYZ this time. Three monsters with different names are Link Material.\n\n**About Nibiru:** this line makes 9 summons. That's only safe because Friend's hand is empty. If they were holding cards, you'd want Magnacarrier gone by your 4th summon.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-ojamassimilation-1"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-ojamassimilation-1",
+          "to": {
+            "player": "p1",
+            "zone": "spellTrap",
+            "slot": 2
+          }
+        },
+        {
+          "type": "reveal",
+          "cards": ["p1-xyz-dragon-cannon-1"]
+        },
+        {
+          "type": "move",
+          "card": "p1-ojama-green-1",
+          "to": {
+            "player": "p1",
+            "zone": "banished"
+          },
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-ojama-yellow-1",
+          "to": {
+            "player": "p1",
+            "zone": "banished"
+          },
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-ojama-black-1",
+          "to": {
+            "player": "p1",
+            "zone": "banished"
+          },
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "cost"
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-ojamassimilation-1",
+          "label": "Ojamassimilation: X, Y and Z"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p1-x-head-cannon-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 1
+          },
+          "summon": "special",
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-y-dragon-head-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 3
+          },
+          "summon": "special",
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-z-metal-tank-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 0
+          },
+          "summon": "special",
+          "cause": {
+            "card": "p1-ojamassimilation-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-ojamassimilation-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "reason": "rule"
+          }
+        }
+      ]
+    },
+    {
+      "label": "Knightmare Phoenix",
+      "narration": "Link Summon **Knightmare Phoenix** (2 monsters with different names) using **X-Head Cannon** and **Y-Dragon Head**. Summon **7**.\n\nPhoenix is here to be **material**: S:P Little Knight only banishes if a Fusion, Synchro, Xyz or Link Monster was used to summon it, and you have none of those yet.\n\n**Don't use Phoenix's own effect.** It would discard a card to destroy Magnacarrier, which only puts it in the GY for Blue Layer or Red Layer to bring back. Leave Magnacarrier on the field for S:P to banish.",
+      "intent": {
+        "type": "specialSummon",
+        "card": "p1-knightmare-phoenix-1",
+        "method": "link"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-x-head-cannon-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-knightmare-phoenix-1",
+            "reason": "rule"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-y-dragon-head-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-knightmare-phoenix-1",
+            "reason": "rule"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-knightmare-phoenix-1",
+          "to": {
+            "zone": "extraMonster",
+            "slot": 0
+          },
+          "summon": "link"
+        },
+        {
+          "type": "highlight",
+          "cards": ["p1-knightmare-phoenix-1"]
+        }
+      ]
+    },
+    {
+      "label": "S:P Little Knight banishes Magnacarrier",
+      "narration": "Link Summon **S:P Little Knight** (2 Effect Monsters) using **Knightmare Phoenix** and **Z-Metal Tank**. Summon **8**.\n\nPhoenix was a Link Monster, so S:P's effect is live: banish **Magnacarrier** from the field. The cost is that your monsters can't attack directly this turn.\n\nThat was Friend's only Magnacarrier. **Great Magnus can't come out for the rest of the game**, and Aeroboros and Grampulse are now just two ordinary monsters.\n\nS:P also has a Quick Effect for Friend's turn: when they activate something, banish one of your monsters and one of theirs until the End Phase.",
+      "intent": {
+        "type": "specialSummon",
+        "card": "p1-s-p-little-knight-1",
+        "method": "link"
+      },
+      "actions": [
+        {
+          "type": "move",
+          "card": "p1-knightmare-phoenix-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-s-p-little-knight-1",
+            "reason": "rule"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-z-metal-tank-1",
+          "to": {
+            "player": "p1",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-s-p-little-knight-1",
+            "reason": "rule"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p1-s-p-little-knight-1",
+          "to": {
+            "zone": "extraMonster",
+            "slot": 0
+          },
+          "summon": "link"
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-s-p-little-knight-1",
+          "label": "S:P Little Knight: banish a card"
+        },
+        {
+          "type": "arrow",
+          "from": "p1-s-p-little-knight-1",
+          "to": "p2-super-quantal-mech-ship-magnacarrier-1"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p2-super-quantal-mech-ship-magnacarrier-1",
+          "to": {
+            "player": "p2",
+            "zone": "banished"
+          },
+          "cause": {
+            "card": "p1-s-p-little-knight-1",
+            "reason": "effect"
+          }
+        }
+      ]
+    },
+    {
+      "label": "TY-PHON from LV7",
+      "narration": "Friend Special Summoned **2 monsters from the Extra Deck** last turn (both Mech Beasts), so this turn you can Xyz Summon **Super Starslayer TY-PHON - Sky Crisis** using just **your highest-ATK monster**: Armed Dragon LV7 (2800) becomes its material. Summon **9**, and your last: you can't Normal or Special Summon again this turn.\n\nThe trade is LV7 (2800) for TY-PHON (2900), plus a bounce. While it's out, neither player can activate the effects of monsters with **3000+ ATK**. Remember that when you're playing VWXYZ (3000) or Armed Dragon Catapult Cannon (3500) yourself.",
+      "intent": {
+        "type": "specialSummon",
+        "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+        "method": "xyz"
+      },
+      "actions": [
+        {
+          "type": "attach",
+          "card": "p1-armed-dragon-lv7-1",
+          "to": "p1-super-starslayer-ty-phon-sky-crisis-1"
+        },
+        {
+          "type": "move",
+          "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+          "to": {
+            "player": "p1",
+            "zone": "monster",
+            "slot": 2
+          },
+          "summon": "xyz"
+        },
+        {
+          "type": "highlight",
+          "cards": ["p1-super-starslayer-ty-phon-sky-crisis-1"]
+        }
+      ]
+    },
+    {
+      "label": "TY-PHON bounces Aeroboros",
+      "narration": "Detach LV7 to return **Aeroboros** to the hand. An Xyz Monster goes back to the Extra Deck instead, and Green Layer goes to the GY. Green Layer's GY effect needs a Super Quant card to discard, and Friend has no hand.\n\n**Why bounce Aeroboros, not Grampulse?** Aeroboros is 2200 and Grampulse 1800. TY-PHON beats either in battle, so you remove the bigger one with the effect and hit the smaller one for more damage: 2900 - 1800 = **1100**, where Aeroboros would only give 700.",
+      "intent": {
+        "type": "activate",
+        "card": "p1-super-starslayer-ty-phon-sky-crisis-1"
+      },
+      "actions": [
+        {
+          "type": "detach",
+          "card": "p1-armed-dragon-lv7-1"
+        },
+        {
+          "type": "chainPush",
+          "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+          "label": "TY-PHON: return a monster to the hand"
+        },
+        {
+          "type": "arrow",
+          "from": "p1-super-starslayer-ty-phon-sky-crisis-1",
+          "to": "p2-super-quantal-mech-beast-aeroboros-1"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p2-super-quantal-mech-beast-aeroboros-1",
+          "to": {
+            "player": "p2",
+            "zone": "extraDeck"
+          },
+          "cause": {
+            "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+            "reason": "effect"
+          }
+        }
+      ]
+    },
+    {
+      "label": "TY-PHON attacks Grampulse",
+      "narration": "Battle Phase. **TY-PHON** (2900) attacks **Grampulse** (1800): Grampulse is destroyed and Friend takes **1100**. S:P can't attack directly this turn, so it stays back.\n\nBlue Layer goes to the GY, and Friend uses it to shuffle the two **Alphan Spikes** back into the Deck. This is the effect that would have saved Magnacarrier if you'd only destroyed it.",
+      "intent": {
+        "type": "attack",
+        "attacker": "p1-super-starslayer-ty-phon-sky-crisis-1",
+        "target": "p2-super-quantal-mech-beast-grampulse-1"
+      },
+      "actions": [
+        {
+          "type": "phase",
+          "phase": "battle"
+        },
+        {
+          "type": "arrow",
+          "from": "p1-super-starslayer-ty-phon-sky-crisis-1",
+          "to": "p2-super-quantal-mech-beast-grampulse-1"
+        },
+        {
+          "type": "move",
+          "card": "p2-super-quantal-mech-beast-grampulse-1",
+          "to": {
+            "player": "p2",
+            "zone": "gy"
+          },
+          "cause": {
+            "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+            "reason": "battle"
+          }
+        },
+        {
+          "type": "lp",
+          "player": "p2",
+          "delta": -1100,
+          "cause": {
+            "card": "p1-super-starslayer-ty-phon-sky-crisis-1",
+            "reason": "battle"
+          }
+        },
+        {
+          "type": "chainPush",
+          "card": "p2-super-quantum-blue-layer-1",
+          "label": "Blue Layer: shuffle Super Quant cards into the Deck"
+        },
+        {
+          "type": "chainResolve"
+        },
+        {
+          "type": "move",
+          "card": "p2-super-quantal-alphan-spike-1",
+          "to": {
+            "player": "p2",
+            "zone": "deck"
+          },
+          "cause": {
+            "card": "p2-super-quantum-blue-layer-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "move",
+          "card": "p2-super-quantal-alphan-spike-2",
+          "to": {
+            "player": "p2",
+            "zone": "deck"
+          },
+          "cause": {
+            "card": "p2-super-quantum-blue-layer-1",
+            "reason": "effect"
+          }
+        },
+        {
+          "type": "shuffle",
+          "player": "p2",
+          "zone": "deck"
+        }
+      ]
+    },
+    {
+      "label": "End turn 2",
+      "narration": "Friend is on **6900** with an empty field, an empty hand, and **no way to summon Great Magnus** for the rest of the game. You have TY-PHON (2900) and S:P Little Knight guarding it.\n\nWhat to take from this:\n\n- **Banish beats destroy against Quant.** Blue Layer and Red Layer recycle whatever you send to the GY.\n- **Phoenix was material, not removal.** Its effect was the wrong tool here even though it hits the right card.\n- **TY-PHON is live the turn after Friend makes two Mech Beasts**, which is most turns against this deck.\n\nThe other Links are for other hands: **Underclock Taker** to shrink a Mech Beast your attackers can't beat, **Hieratic Seal** to bounce something on Friend's turn when you have two Dragons, and **Cross-Sheep**, **Lyna** and **Ferrijit** for extra bodies and cards.",
+      "actions": [
+        {
+          "type": "phase",
+          "phase": "end"
+        }
+      ]
+    }
+  ]
+}
