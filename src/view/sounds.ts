@@ -1,9 +1,10 @@
 // Sound effects for a step as you move forward through a duel: cards sliding
 // and landing for ordinary moves, something more magical for Special Summons
-// and effects. The files are in public/sounds (Kenney, CC0).
+// and effects. Plus a chime for a new message. The files are in public/sounds
+// (Kenney, CC0).
 import type { Action, EngineEvent, Location } from '../engine'
 
-export type Sound = 'slide' | 'place' | 'shuffle' | 'turn' | 'attack' | 'summon' | 'activate' | 'destroy' | 'damage' | 'heal'
+export type Sound = 'slide' | 'place' | 'shuffle' | 'turn' | 'attack' | 'summon' | 'activate' | 'destroy' | 'damage' | 'heal' | 'message'
 
 // Most striking first: a step plays its top two.
 const PRIORITY: Sound[] = ['summon', 'activate', 'destroy', 'damage', 'heal', 'attack', 'place', 'turn', 'shuffle', 'slide']

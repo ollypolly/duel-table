@@ -198,6 +198,7 @@ export function Table({
             latest={activity.latest}
             action={activity.action}
             panelOpen={panelOpen}
+            muted={muted}
             onOpen={openPanel}
           />
         )}
