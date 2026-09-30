@@ -330,15 +330,20 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 
 ### Then
 
-1. **Lessons.** Claude sets up an opening hand and paces it with Next. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
-2. **Chat niceties.** Card names in Claude's messages open the inspector.
-3. **Deck hub.** List decks, a Main/Extra grid with counts, import via decklist (with the 422 suggestions), edit and delete, per-deck sleeves, mat and deck box, plus "Teach me this deck" and "Play with this deck".
-4. **Rethink Live.** "Live" currently covers sessions on the local API, curl-driven boards and games, and it isn't clear from the UI what it means or when you're in it. Work out the concepts (a game, a shared board Claude can drive, a lesson) and name and reach each one plainly.
-5. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
+1. **Claude everywhere in the app.** With a Claude login, the chat is always there, not only in a game against Claude, and Claude can act in the app: open a scenario or session, start a game, move your view to a step, fork, set up a lesson, look up cards and decks. It's the same agent and chat panel as in a game, with a wider tool set.
+   - **One tool layer, two ways in.** The tools are defined once, over the services the HTTP routes use (sessions, games, lessons, decks), with the same Zod schemas. The in-app agent gets them in-process (`createSdkMcpServer`, as the duel tools are now). The server also exposes them as an MCP server over Streamable HTTP (`/mcp`, local only), so Claude Code or another MCP client can drive the same app, and the browser follows along as it does for curl today.
+   - **What the chat is attached to.** A conversation belongs to the app, not one session, and it's told what you're looking at (screen, session, step). In a game against Claude it stays the opponent: fair-play limits apply to its game tools, whatever else it can do.
+   - **Alternative to weigh:** the browser-side WebMCP proposal (`navigator.modelContext`), where the page itself registers tools for an agent in the browser. It's still early; server-side MCP works today and covers Claude Code.
+   - Subsumes "Claude drives the review" below, and gives lessons their tools.
+2. **Lessons.** Claude sets up an opening hand and paces it with Next. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
+3. **Chat niceties.** Card names in Claude's messages open the inspector.
+4. **Deck hub.** List decks, a Main/Extra grid with counts, import via decklist (with the 422 suggestions), edit and delete, per-deck sleeves, mat and deck box, plus "Teach me this deck" and "Play with this deck".
+5. **Rethink Live.** "Live" currently covers sessions on the local API, curl-driven boards and games, and it isn't clear from the UI what it means or when you're in it. Work out the concepts (a game, a shared board Claude can drive, a lesson) and name and reach each one plainly.
+6. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
    - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.
-6. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
+7. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
    - auth;
    - spend limits;
    - storage beyond files;
