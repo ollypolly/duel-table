@@ -5,6 +5,7 @@
 // CSS can't: the camera, cards leaving, flips and arrows drawing in. Dragging
 // cards onto zones is dnd-kit.
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { AnimatePresence, motion } from 'motion/react'
 import { useRef, useState, type CSSProperties } from 'react'
 import { PLAYERS, type Iid, type Player } from '../../engine'
@@ -45,106 +46,108 @@ export function Board2D({
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [dragging, setDragging] = useState<PlacedCard>()
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={({ active }) => setDragging(view.cards.find((c) => c.iid === active.id))}
-      onDragCancel={() => setDragging(undefined)}
-      onDragEnd={({ active, over }) => {
-        setDragging(undefined)
-        const to = over && view.zones.find((z) => z.key === over.id)?.ref
-        if (to) onCardDrop?.(active.id as Iid, to)
-      }}
-    >
-      <div
-        ref={ref}
-        className="felt relative isolate h-full w-full cursor-grab touch-none overflow-hidden active:cursor-grabbing"
-        data-testid="board"
-        data-focus={focus}
-        {...cam.handlers}
+    <Tooltip.Provider delayDuration={300}>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={({ active }) => setDragging(view.cards.find((c) => c.iid === active.id))}
+        onDragCancel={() => setDragging(undefined)}
+        onDragEnd={({ active, over }) => {
+          setDragging(undefined)
+          const to = over && view.zones.find((z) => z.key === over.id)?.ref
+          if (to) onCardDrop?.(active.id as Iid, to)
+        }}
       >
-        <motion.div
-          className="playmat @container absolute left-0 top-0 origin-top-left select-none"
-          style={{
-            width: cam.worldW ?? '100%',
-            aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}`,
-            ...cam.style,
-          }}
+        <div
+          ref={ref}
+          className="felt relative isolate h-full w-full cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+          data-testid="board"
+          data-focus={focus}
+          {...cam.handlers}
         >
-          {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
-          <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
-          {view.zones.map((z) => (
-            <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`)} onClick={() => onZoneClick?.(z.ref)} />
-          ))}
-          {PLAYERS.map(
-            (p) =>
-              cosmetics[p].deckBox && (
-                <img
-                  key={p}
-                  src={cosmetics[p].deckBox}
-                  alt="Deck box"
-                  draggable={false}
-                  className="pointer-events-none absolute rounded-[6%] object-cover shadow-lg shadow-black/70"
-                  style={{
-                    ...box(deckBoxPlacement(p), DECK_BOX),
-                    rotate: `${deckBoxPlacement(p).rotation}deg`,
-                  }}
+          <motion.div
+            className="playmat @container absolute left-0 top-0 origin-top-left select-none"
+            style={{
+              width: cam.worldW ?? '100%',
+              aspectRatio: `${BOUNDS.width} / ${BOUNDS.height}`,
+              ...cam.style,
+            }}
+          >
+            {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
+            <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+            {view.zones.map((z) => (
+              <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`)} onClick={() => onZoneClick?.(z.ref)} />
+            ))}
+            {PLAYERS.map(
+              (p) =>
+                cosmetics[p].deckBox && (
+                  <img
+                    key={p}
+                    src={cosmetics[p].deckBox}
+                    alt="Deck box"
+                    draggable={false}
+                    className="pointer-events-none absolute rounded-[6%] object-cover shadow-lg shadow-black/70"
+                    style={{
+                      ...box(deckBoxPlacement(p), DECK_BOX),
+                      rotate: `${deckBoxPlacement(p).rotation}deg`,
+                    }}
+                  />
+                ),
+            )}
+            <AnimatePresence initial={false}>
+              {view.cards.map((c) => (
+                <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} />
+              ))}
+            </AnimatePresence>
+            {view.zones
+              .filter((z) => z.kind === 'pile' && z.count > 0)
+              .map((z) => (
+                <span key={z.key} className="pointer-events-none absolute z-[60] flex items-end justify-center" style={box(z.placement)}>
+                  <span className="mb-[-0.7cqw] rounded-full border border-line bg-bg/90 px-[0.7cqw] font-display text-[1cqw] font-semibold text-ink">{z.count}</span>
+                </span>
+              ))}
+            <svg className="pointer-events-none absolute inset-0 z-50 h-full w-full" viewBox={`${BOUNDS.minX} ${BOUNDS.minY} ${BOUNDS.width} ${BOUNDS.height}`}>
+              <defs>
+                <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+                  <path d="M0,0 L10,5 L0,10 z" fill="var(--color-gold)" />
+                </marker>
+              </defs>
+              {view.arrows.map((a) => (
+                <motion.line
+                  key={`${a.fromIid}>${a.toIid}`}
+                  initial={{ pathLength: 0 }}
+                  animate={{ pathLength: 1 }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                  x1={a.from.x}
+                  y1={a.from.y}
+                  x2={a.to.x}
+                  y2={a.to.y}
+                  stroke="var(--color-gold)"
+                  strokeWidth={0.07}
+                  strokeLinecap="round"
+                  markerEnd="url(#arrowhead)"
+                  className="drop-shadow-[0_0_0.1px_var(--color-gold)]"
                 />
-              ),
+              ))}
+            </svg>
+          </motion.div>
+          {focus === 'free' && (
+            <button type="button" className="btn absolute bottom-3 right-3 z-10" onClick={cam.reset} onPointerDown={(e) => e.stopPropagation()}>
+              Reset view
+            </button>
           )}
-          <AnimatePresence initial={false}>
-            {view.cards.map((c) => (
-              <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} />
-            ))}
-          </AnimatePresence>
-          {view.zones
-            .filter((z) => z.kind === 'pile' && z.count > 0)
-            .map((z) => (
-              <span key={z.key} className="pointer-events-none absolute z-[60] flex items-end justify-center" style={box(z.placement)}>
-                <span className="mb-[-0.7cqw] rounded-full border border-line bg-bg/90 px-[0.7cqw] font-display text-[1cqw] font-semibold text-ink">{z.count}</span>
-              </span>
-            ))}
-          <svg className="pointer-events-none absolute inset-0 z-50 h-full w-full" viewBox={`${BOUNDS.minX} ${BOUNDS.minY} ${BOUNDS.width} ${BOUNDS.height}`}>
-            <defs>
-              <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-gold)" />
-              </marker>
-            </defs>
-            {view.arrows.map((a) => (
-              <motion.line
-                key={`${a.fromIid}>${a.toIid}`}
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                x1={a.from.x}
-                y1={a.from.y}
-                x2={a.to.x}
-                y2={a.to.y}
-                stroke="var(--color-gold)"
-                strokeWidth={0.07}
-                strokeLinecap="round"
-                markerEnd="url(#arrowhead)"
-                className="drop-shadow-[0_0_0.1px_var(--color-gold)]"
-              />
-            ))}
-          </svg>
-        </motion.div>
-        {focus === 'free' && (
-          <button type="button" className="btn absolute bottom-3 right-3 z-10" onClick={cam.reset} onPointerDown={(e) => e.stopPropagation()}>
-            Reset view
-          </button>
-        )}
-      </div>
-      {/* Screen-sized, outside the zoomed world; no drop animation, since a
+        </div>
+        {/* Screen-sized, outside the zoomed world; no drop animation, since a
           card that moved slides to its new zone by itself. */}
-      <DragOverlay dropAnimation={null}>
-        {dragging && (
-          <div className="h-full w-full rotate-3 opacity-90 shadow-2xl shadow-black">
-            <CardView card={dragging} />
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay dropAnimation={null}>
+          {dragging && (
+            <div className="h-full w-full rotate-3 opacity-90 shadow-2xl shadow-black">
+              <CardView card={dragging} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    </Tooltip.Provider>
   )
 }
 
@@ -203,7 +206,7 @@ function BoardCard({ card, selected, lit, onClick, canDrag }: { card: PlacedCard
   const modified = card.atk !== card.baseAtk || card.def !== card.baseDef
   const inPile = card.stackIndex !== undefined
   const face = card.visible && !card.set ? 'up' : 'down'
-  return (
+  const el = (
     <motion.div
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -268,5 +271,17 @@ function BoardCard({ card, selected, lit, onClick, canDrag }: { card: PlacedCard
         </div>
       )}
     </motion.div>
+  )
+  if (!card.visible) return el
+  // Its name on hover (not on touch, and not while it's being picked up).
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>{el}</Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 px-2 py-1 font-display text-xs font-semibold text-ink">
+          {card.name}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }

@@ -163,10 +163,11 @@ export function Table({
             chat) in the middle taking what room there is, and the dock at the
             bottom. It floats top-left and slides off to the left; on a phone
             it's a sheet that slides down off the bottom. Either way its
-            handle stays on screen. With a chat it's full height. */}
+            handle stays on screen. With a chat it's full height (on a phone, all
+            but a strip at the top for the handle and Focus). */}
         <div
           className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 ${
-            chat ? 'h-[55%] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
+            chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
           } ${panelOpen ? '' : 'translate-y-[calc(100%+0.75rem)] sm:translate-y-0 sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
           data-open={panelOpen}
