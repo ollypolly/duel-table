@@ -18,6 +18,7 @@ import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
 import { CardActions, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
 import { DamagePopups } from './DamagePopups'
+import { LiveFeed } from './LiveFeed'
 import { Menu, MenuItem } from '../Menu/Menu'
 import { NarrationPanel } from '../NarrationPanel/NarrationPanel'
 import { PileViewer } from '../PileViewer/PileViewer'
@@ -55,6 +56,10 @@ type TableProps = {
   // A chat takes the middle of the panel in place of the narration, with
   // its input under the dock.
   chat?: { log: ReactNode; input: ReactNode }
+  // A live game. New steps show as toasts on the board. While the panel is
+  // hidden, its handle shows Claude typing and a dot for a message from it
+  // you haven't seen or a question waiting for you, and those toast too.
+  activity?: { typing: boolean; messages: number; latest?: string; action: boolean }
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -77,6 +82,7 @@ export function Table({
   onGoLive,
   dock,
   chat,
+  activity,
   choosable,
   onChoose,
   cardActions,
@@ -88,6 +94,13 @@ export function Table({
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board.
   const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
+  // Messages count as seen while the panel is open.
+  const messages = activity?.messages ?? 0
+  const [seen, setSeen] = useState(messages)
+  if (panelOpen && seen !== messages) setSeen(messages)
+  const typing = !panelOpen && !!activity?.typing
+  const alert = !panelOpen && (messages > seen || !!activity?.action)
+  const openPanel = useCallback(() => setPanelOpen(true), [])
   const last = scenario.game.steps.length
   const position = Math.min(Math.max(0, rawPosition), last)
   const entry = scenario.timeline[position]
@@ -165,6 +178,18 @@ export function Table({
             it's a sheet that slides down off the bottom. Either way its
             handle stays on screen. With a chat it's full height (on a phone, all
             but a strip at the top for the handle and Focus). */}
+        {activity && (
+          <LiveFeed
+            steps={scenario.game.steps}
+            opponent={scenario.timeline.at(-1)!.state.players.p2.name}
+            messages={messages}
+            latest={activity.latest}
+            action={activity.action}
+            panelOpen={panelOpen}
+            onOpen={openPanel}
+          />
+        )}
+
         <div
           className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 ${
             chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
@@ -177,10 +202,23 @@ export function Table({
             className="panel absolute bottom-full left-1/2 mb-1.5 grid h-9 w-14 -translate-x-1/2 place-items-center text-muted hover:text-ink sm:bottom-auto sm:left-full sm:top-0 sm:mb-0 sm:ml-1.5 sm:w-9 sm:translate-x-0"
             onClick={() => setPanelOpen(!panelOpen)}
             aria-expanded={panelOpen}
-            title={panelOpen ? 'Hide panel' : 'Show panel'}
+            title={panelOpen ? 'Hide panel' : `Show panel${typing ? ' (Claude is typing)' : ''}${alert ? ' (something new)' : ''}`}
           >
             <span className="sm:hidden">{panelOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}</span>
             <span className="hidden sm:block">{panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>
+            {typing && (
+              <span className="panel absolute -top-3 left-full -ml-3 flex gap-0.5 rounded-full px-1.5 py-1" data-testid="typing">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="size-1 animate-bounce rounded-full bg-ink" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </span>
+            )}
+            {alert && !typing && (
+              <span className="absolute -right-1 -top-1 flex size-2.5" data-testid="alert">
+                <span className="absolute size-full animate-ping rounded-full bg-gold opacity-75" />
+                <span className="relative size-2.5 rounded-full bg-gold" />
+              </span>
+            )}
           </button>
           <div className={`panel flex min-h-0 flex-col ${chat ? 'flex-1' : ''}`}>
             <div className="shrink-0 border-b border-line px-2 py-2">

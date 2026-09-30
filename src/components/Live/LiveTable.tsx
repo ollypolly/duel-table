@@ -203,6 +203,14 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             ),
           }
         }
+        activity={
+          game && {
+            typing: game.claude?.status === 'thinking',
+            messages: game.claude?.chat.filter((e) => e.from === 'claude').length ?? 0,
+            latest: game.claude?.chat.findLast((e) => e.from === 'claude')?.text,
+            action: !!game.prompt,
+          }
+        }
         dock={
           lesson &&
           (game || away || lesson.queued > 0 || !!lesson.prompt) && (
