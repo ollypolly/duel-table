@@ -191,26 +191,6 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // A review of a finished game takes the chat over, with the game's chat above it.
   const review = session?.review
   const steps = result?.ok ? result.scenario.game.steps.length : 0
-  const reviewChat = review && {
-    log: (
-      <ClaudeChat
-        claude={review}
-        empty="Ask Claude about the game. It sees the table at the step you're on, and knows how it went."
-        earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
-      />
-    ),
-    input: (
-      <ClaudeInput
-        claude={review}
-        placeholder="Ask about this step…"
-        onChat={(text) => report(api.askReview(id, text, Math.min(usePlayerStore.getState().position, steps)))}
-        onStop={() => report(api.stopReview(id))}
-        onSettings={(s) => report(api.reviewSettings(id, { model: s.model }))}
-        onClear={() => report(api.clearReview(id))}
-        onEnd={{ label: game?.claude ? "Back to the game's chat" : 'Close the review', run: () => report(api.closeReview(id)) }}
-      />
-    ),
-  }
   const talking = review ?? game?.claude
 
   // The quick button: what you'd most likely press next when it's routine.
@@ -241,6 +221,61 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                 ? option('Main Phase 2', 'End turn')
                 : undefined
 
+  // What you're being asked (lesson controls, the game's question). With a
+  // chat it's the end of the chat, so it scrolls away with it; without one
+  // it's pinned under the narration.
+  const dock =
+    result?.ok &&
+    lesson &&
+    (game || away || lesson.queued > 0 || !!lesson.prompt) && (
+      <>
+        <LessonPanel
+          lesson={lesson}
+          away={away && !review}
+          onBackToLive={backToLive}
+          onNext={next}
+          onAnswer={(a) => report(api.answer(id, a))}
+        />
+        {game && lesson.queued === 0 && (!lesson.prompt || game.prompt) && (
+          <GamePanel
+            game={game}
+            state={result.scenario.timeline.at(-1)!.state}
+            choice={choice}
+            onChoice={setChoice}
+            onAnswer={answerGame}
+            onRematch={rematch}
+            onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
+            busy={busy}
+          />
+        )}
+      </>
+    )
+  const chatting = !!(review || game?.claude)
+  // The chat follows the question as it changes, as it does a new message.
+  const dockKey = [lesson?.queued, lesson?.prompt?.id, game?.prompt?.id, game?.winner, away].join()
+
+  const reviewChat = review && {
+    log: (
+      <ClaudeChat
+        claude={review}
+        empty="Ask Claude about the game. It sees the table at the step you're on, and knows how it went."
+        earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
+        footer={dock}
+        footerKey={dockKey}
+      />
+    ),
+    input: (
+      <ClaudeInput
+        claude={review}
+        placeholder="Ask about this step…"
+        onChat={(text) => report(api.askReview(id, text, Math.min(usePlayerStore.getState().position, steps)))}
+        onStop={() => report(api.stopReview(id))}
+        onSettings={(s) => report(api.reviewSettings(id, { model: s.model }))}
+        onClear={() => report(api.clearReview(id))}
+        onEnd={{ label: game?.claude ? "Back to the game's chat" : 'Close the review', run: () => report(api.closeReview(id)) }}
+      />
+    ),
+  }
   if (result?.ok)
     return (
       <Table
@@ -249,7 +284,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         chat={
           reviewChat ||
           (game?.claude && {
-            log: <ClaudeChat claude={game.claude} />,
+            log: <ClaudeChat claude={game.claude} footer={dock} footerKey={dockKey} />,
             input: (
               <ClaudeInput
                 claude={claudeLesson ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
@@ -271,32 +306,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             ...(review && { who: 'Claude' }),
           }
         }
-        dock={
-          lesson &&
-          (game || away || lesson.queued > 0 || !!lesson.prompt) && (
-            <>
-              <LessonPanel
-                lesson={lesson}
-                away={away && !review}
-                onBackToLive={backToLive}
-                onNext={next}
-                onAnswer={(a) => report(api.answer(id, a))}
-              />
-              {game && lesson.queued === 0 && (!lesson.prompt || game.prompt) && (
-                <GamePanel
-                  game={game}
-                  state={result.scenario.timeline.at(-1)!.state}
-                  choice={choice}
-                  onChoice={setChoice}
-                  onAnswer={answerGame}
-                  onRematch={rematch}
-                  onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
-                  busy={busy}
-                />
-              )}
-            </>
-          )
-        }
+        dock={chatting ? undefined : dock}
         // Your moves wait until the queued steps have shown.
         onStep={game || lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
         onUndo={game ? undefined : () => report(api.undo(id))}

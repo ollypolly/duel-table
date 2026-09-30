@@ -23,7 +23,15 @@ const MODELS: [ModelChoice, string][] = [
 ]
 
 // earlier: a chat that came before this one (the game's, above a review), dimmed.
-type ChatProps = { claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }; empty?: string; earlier?: { chat: ChatEntry[]; divider: string } }
+// footer: what you're being asked, after the last message, so it scrolls away
+// with the chat; footerKey changes when it does, to bring it into view.
+type ChatProps = {
+  claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }
+  empty?: string
+  earlier?: { chat: ChatEntry[]; divider: string }
+  footer?: ReactNode
+  footerKey?: string
+}
 
 function Entry({ e }: { e: ChatEntry }) {
   return e.from === 'claude' ? (
@@ -35,12 +43,12 @@ function Entry({ e }: { e: ChatEntry }) {
   )
 }
 
-export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier }: ChatProps) {
+export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier, footer, footerKey }: ChatProps) {
   const list = useRef<HTMLDivElement>(null)
   const { chat, status } = claude
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight })
-  }, [chat.length, status])
+  }, [chat.length, status, footerKey])
 
   return (
     <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
@@ -60,6 +68,7 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
       ))}
       {status === 'thinking' && <p className="animate-pulse text-xs text-muted">Claude is thinking…</p>}
       {status === 'stopped' && <p className="text-xs text-warn">Stopped. Resume, or say something, to carry on.</p>}
+      {footer && <div className="mt-1.5 space-y-2.5 border-t border-line pt-2.5">{footer}</div>}
     </div>
   )
 }

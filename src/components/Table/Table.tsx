@@ -56,7 +56,8 @@ type TableProps = {
   onGoLive?: (position: number) => void
   // The scene panel's dock, pinned to its bottom: what you're being asked
   // (lesson controls, a game's question). It scrolls rather than grow past
-  // a cap, so it never pushes the rest off.
+  // a cap, so it never pushes the rest off. A live table with a chat puts
+  // it at the end of the chat instead.
   dock?: ReactNode
   // A chat takes the middle of the panel in place of the narration, with
   // its input under the dock. withNarration: it shares the middle with the
