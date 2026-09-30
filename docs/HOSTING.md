@@ -12,7 +12,7 @@ The dev server is fine here: it's one person's tool, and it reloads prompts and 
 
 ## Steps
 
-1. **Node 24.** Check `node --version`. On a machine with the owner's dotfiles, mise provides it; otherwise install Node 24 however the machine installs things.
+1. **Node 24.** Check `node --version`. The repo's `.tool-versions` pins it for asdf or mise; otherwise install Node 24 however the machine installs things.
 2. **Clone and install.**
    ```sh
    git clone https://github.com/ollypolly/duel-table.git && cd duel-table
@@ -20,18 +20,18 @@ The dev server is fine here: it's one person's tool, and it reloads prompts and 
    ```
 3. **Download the data** (neither is committed):
    ```sh
-   npm run fetch-cards   # card data and images into public/cards/, a few minutes
+   npm run fetch-cards   # card data into data/cards.json and images into public/cards/, a few minutes
    npm run fetch-ocg     # the rules engine's scripts and card database into data/ocg/
    ```
 4. **Check it builds and passes:** `npm run typecheck && npm test`.
 5. **Claude login.** Run `claude` and `/login` as the user that will run the server. On a headless machine the login prints a URL for the owner to open on another device. Check with `claude -p "say hi"`.
 6. **Run it so it survives logout and reboot.** Pick what fits the machine, and ask the owner if unsure:
    - With the owner's dotfiles and tmux: `tmux-popup --ensure devserver "mise run dev"` in the project's tmux session (see the owner's global CLAUDE.md). Doesn't survive a reboot on its own.
-   - Linux, always on: a systemd user service running `npm run dev` in the repo, with `loginctl enable-linger <user>` so it runs without a login session. It must run as the user with the Claude login.
+   - Linux, always on: a systemd user service running `npm run dev` in the repo, with `loginctl enable-linger <user>` so it runs without a login session. It must run as the user with the Claude login. The service doesn't load a shell profile, so put the directory of `which node` on its `PATH` (asdf and mise shims aren't there otherwise).
    - macOS, always on: a launchd agent in `~/Library/LaunchAgents` doing the same.
 
    Then check `curl -s localhost:5180/api/decks | head -c 200` returns JSON.
-7. **Tailscale.** The machine needs to be on the owner's tailnet (`tailscale status`). Then:
+7. **Tailscale.** The machine needs to be on the owner's tailnet (`tailscale status`). On Linux, `tailscale serve` needs root unless the user is the operator, so first `sudo tailscale set --operator=$USER`. Then:
    ```sh
    tailscale serve --bg 5180
    tailscale serve status
@@ -41,7 +41,7 @@ The dev server is fine here: it's one person's tool, and it reloads prompts and 
 
 ## Bringing games over
 
-Saved games and Claude chats are in `sessions/` (with Claude's side in `sessions/claude/`). To carry them over from the laptop, copy that folder into the server's checkout while the server is stopped. Sleeves, deck boxes and playmats are kept in each browser, so they don't carry over.
+Saved games and Claude chats are in `sessions/` (with Claude's side in `sessions/claude/` and `sessions/tutor/`). To carry them over from the laptop, copy that folder into the server's checkout while the server is stopped. Sleeves, deck boxes and playmats are kept in each browser, so they don't carry over.
 
 ## Updating
 
