@@ -339,6 +339,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 3. **Chat niceties.** Card names in Claude's messages open the inspector.
 4. **Deck hub.** List decks, a Main/Extra grid with counts, import via decklist (with the 422 suggestions), edit and delete, per-deck sleeves, mat and deck box, plus "Teach me this deck" and "Play with this deck".
 5. **Rethink Live.** "Live" currently covers sessions on the local API, curl-driven boards and games, and it isn't clear from the UI what it means or when you're in it. Work out the concepts (a game, a shared board Claude can drive, a lesson) and name and reach each one plainly.
+   - **A home screen to open on**, instead of dropping you into the free-table scenario. A chat-style opener with buttons: Play the bot, Play Claude, Start a lesson, Add a deck, Browse scenarios, and a box to ask Claude anything. Without a Claude login, the buttons still work and the Claude parts show how to log in. Asking a question needs Claude everywhere (1).
 6. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
