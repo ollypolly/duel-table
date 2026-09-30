@@ -28,7 +28,7 @@ export function CardLink({ card, children }: { card: CardData; children: string 
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content side="top" sideOffset={6} collisionPadding={8} className="panel z-50 flex w-[min(24rem,92vw)] gap-3 p-3 text-ink">
+          <Tooltip.Content side="top" sideOffset={6} collisionPadding={8} className="panel z-50 flex pointer-coarse:hidden w-[min(24rem,92vw)] gap-3 p-3 text-ink">
             <img src={catalogFace(card).image} alt="" className="h-fit w-20 shrink-0 rounded-[4%]" />
             <div className="min-w-0 space-y-1">
               <p className="font-display text-sm font-bold leading-tight">{card.name}</p>
