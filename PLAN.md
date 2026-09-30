@@ -221,6 +221,7 @@ Commit `data/cards.json` (small, makes tests and fresh clones work). Gitignore `
 - **Piles** (deck, Extra Deck, GY, banished) show a count + top card. Click to open a **PileViewer** listing the contents. Your deck/Extra Deck contents are visible in this tool (it's for learning).
 - **Card detail panel**: click/hover any face-up card to see full art, name, stats and text. Keep it docked on the right on desktop.
 - **Narration panel** under or beside the board: current step label + markdown narration.
+- **Card links.** Card names in narration, lesson questions and Claude's chat link to the card: hover for its text, click for the inspector. Names are matched against the card DB exactly as printed, so the prompts ask Claude to write them in full.
 - **Step controls**: first / prev / play-pause / next / last, a scrubber showing step labels, speed control. Keys: ←/→ step, space play/pause, Home/End.
 - Highlights (glow) and arrows (SVG overlay) for "this card targets that one".
 - **Deep links:** `?scenario=<id>&step=<n>` opens straight to that step, and the URL updates as you step. That lets Claude point the owner at an exact moment ("open this link, look at step 7").
@@ -336,14 +337,13 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - **Alternative to weigh:** the browser-side WebMCP proposal (`navigator.modelContext`), where the page itself registers tools for an agent in the browser. It's still early; server-side MCP works today and covers Claude Code.
    - Subsumes "Claude drives the review" below, and gives lessons their tools.
 2. **Lessons.** Claude sets up an opening hand and paces it with Next. "Teach me this deck" in the deck hub starts one for that deck. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
-3. **Chat niceties.** Card names in Claude's messages open the inspector.
-4. **Tables, then a home screen.** The Tables picker replaced the scenario dropdown and the Live menu: games (in progress and past, with who played whom and the Claude chat kept), boards, then lessons and scenarios, with rename and delete.
+3. **Tables, then a home screen.** The Tables picker replaced the scenario dropdown and the Live menu: games (in progress and past, with who played whom and the Claude chat kept), boards, then lessons and scenarios, with rename and delete.
    - **A home screen to open on**, instead of dropping you into the last table or the free-table scenario. A chat-style opener with buttons: Play the bot, Play Claude, Start a lesson, Add a deck, Browse scenarios, and a box to ask Claude anything. Without a Claude login, the buttons still work and the Claude parts show how to log in. Asking a question needs Claude everywhere (1).
-5. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
+4. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
    - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.
-6. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
+5. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
    - auth;
    - spend limits;
    - storage beyond files;

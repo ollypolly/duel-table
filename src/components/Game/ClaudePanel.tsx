@@ -6,9 +6,8 @@
 // comes out of your usage).
 import { Check, Eye, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import Markdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import type { ClaudeSettings, ClaudeView, ModelChoice } from '../../api/game'
+import { CardMarkdown, CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
 const STYLE = {
@@ -38,11 +37,11 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
       {chat.map((e, i) =>
         e.from === 'claude' ? (
           <div key={i} className={`chat-md ${STYLE.claude}`}>
-            <Markdown remarkPlugins={[remarkGfm]}>{e.text}</Markdown>
+            <CardMarkdown>{e.text}</CardMarkdown>
           </div>
         ) : (
           <p key={i} className={`whitespace-pre-wrap ${STYLE[e.from]}`}>
-            {e.from === 'move' ? `Claude: ${e.text}` : e.text}
+            {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}
           </p>
         ),
       )}

@@ -1,8 +1,8 @@
 // A live lesson's controls in the scene panel: Next for queued steps, Back
 // to live for a viewer who has scrubbed away, and Claude's open prompt.
 import { useState } from 'react'
-import Markdown from 'react-markdown'
 import type { Answer, LessonView, OpenPrompt } from '../../api/lesson'
+import { CardMarkdown } from '../CardLink/CardLink'
 
 type Props = {
   lesson: LessonView
@@ -41,7 +41,7 @@ function PromptCard({ prompt, onAnswer }: { prompt: OpenPrompt; onAnswer: (answe
   return (
     <div className="space-y-2.5 rounded-lg border border-gold/40 bg-gold/5 p-3" role="region" aria-label="Question from Claude" data-testid="prompt">
       <div className="prose-narration text-sm leading-relaxed text-ink">
-        <Markdown>{prompt.message}</Markdown>
+        <CardMarkdown>{prompt.message}</CardMarkdown>
       </div>
       {prompt.type === 'ack' && (
         <button type="button" className="btn btn-primary" onClick={() => answer()}>

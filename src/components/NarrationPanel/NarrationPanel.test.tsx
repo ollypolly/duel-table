@@ -11,7 +11,8 @@ describe('NarrationPanel', () => {
       />,
     )
     expect(screen.getByRole('heading', { name: 'Ojamatch' })).toBeInTheDocument()
-    expect(screen.getByText('Ojamagic').tagName).toBe('STRONG')
+    // Bold, and a link to the card.
+    expect(screen.getByRole('button', { name: 'Ojamagic' }).closest('strong')).not.toBeNull()
     expect(screen.getByText('Activate')).toBeInTheDocument()
     expect(screen.getByText(/something odd/)).toBeInTheDocument()
   })

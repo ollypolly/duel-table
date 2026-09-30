@@ -1,6 +1,6 @@
-import Markdown from 'react-markdown'
 import type { Intent, Step } from '../../engine'
 import type { CardFace } from '../../view/boardView'
+import { CardMarkdown } from '../CardLink/CardLink'
 
 const INTENT_LABELS: Record<Intent['type'], string> = {
   activate: 'Activate',
@@ -36,7 +36,7 @@ export function NarrationPanel({
         </span>
       )}
       <div className="prose-narration text-sm leading-relaxed text-ink">
-        <Markdown>{step ? (step.narration ?? '') : (description ?? 'Press → to start.')}</Markdown>
+        <CardMarkdown>{step ? (step.narration ?? '') : (description ?? 'Press → to start.')}</CardMarkdown>
       </div>
       {warnings.length > 0 && (
         <ul className="space-y-1 rounded border border-warn/40 bg-warn/10 p-2 text-xs text-warn">

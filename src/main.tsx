@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { CardLinkInspector } from './components/CardLink/CardLink'
 import { initUrlSync } from './hooks/urlSync'
 import { rawScenarios } from './scenarios/load'
 import { useCosmeticsStore } from './store/cosmeticsStore'
@@ -18,6 +19,8 @@ createRoot(document.getElementById('root')!).render(
     {/* Honour the OS "reduce motion" setting for every Motion animation. */}
     <MotionConfig reducedMotion="user">
       <App />
+      {/* A card name linked in text opens here on click. */}
+      <CardLinkInspector />
     </MotionConfig>
   </StrictMode>,
 )
