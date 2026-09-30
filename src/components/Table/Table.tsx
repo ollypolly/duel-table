@@ -67,6 +67,9 @@ type TableProps = {
   // you haven't seen or a question waiting for you, and those toast too.
   // who: who's talking, if not the other player (Claude, in a review).
   activity?: { typing: boolean; messages: number; latest?: string; action: boolean; who?: string }
+  // The button you're most likely to want next, on the phone sheet's header
+  // so it doesn't need opening: pass on a chain, the next phase, Next.
+  quick?: { label: string; run: () => void }
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -90,6 +93,7 @@ export function Table({
   dock,
   chat,
   activity,
+  quick,
   choosable,
   onChoose,
   cardActions,
@@ -239,42 +243,50 @@ export function Table({
           <div
             className={`panel flex min-h-0 flex-col max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${chat ? 'flex-1' : ''}`}
           >
-            {/* On a phone, the sheet's header: the handle, and the one thing
-                most worth knowing. Closed, it and the playback bar under it show. */}
+            {/* On a phone, the sheet's header: the handle, the one thing most
+                worth knowing, and the quick button over its right end. Closed,
+                it and the playback bar under it show. */}
             {phone && (
-              <button
-                type="button"
-                className="flex w-full shrink-0 touch-none flex-col items-center gap-1.5 border-b border-line px-3 pb-2.5 pt-2"
-                onClick={togglePanel}
-                onPointerDown={startDrag}
-                data-sheet-handle
-                aria-expanded={panelOpen}
-                aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
-              >
-                <span className="h-1 w-10 rounded-full bg-muted" />
-                <span className="flex w-full min-w-0 items-center gap-2 text-left text-sm">
-                  {activity?.action ? (
-                    <span className="font-semibold text-gold">Your move</span>
-                  ) : activity?.typing ? (
-                    <>
-                      <span className="text-muted">{talker} is typing</span>
-                      <TypingDots />
-                    </>
-                  ) : messages > seen && activity?.latest ? (
-                    <span className="truncate">
-                      <span className="font-semibold">{talker}:</span> {activity.latest.replace(/[*_`#>]/g, '')}
-                    </span>
-                  ) : (
-                    <span className="truncate text-muted">
-                      <span className="font-display">
-                        {position}/{last}
-                      </span>{' '}
-                      {step?.label ?? 'Setup'}
-                    </span>
-                  )}
-                  {alert && <AlertDot className="relative ml-auto shrink-0" />}
-                </span>
-              </button>
+              <div className="relative shrink-0 border-b border-line">
+                <button
+                  type="button"
+                  className="flex w-full touch-none flex-col items-center gap-1.5 px-3 pb-2.5 pt-2"
+                  onClick={togglePanel}
+                  onPointerDown={startDrag}
+                  data-sheet-handle
+                  aria-expanded={panelOpen}
+                  aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
+                >
+                  <span className="h-1 w-10 rounded-full bg-muted" />
+                  <span className={`flex w-full min-w-0 items-center gap-2 text-left text-sm ${quick ? 'pr-36' : ''}`}>
+                    {activity?.action ? (
+                      <span className="font-semibold text-gold">Your move</span>
+                    ) : activity?.typing ? (
+                      <>
+                        <span className="text-muted">{talker} is typing</span>
+                        <TypingDots />
+                      </>
+                    ) : messages > seen && activity?.latest ? (
+                      <span className="truncate">
+                        <span className="font-semibold">{talker}:</span> {activity.latest.replace(/[*_`#>]/g, '')}
+                      </span>
+                    ) : (
+                      <span className="truncate text-muted">
+                        <span className="font-display">
+                          {position}/{last}
+                        </span>{' '}
+                        {step?.label ?? 'Setup'}
+                      </span>
+                    )}
+                    {alert && <AlertDot className="relative ml-auto shrink-0" />}
+                  </span>
+                </button>
+                {quick && (
+                  <button type="button" className="btn btn-primary absolute bottom-1.5 right-3 h-8 px-3 text-sm" onClick={quick.run}>
+                    {quick.label}
+                  </button>
+                )}
+              </div>
             )}
             <div ref={sheetPeekRef} className="shrink-0 touch-none border-b border-line px-2 py-2 sm:touch-auto" onPointerDown={startDrag}>
               <StepControls

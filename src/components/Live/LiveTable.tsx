@@ -213,6 +213,34 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   }
   const talking = review ?? game?.claude
 
+  // The quick button: what you'd most likely press next when it's routine.
+  // Not where it takes a real choice (which cards, yes or no).
+  const next = () => {
+    backToLive()
+    report(api.next(id))
+  }
+  const option = (...labels: string[]) => {
+    for (const label of labels) {
+      const i = prompt?.options.findIndex((o) => !o.card && o.label === label) ?? -1
+      if (i >= 0) return { label, run: () => answerGame([i]) }
+    }
+  }
+  const ack = lesson?.queued === 0 && lesson.prompt?.type === 'ack' ? lesson.prompt : undefined
+  const quick =
+    lesson && lesson.queued > 0
+      ? { label: 'Next ▸', run: next }
+      : ack
+        ? { label: ack.button ?? 'Got it', run: () => report(api.answer(id, { id: ack.id })) }
+        : busy || away
+          ? undefined
+          : prompt?.kind === 'chain'
+            ? option("Don't respond")
+            : prompt?.kind === 'idle'
+              ? option('Battle Phase', 'End turn')
+              : prompt?.kind === 'battle'
+                ? option('Main Phase 2', 'End turn')
+                : undefined
+
   if (result?.ok)
     return (
       <Table
@@ -233,6 +261,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             ),
           })
         }
+        quick={quick}
         activity={
           game && {
             typing: talking?.status === 'thinking',
@@ -250,10 +279,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                 lesson={lesson}
                 away={away && !review}
                 onBackToLive={backToLive}
-                onNext={() => {
-                  backToLive()
-                  report(api.next(id))
-                }}
+                onNext={next}
                 onAnswer={(a) => report(api.answer(id, a))}
               />
               {game && lesson.queued === 0 && (!lesson.prompt || game.prompt) && (
