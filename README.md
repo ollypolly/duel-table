@@ -22,7 +22,7 @@ npm run fetch-ocg     # the rules engine's scripts and card database (once, for 
 npm run dev
 ```
 
-Then open http://localhost:5180. In tmux, the devserver popup (prefix+d) runs it for you through `mise.toml`.
+Then open http://localhost:5180. In tmux, the devserver popup (prefix+d) runs it for you through `mise.toml`. To run it on a server and use it from your phone over Tailscale, see [docs/HOSTING.md](docs/HOSTING.md).
 
 Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither is committed. YGOPRODeck asks that images are self-hosted rather than hotlinked.
 

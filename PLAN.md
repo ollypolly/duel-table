@@ -349,12 +349,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
    - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.
-5. **Hosting: my own server over Tailscale.** duel-table stays a personal tool, not public. On the server:
-   - run `npm run dev`, logged in to Claude Code, so Claude bills to that login;
-   - `tailscale serve 5180` gives HTTPS on the tailnet. The API is proxied through Vite, so that's the only port;
-   - Vite already allows `.ts.net` hosts;
-   - check the layout on a phone, since that's where lessons will happen.
-   - **Installable, the cheap way.** A web app manifest (name, icons, `display: standalone`, theme colour), an `apple-touch-icon`, and theme-color and safe-area meta tags. Then Add to Home Screen opens it full screen without browser chrome, like an app. `tailscale serve` gives the HTTPS this needs. No service worker: everything needs the live server anyway, and a cached build could go stale. If one's wanted later, `vite-plugin-pwa` generates it.
+5. **Hosting: my own server over Tailscale.** duel-table stays a personal tool, not public: `npm run dev` on the server, logged in to Claude Code, and `tailscale serve` for HTTPS on the tailnet. The steps are in [docs/HOSTING.md](docs/HOSTING.md), written for Claude Code on the server to follow. It installs to a phone's home screen (manifest, icons, no service worker). Still to do: set it up, and check the layout on a phone, since that's where lessons will happen.
 
    Only my devices can reach it, so auth, spend limits and card-image terms don't come up. Public hosting would need all three, plus storage beyond files.
 

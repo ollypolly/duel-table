@@ -94,7 +94,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink">
+    <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
       <NewGameDialog
         key={newGameDeck}
         open={newGameOpen}
