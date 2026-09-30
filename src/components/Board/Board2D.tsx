@@ -280,7 +280,7 @@ function BoardCard({ card, selected, lit, onClick, canDrag }: { card: PlacedCard
     <Tooltip.Root>
       <Tooltip.Trigger asChild>{el}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 px-2 py-1 font-display text-xs font-semibold text-ink">
+        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 pointer-coarse:hidden px-2 py-1 font-display text-xs font-semibold text-ink">
           {card.name}
         </Tooltip.Content>
       </Tooltip.Portal>

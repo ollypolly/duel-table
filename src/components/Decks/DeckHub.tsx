@@ -388,7 +388,7 @@ function Section({
                         </button>
                       </Tooltip.Trigger>
                       {/* Not portalled: the body sits under this modal dialog. */}
-                      <Tooltip.Content side="top" sideOffset={6} className="panel z-50 px-2 py-1 font-display text-xs font-semibold text-ink">
+                      <Tooltip.Content side="top" sideOffset={6} className="panel z-50 pointer-coarse:hidden px-2 py-1 font-display text-xs font-semibold text-ink">
                         {c.name}
                       </Tooltip.Content>
                     </Tooltip.Root>
