@@ -22,8 +22,6 @@ import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
 import { LessonPanel } from './LessonPanel'
-import { MOMENT } from './moment'
-import { Moments } from './Moments'
 
 export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [session, setSession] = useState<SessionUpdate>()
@@ -193,31 +191,13 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // A review of a finished game takes the chat over, with the game's chat above it.
   const review = session?.review
   const steps = result?.ok ? result.scenario.game.steps.length : 0
-  // Going to a moment Claude marked shows the table just before the move,
-  // and has Claude take you through it.
-  const goMoment = (step: number) => {
-    goTo(step - 1)
-    report(api.reviewMoment(id, step))
-  }
   const reviewChat = review && {
     log: (
-      <>
-        <Moments
-          moments={review.moments}
-          names={{ p1: session.players.p1.name, p2: session.players.p2.name }}
-          position={position}
-          onGo={goMoment}
-        />
-        <ClaudeChat
-          claude={review}
-          empty={
-            review.scanned
-              ? "Ask Claude about the game. It sees the table at the step you're on, and knows how it went."
-              : 'Claude is going through the game for its key moments. Ask it anything meanwhile.'
-          }
-          earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
-        />
-      </>
+      <ClaudeChat
+        claude={review}
+        empty="Ask Claude about the game. It sees the table at the step you're on, and knows how it went."
+        earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
+      />
     ),
     input: (
       <ClaudeInput
@@ -246,12 +226,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     }
   }
   const ack = lesson?.queued === 0 && lesson.prompt?.type === 'ack' ? lesson.prompt : undefined
-  // Past the last moment, it goes round to the first.
-  const moments = review?.moments ?? []
-  const nextMoment = moments.find((m) => m.step - 1 > position) ?? moments[0]
-  const quick = review
-    ? nextMoment && { label: nextMoment === moments[0] ? 'First moment ▸' : 'Next moment ▸', run: () => goMoment(nextMoment.step) }
-    : lesson && lesson.queued > 0
+  const quick =
+    lesson && lesson.queued > 0
       ? { label: 'Next ▸', run: next }
       : ack
         ? { label: ack.button ?? 'Got it', run: () => report(api.answer(id, { id: ack.id })) }
@@ -286,7 +262,6 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
           })
         }
         quick={quick}
-        marks={review?.moments.map((m) => ({ step: m.step, className: MOMENT[m.kind].dot }))}
         activity={
           game && {
             typing: talking?.status === 'thinking',

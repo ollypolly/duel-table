@@ -17,7 +17,6 @@ export function StepControls({
   onSpeed,
   muted,
   onMuted,
-  marks,
   children,
 }: {
   position: number
@@ -29,8 +28,6 @@ export function StepControls({
   onSpeed: (speed: number) => void
   muted?: boolean
   onMuted?: (muted: boolean) => void
-  // Dots along the game at steps worth a look (a review's key moments).
-  marks?: { step: number; className: string }[]
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -72,18 +69,6 @@ export function StepControls({
           </button>
         )}
       </div>
-      {!!marks?.length && last > 0 && (
-        <div className="relative mx-2 h-1.5 rounded-full bg-line/60" aria-hidden>
-          <span className="absolute inset-y-0 left-0 rounded-full bg-gold/30" style={{ width: `${(position / last) * 100}%` }} />
-          {marks.map((m) => (
-            <span
-              key={m.step}
-              className={`absolute top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${m.className}`}
-              style={{ left: `${(m.step / last) * 100}%` }}
-            />
-          ))}
-        </div>
-      )}
       {open && (
         <div className="space-y-2">
           <div className="flex items-center gap-0.5">

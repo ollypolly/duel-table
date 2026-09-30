@@ -60,7 +60,7 @@ const fresh = (model: ModelChoice = 'opus'): ReviewRecord => ({ open: true, mode
 const KIND: Record<Moment['kind'], string> = { blunder: 'a blunder', mistake: 'a mistake', missed: 'a missed chance', good: 'a good play' }
 
 const SCAN =
-  "Before they ask anything, go through the whole game and find its key moments, for both sides: blunders, mistakes, missed chances and good plays. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one on the step of the move itself, checking the number against the list, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
+  "Before they ask anything, go through the whole game and find its key moments, for both sides: blunders, mistakes, missed chances and good plays. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
 const LEAD =
   "Take them through it. If the choice was theirs, ask what they'd do here before you say what you'd have done. If it was the other side's, say what happened and why it mattered."
 
@@ -130,7 +130,7 @@ export class ReviewService {
     const r = this.need(id)
     const m = r.moments.find((m) => m.step === step)
     if (!m) throw new SessionError(409, `Claude didn't mark step ${step}`)
-    r.chat.push({ from: 'note', text: `Step ${m.step}, ${KIND[m.kind]}` })
+    r.chat.push({ from: 'note', text: `Step ${m.step}: ${m.title}` })
     r.queue.push({ lead: m, position: m.step - 1 })
     this.changed(id, r)
     void this.pump(id, r)
