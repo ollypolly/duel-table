@@ -14,6 +14,7 @@ import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { Lesson, type AnswerEvent } from './lesson'
 import type { GameView } from '../src/api/game'
+import type { ReviewView } from '../src/api/review'
 import type { Player } from '../src/engine'
 
 export { SessionError }
@@ -47,8 +48,9 @@ export type SessionSummary = {
   turn: number
   kind: 'game' | 'board' // a game on the rules engine, or a free board
   winner?: Player // the other player's LP hit 0
+  claudeLesson?: true // a lesson Claude ran on the rules engine
 }
-export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView }
+export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView; review?: ReviewView }
 type Duel = NonNullable<ScenarioFile['duel']>
 export type ApplyResult = { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number } | { ok: false; issues: Issue[] }
 
@@ -62,6 +64,8 @@ export class SessionService {
   private store: SessionStore
   // Live game state for sessions on the rules engine (set by GameService).
   gameView?: (id: string) => GameView | undefined
+  // A review of the session with Claude, while one is open (set by ReviewService).
+  reviewView?: (id: string) => ReviewView | undefined
   // Told when a session is deleted, to drop what else they hold for it.
   onRemove: ((id: string) => void)[] = []
   // Told when the viewer answers a lesson prompt (Claude, running a lesson).
@@ -85,7 +89,14 @@ export class SessionService {
   get(id: string): SessionView {
     const s = this.live(id)
     const game = s.file.duel && this.gameView?.(id)
-    return { ...this.summary(s), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view(), ...(game && { game }) }
+    const review = this.reviewView?.(id)
+    return { ...this.summary(s), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view(), ...(game && { game }), ...(review && { review }) }
+  }
+
+  // The board at a position (0 is the setup, n is after step n), clamped to the steps there are.
+  stateAt(id: string, position: number): BoardState {
+    const { timeline } = this.live(id).resolved
+    return timeline[Math.min(Math.max(0, position), timeline.length - 1)].state
   }
 
   create(opts: CreateOptions): SessionView {
@@ -292,6 +303,7 @@ export class SessionService {
       turn: last.turn,
       kind: file.duel ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
+      ...(file.duel?.lesson && { claudeLesson: true as const }),
     }
   }
 

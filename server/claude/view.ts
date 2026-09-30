@@ -101,11 +101,11 @@ export function cardText(db: CardDb, name: string): string {
   const stats = [
     c.attribute,
     c.race,
-    c.level !== undefined && `Level ${c.level}`,
-    c.rank !== undefined && `Rank ${c.rank}`,
-    c.linkval !== undefined && `Link ${c.linkval}`,
-    c.atk !== undefined && `ATK ${c.atk}`,
-    c.def !== undefined && `DEF ${c.def}`,
+    c.level != null && `Level ${c.level}`,
+    c.rank != null && `Rank ${c.rank}`,
+    c.linkval != null && `Link ${c.linkval}`,
+    c.atk != null && `ATK ${c.atk}`,
+    c.def != null && `DEF ${c.def}`,
   ].filter(Boolean)
   return `${c.name} (${c.type}${stats.length ? `; ${stats.join(', ')}` : ''})\n${c.desc}`
 }

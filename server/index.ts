@@ -7,6 +7,7 @@ import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
 import { ClaudeService, diskClaudeStore } from './claude/service'
 import { TutorService, type TutorRecord } from './claude/tutor'
+import { ReviewService, type ReviewRecord } from './claude/review'
 import type { Character } from '../src/scenarios/schema'
 import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
@@ -43,6 +44,15 @@ const tutor = new TutorService({
   store: diskClaudeStore<TutorRecord>(join(ROOT, 'sessions', 'tutor')),
 })
 
+const review = new ReviewService({
+  sessions,
+  db: () => ctx().db,
+  agent: sdkAgent,
+  system: () => prompt('review'),
+  played: (id) => service.played(id),
+  store: diskClaudeStore<ReviewRecord>(join(ROOT, 'sessions', 'review')),
+})
+
 // Checked once at startup (it takes a few seconds), and again when asked if
 // there was no login, in case you've logged in since.
 let account: { at: number; found: Promise<ClaudeAccount | undefined>; none?: boolean } | undefined
@@ -62,6 +72,7 @@ const app = createApp({
   games,
   claude: { service, account: checkAccount },
   tutor,
+  review,
   writeFile: writeRepoFile(),
   removeFile: removeRepoFile(),
   addCards: (names) => addCards(names, ROOT),

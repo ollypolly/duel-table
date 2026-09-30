@@ -14,6 +14,8 @@ import { PlayerSchema } from '../src/scenarios/schema'
 import type { ClaudeService } from './claude/service'
 import type { TutorService } from './claude/tutor'
 import { TutorAskSchema, TutorViewSchema } from '../src/api/tutor'
+import { ReviewChatSchema, ReviewViewSchema } from '../src/api/review'
+import type { ReviewService } from './claude/review'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
@@ -34,12 +36,14 @@ const SummarySchema = z.object({
   turn: z.number(),
   kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),
   winner: z.enum(['p1', 'p2']).optional(),
+  claudeLesson: z.literal(true).optional().openapi({ description: 'A lesson Claude ran on the rules engine' }),
 })
 const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),
   state: z.unknown().openapi({ description: 'BoardState after the last step (queued ones included)' }),
   lesson: LessonViewSchema,
   game: GameViewSchema.optional().openapi({ description: 'For games on the rules engine' }),
+  review: ReviewViewSchema.optional().openapi({ description: 'A review of the game with Claude, while one is open' }),
 })
 const IdParam = z.object({ id: z.string().openapi({ param: { name: 'id', in: 'path' } }) })
 
@@ -61,9 +65,10 @@ type AppDeps = {
   // Claude as a player; account says whether a Claude login is available.
   claude?: { service: ClaudeService; account: () => Promise<ClaudeAccount | undefined> }
   tutor?: TutorService // Claude answering questions on a lesson
+  review?: ReviewService // Claude going back over a finished game with you
 }
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -678,6 +683,55 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       return c.json(t.view(id), 200)
     },
   )
+
+  // Reviewing a finished game with Claude ----------------------------------------
+
+  const needReview = async () => {
+    if (!review || !(await claude?.account())) throw new SessionError(501, 'reviewing with Claude needs a Claude login (run `claude` and log in)')
+    return review
+  }
+  const reviewResponses = { 200: json(ReviewViewSchema, 'The review'), 409: json(ErrorSchema, 'No review, or the game is still going'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
+  const reviewRoute = (method: 'post' | 'delete', path: string, summary: string, description?: string) =>
+    createRoute({ method, path: `/sessions/{id}/review${path}`, summary, ...(description && { description }), request: { params: IdParam }, responses: reviewResponses })
+
+  app.openapi(
+    reviewRoute('post', '', 'Review a finished game with Claude', "Opens the review in place of the game's chat (a new one, or the one you had). The session's SSE stream then carries it as review."),
+    async (c) => c.json((await needReview()).start(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(reviewRoute('post', '/close', "Close the review and go back to the game's chat", 'The review is kept for next time.'), async (c) =>
+    c.json((await needReview()).close(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/review/chat',
+      summary: 'Ask Claude about the game',
+      description: "Claude gets the table at position. The reply arrives on the session's SSE stream. Sent while it's answering, it waits for that answer.",
+      request: { params: IdParam, ...body(ReviewChatSchema) },
+      responses: reviewResponses,
+    }),
+    async (c) => {
+      const { text, position } = c.req.valid('json')
+      return c.json((await needReview()).chat(c.req.valid('param').id, text, position), 200)
+    },
+  )
+
+  app.openapi(reviewRoute('post', '/stop', "Stop Claude's answer"), async (c) => c.json(await (await needReview()).stop(c.req.valid('param').id), 200))
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/review/settings',
+      summary: "Change the review's model",
+      request: { params: IdParam, ...body(z.object({ model: ModelChoiceSchema.optional() }).strict()) },
+      responses: reviewResponses,
+    }),
+    async (c) => c.json((await needReview()).settings(c.req.valid('param').id, c.req.valid('json')), 200),
+  )
+
+  app.openapi(reviewRoute('delete', '', 'Clear the review and start over'), async (c) => c.json(await (await needReview()).clear(c.req.valid('param').id), 200))
 
   app.openapi(
     createRoute({

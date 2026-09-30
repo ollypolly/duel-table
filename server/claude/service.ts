@@ -233,6 +233,12 @@ export class ClaudeService {
     while (this.seat(id)?.busy) await new Promise((r) => setTimeout(r, 5))
   }
 
+  // Which side Claude played and what was said, for a review of the game.
+  played(id: string): Pick<ClaudeRecord, 'player' | 'chat'> | undefined {
+    const s = this.seat(id)
+    return s && { player: s.player, chat: s.chat }
+  }
+
   private seat(id: string): Seat | undefined {
     const found = this.seats.get(id)
     if (found) return found
