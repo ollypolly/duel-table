@@ -13,6 +13,7 @@ import {
 import { TablePicker } from "./components/Tables/TablePicker";
 import { Table } from "./components/Table/Table";
 import { TopBar } from "./components/TopBar/TopBar";
+import { useTutorChat } from "./components/Tutor/useTutorChat";
 import { branchFrom } from "./branches/branches";
 import { resultId, useScenarios } from "./scenarios/useScenarios";
 import { useBranchStore } from "./store/branchStore";
@@ -34,6 +35,10 @@ export default function App() {
     all[0];
   const currentId = result && resultId(result);
   const isBranch = !!currentId && branchIds.has(currentId);
+  // Branches live in this browser, so only the repo's lessons get a tutor.
+  const tutor = useTutorChat(
+    liveSessions && !sessionId && !isBranch ? currentId : undefined,
+  );
 
   useEffect(() => {
     if (currentId && currentId !== scenarioId) open(currentId);
@@ -110,6 +115,7 @@ export default function App() {
           key={result.scenario.id}
           scenario={result.scenario}
           nav={nav}
+          chat={tutor}
           onBranch={startBranch}
           {...(liveSessions &&
             !isBranch && {

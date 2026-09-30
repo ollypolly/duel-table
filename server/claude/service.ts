@@ -28,15 +28,17 @@ export type ClaudeRecord = {
   texts?: string[] // cards whose text Claude has been given
 }
 
-export type ClaudeStore = { load(id: string): ClaudeRecord | undefined; save(id: string, r: ClaudeRecord): void; remove(id: string): void }
+// Where a chat's record is kept between restarts: a game's, or a lesson's.
+export type RecordStore<R> = { load(id: string): R | undefined; save(id: string, r: R): void; remove(id: string): void }
+export type ClaudeStore = RecordStore<ClaudeRecord>
 
-export const memoryClaudeStore = (): ClaudeStore => {
-  const m = new Map<string, ClaudeRecord>()
+export const memoryClaudeStore = <R = ClaudeRecord>(): RecordStore<R> => {
+  const m = new Map<string, R>()
   return { load: (id) => m.get(id), save: (id, r) => void m.set(id, r), remove: (id) => void m.delete(id) }
 }
 
-export const diskClaudeStore = (dir: string): ClaudeStore => ({
-  load: (id) => (existsSync(join(dir, `${id}.json`)) ? (JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8')) as ClaudeRecord) : undefined),
+export const diskClaudeStore = <R = ClaudeRecord>(dir: string): RecordStore<R> => ({
+  load: (id) => (existsSync(join(dir, `${id}.json`)) ? (JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8')) as R) : undefined),
   save: (id, r) => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, `${id}.json`), `${JSON.stringify(r, null, 2)}\n`)

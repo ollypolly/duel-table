@@ -5,6 +5,7 @@ import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
 import type { Answer, LessonView } from './lesson'
+import type { TutorView } from './tutor'
 
 export type SessionSummary = {
   id: string
@@ -76,6 +77,12 @@ export const api = {
   stopClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/stop`),
   resumeClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/resume`),
   claudeSettings: (id: string, s: ClaudeSettings) => call<unknown>('POST', `/sessions/${id}/claude/settings`, s),
+  // Claude as a tutor on a lesson (a scenario in the repo).
+  tutor: (id: string) => call<TutorView>('GET', `/scenarios/${id}/tutor`),
+  askTutor: (id: string, text: string, position: number) => call<TutorView>('POST', `/scenarios/${id}/tutor/chat`, { text, position }),
+  stopTutor: (id: string) => call<TutorView>('POST', `/scenarios/${id}/tutor/stop`),
+  tutorSettings: (id: string, s: { model?: ModelChoice }) => call<TutorView>('POST', `/scenarios/${id}/tutor/settings`, s),
+  clearTutor: (id: string) => call<TutorView>('DELETE', `/scenarios/${id}/tutor`),
 }
 
 export type ClaudeStatus = { available: boolean; email?: string; plan?: string }

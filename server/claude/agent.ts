@@ -7,10 +7,11 @@ import type { ModelChoice } from '../../src/api/game'
 
 export const MODELS: Record<ModelChoice, string> = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5' }
 
-// What the tools do; the service implements them against the game.
+// What the tools do; the service implements them against the game. A lesson
+// has nothing to answer, so no answer tool.
 export type DuelTools = {
   table(): string
-  answer(question: number, choices: number[]): Promise<string>
+  answer?(question: number, choices: number[]): Promise<string>
   card(name: string): string
 }
 
@@ -27,17 +28,22 @@ const MAX_TURNS = 60
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
 export const sdkAgent: Agent = (req) => {
+  const answer = req.tools.answer
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
     tools: [
       tool('table', 'The table as you see it now: life points, each zone, both GYs, the chain.', {}, async () => text(req.tools.table())),
-      tool(
-        'answer',
-        'Answer the open question by the numbers of the options you pick. Returns what happened, and the next question if it is yours.',
-        { question: z.number().int().describe('The question number'), choices: z.array(z.number().int().min(0)).describe('Option numbers') },
-        async ({ question, choices }) => text(await req.tools.answer(question, choices)),
-      ),
+      ...(answer
+        ? [
+            tool(
+              'answer',
+              'Answer the open question by the numbers of the options you pick. Returns what happened, and the next question if it is yours.',
+              { question: z.number().int().describe('The question number'), choices: z.array(z.number().int().min(0)).describe('Option numbers') },
+              async ({ question, choices }) => text(await answer(question, choices)),
+            ),
+          ]
+        : []),
       tool('card', "A card's full text and stats, by name.", { name: z.string() }, async ({ name }) => text(req.tools.card(name))),
     ],
   })
@@ -48,7 +54,7 @@ export const sdkAgent: Agent = (req) => {
       systemPrompt: req.system,
       mcpServers: { duel: server },
       tools: [],
-      allowedTools: ['mcp__duel__table', 'mcp__duel__answer', 'mcp__duel__card'],
+      allowedTools: ['mcp__duel__table', 'mcp__duel__card', ...(answer ? ['mcp__duel__answer'] : [])],
       settingSources: [],
       maxTurns: MAX_TURNS,
       ...(req.sessionId && { resume: req.sessionId }),

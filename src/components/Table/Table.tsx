@@ -55,8 +55,9 @@ type TableProps = {
   // a cap, so it never pushes the rest off.
   dock?: ReactNode
   // A chat takes the middle of the panel in place of the narration, with
-  // its input under the dock.
-  chat?: { log: ReactNode; input: ReactNode }
+  // its input under the dock. withNarration: it shares the middle with the
+  // narration instead (a lesson's tutor).
+  chat?: { log: ReactNode; input: ReactNode; withNarration?: boolean }
   // A live game. New steps show as toasts on the board. While the panel is
   // hidden, its handle shows Claude typing and a dot for a message from it
   // you haven't seen or a question waiting for you, and those toast too.
@@ -253,12 +254,13 @@ export function Table({
               </StepControls>
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              {chat ? (
+              {chat && !chat.withNarration ? (
                 chat.log
               ) : (
                 <NarrationPanel step={step} position={position} description={scenario.description} intentCard={face(intentIid)} warnings={stepWarnings} />
               )}
             </div>
+            {chat?.withNarration && <div className="flex min-h-0 flex-1 flex-col border-t border-line">{chat.log}</div>}
             {dock && <div className="max-h-[35vh] shrink-0 space-y-2.5 overflow-y-auto border-t border-line px-3 py-2.5 sm:max-h-[45vh]">{dock}</div>}
             {chat && <div className="shrink-0 border-t border-line px-3 py-2">{chat.input}</div>}
           </div>

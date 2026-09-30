@@ -39,7 +39,7 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
         if (!q) break
         const n = q.min + Math.floor(rng() * (q.max - q.min + 1))
         const choices = [...Array(q.options).keys()].sort(() => rng() - 0.5).slice(0, n)
-        const result = await req.tools.answer(q.id, choices)
+        const result = await req.tools.answer!(q.id, choices)
         onSeen(result)
         if (!result.startsWith('Not accepted')) text = result
       }

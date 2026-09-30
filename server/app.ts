@@ -12,6 +12,8 @@ import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, Prompt
 import { ClaudeSettingsSchema, GameAnswerSchema, GameViewSchema, ModelChoiceSchema } from '../src/api/game'
 import { PlayerSchema } from '../src/scenarios/schema'
 import type { ClaudeService } from './claude/service'
+import type { TutorService } from './claude/tutor'
+import { TutorAskSchema, TutorViewSchema } from '../src/api/tutor'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
@@ -58,9 +60,10 @@ type AppDeps = {
   games?: GameService // without it, there are no games on the rules engine
   // Claude as a player; account says whether a Claude login is available.
   claude?: { service: ClaudeService; account: () => Promise<ClaudeAccount | undefined> }
+  tutor?: TutorService // Claude answering questions on a lesson
 }
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -181,8 +184,9 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   // Scenarios whose players use a deck: editing it may break their steps.
   const usedBy = (context: ResolveContext, id: string) =>
     Object.entries(context.scenarios).flatMap(([sid, raw]) => {
-      const players = (raw as { players?: Record<string, { deck?: string }> }).players ?? {}
-      return Object.values(players).some((p) => p?.deck === id) ? [sid] : []
+      // A player with its own copy of the list doesn't follow the deck file.
+      const players = (raw as { players?: Record<string, { deck?: string; list?: unknown }> }).players ?? {}
+      return Object.values(players).some((p) => p?.deck === id && !p.list) ? [sid] : []
     })
 
   app.openapi(
@@ -594,6 +598,73 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { id } = c.req.valid('param')
       needClaude().settings(id, c.req.valid('json'))
       return c.json(sessions.get(id), 200)
+    },
+  )
+
+  // Claude as a tutor on a lesson ----------------------------------------------
+
+  const needTutor = async () => {
+    if (!tutor || !(await claude?.account())) throw new SessionError(501, 'the tutor needs a Claude login (run `claude` and log in)')
+    return tutor
+  }
+  const tutorResponses = { 200: json(TutorViewSchema, 'The chat'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
+
+  app.openapi(
+    createRoute({ method: 'get', path: '/scenarios/{id}/tutor', summary: "The chat with Claude about a lesson", request: { params: IdParam }, responses: tutorResponses }),
+    async (c) => c.json((await needTutor()).view(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/scenarios/{id}/tutor/chat',
+      summary: 'Ask Claude about the lesson',
+      description: "Poll the chat for the reply. Claude learns the steps up to position, never the ones after. Sent while it's answering, it waits for that answer.",
+      request: { params: IdParam, ...body(TutorAskSchema) },
+      responses: tutorResponses,
+    }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const { text, position } = c.req.valid('json')
+      const t = await needTutor()
+      t.ask(id, position, text)
+      return c.json(t.view(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({ method: 'post', path: '/scenarios/{id}/tutor/stop', summary: "Stop Claude's answer", request: { params: IdParam }, responses: tutorResponses }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const t = await needTutor()
+      await t.stop(id)
+      return c.json(t.view(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/scenarios/{id}/tutor/settings',
+      summary: "Change the tutor's model",
+      request: { params: IdParam, ...body(z.object({ model: ModelChoiceSchema.optional() }).strict()) },
+      responses: tutorResponses,
+    }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const t = await needTutor()
+      t.settings(id, c.req.valid('json'))
+      return c.json(t.view(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({ method: 'delete', path: '/scenarios/{id}/tutor', summary: 'Clear the chat and start over', request: { params: IdParam }, responses: tutorResponses }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const t = await needTutor()
+      await t.clear(id)
+      return c.json(t.view(id), 200)
     },
   )
 

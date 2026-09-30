@@ -1,9 +1,10 @@
-// Claude, when it plays one side. The chat log fills the middle of the scene
-// panel: what it says, with its moves and the app's notes in among it. The
-// input bar sits at the bottom with Stop/Resume and a settings menu: the
-// model, coaching, what to send it, and the cost so far (what the same tokens
-// would cost on the API; on a Claude plan it comes out of your usage).
-import { Check, Eye, Pause, Play, Send, Settings2 } from 'lucide-react'
+// Claude, when it plays one side or tutors a lesson. The chat log fills the
+// middle of the scene panel: what it says, with its moves and the app's notes
+// in among it. The input bar sits at the bottom with Stop/Resume and a
+// settings menu: the model, coaching and what to send it (in a game), and the
+// cost so far (what the same tokens would cost on the API; on a Claude plan it
+// comes out of your usage).
+import { Check, Eye, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -22,7 +23,9 @@ const MODELS: [ModelChoice, string][] = [
   ['sonnet', 'Sonnet (faster, lighter on usage)'],
 ]
 
-export function ClaudeChat({ claude }: { claude: ClaudeView }) {
+type ChatProps = { claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }; empty?: string }
+
+export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.' }: ChatProps) {
   const list = useRef<HTMLDivElement>(null)
   const { chat, status } = claude
   useEffect(() => {
@@ -31,7 +34,7 @@ export function ClaudeChat({ claude }: { claude: ClaudeView }) {
 
   return (
     <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
-      {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">Claude is across the table. Say hello, or ask it anything about the game.</p>}
+      {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">{empty}</p>}
       {chat.map((e, i) =>
         e.from === 'claude' ? (
           <div key={i} className={`chat-md ${STYLE.claude}`}>
@@ -61,15 +64,19 @@ function Checked({ on, role, onClick, children }: { on: boolean; role: 'menuitem
   )
 }
 
+// A lesson's tutor has no coaching or sharing to set, never waits stopped,
+// and can start over instead.
 type InputProps = {
-  claude: ClaudeView
+  claude: Pick<ClaudeView, 'model' | 'costUsd'> & Partial<Pick<ClaudeView, 'coach' | 'share'>> & { status: ClaudeView['status'] }
+  placeholder?: string
   onChat: (text: string) => void
   onStop: () => void
-  onResume: () => void
+  onResume?: () => void
   onSettings: (s: ClaudeSettings) => void
+  onClear?: () => void
 }
 
-export function ClaudeInput({ claude, onChat, onStop, onResume, onSettings }: InputProps) {
+export function ClaudeInput({ claude, placeholder = 'Say something to Claude…', onChat, onStop, onResume, onSettings, onClear }: InputProps) {
   const [text, setText] = useState('')
   const { status } = claude
   const send = () => {
@@ -103,14 +110,30 @@ export function ClaudeInput({ claude, onChat, onStop, onResume, onSettings }: In
             {label}
           </Checked>
         ))}
-        <MenuLabel>Claude</MenuLabel>
-        <Checked role="menuitemcheckbox" on={claude.coach} onClick={() => onSettings({ coach: !claude.coach })}>
-          Coach me
-        </Checked>
-        <MenuLabel>Send Claude</MenuLabel>
-        <Checked role="menuitemcheckbox" on={claude.share} onClick={() => onSettings({ share: !claude.share })}>
-          My hidden cards and question
-        </Checked>
+        {claude.coach !== undefined && (
+          <>
+            <MenuLabel>Claude</MenuLabel>
+            <Checked role="menuitemcheckbox" on={claude.coach} onClick={() => onSettings({ coach: !claude.coach })}>
+              Coach me
+            </Checked>
+          </>
+        )}
+        {claude.share !== undefined && (
+          <>
+            <MenuLabel>Send Claude</MenuLabel>
+            <Checked role="menuitemcheckbox" on={claude.share} onClick={() => onSettings({ share: !claude.share })}>
+              My hidden cards and question
+            </Checked>
+          </>
+        )}
+        {onClear && (
+          <MenuItem onClick={onClear}>
+            <span className="flex items-center gap-2">
+              <RotateCcw size={14} aria-hidden />
+              Start over
+            </span>
+          </MenuItem>
+        )}
         <p className="mt-1 border-t border-line px-2.5 pb-1 pt-2 text-xs text-muted" title="On a Claude plan this comes out of your usage instead.">
           ≈ ${claude.costUsd.toFixed(2)} API-equivalent so far
         </p>
@@ -118,11 +141,11 @@ export function ClaudeInput({ claude, onChat, onStop, onResume, onSettings }: In
       <input
         aria-label="Message Claude"
         className="min-w-0 flex-1 px-2 py-1.5 text-sm"
-        placeholder="Say something to Claude…"
+        placeholder={placeholder}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      {status === 'stopped' ? (
+      {status === 'stopped' && onResume ? (
         <button type="button" className="btn px-2" onClick={onResume} aria-label="Resume" title="Resume">
           <Play size={16} />
         </button>

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
 import { ClaudeService, diskClaudeStore } from './claude/service'
+import { TutorService, type TutorRecord } from './claude/tutor'
 import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
@@ -29,6 +30,13 @@ const service = new ClaudeService({
   store: diskClaudeStore(join(ROOT, 'sessions', 'claude')),
 })
 
+const tutor = new TutorService({
+  ctx,
+  agent: sdkAgent,
+  system: () => prompt('tutor'),
+  store: diskClaudeStore<TutorRecord>(join(ROOT, 'sessions', 'tutor')),
+})
+
 // Checked once at startup (it takes a few seconds), and again when asked if
 // there was no login, in case you've logged in since.
 let account: { at: number; found: Promise<ClaudeAccount | undefined>; none?: boolean } | undefined
@@ -47,6 +55,7 @@ const app = createApp({
   ctx,
   games,
   claude: { service, account: checkAccount },
+  tutor,
   writeFile: writeRepoFile(),
   removeFile: removeRepoFile(),
   addCards: (names) => addCards(names, ROOT),

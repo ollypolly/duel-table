@@ -54,6 +54,9 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 | `POST /sessions/{id}/claude/chat` | `{ text }` | the game; the viewer's message to Claude |
 | `POST /sessions/{id}/claude/stop`, `/resume` | | the game |
 | `POST /sessions/{id}/claude/settings` | `{ model?, coach?, share? }` | the game |
+| `GET /scenarios/{id}/tutor` | | `{ model, status, chat, costUsd }`: the chat with Claude about a lesson (`501` without a Claude login) |
+| `POST /scenarios/{id}/tutor/chat` | `{ text, position }` | the chat; Claude reads the lesson up to `position` and answers (poll for the reply) |
+| `POST /scenarios/{id}/tutor/stop`, `/settings` `{ model? }`, `DELETE /scenarios/{id}/tutor` | | the chat; `DELETE` starts it over |
 
 Creating a session:
 
