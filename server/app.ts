@@ -14,7 +14,7 @@ import { PlayerSchema } from '../src/scenarios/schema'
 import type { ClaudeService } from './claude/service'
 import type { TutorService } from './claude/tutor'
 import { TutorAskSchema, TutorViewSchema } from '../src/api/tutor'
-import { ReviewChatSchema, ReviewMomentSchema, ReviewViewSchema } from '../src/api/review'
+import { ReviewChatSchema, ReviewViewSchema } from '../src/api/review'
 import type { ReviewService } from './claude/review'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
@@ -716,18 +716,6 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { text, position } = c.req.valid('json')
       return c.json((await needReview()).chat(c.req.valid('param').id, text, position), 200)
     },
-  )
-
-  app.openapi(
-    createRoute({
-      method: 'post',
-      path: '/sessions/{id}/review/moment',
-      summary: 'Have Claude take you through a moment it marked',
-      description: "Claude gets the table just before the move, at position step - 1. Its reply arrives on the session's SSE stream.",
-      request: { params: IdParam, ...body(ReviewMomentSchema) },
-      responses: reviewResponses,
-    }),
-    async (c) => c.json((await needReview()).moment(c.req.valid('param').id, c.req.valid('json').step), 200),
   )
 
   app.openapi(reviewRoute('post', '/stop', "Stop Claude's answer"), async (c) => c.json(await (await needReview()).stop(c.req.valid('param').id), 200))

@@ -90,7 +90,6 @@ export const api = {
   startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
   closeReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/close`),
   askReview: (id: string, text: string, position: number) => call<ReviewView>('POST', `/sessions/${id}/review/chat`, { text, position }),
-  reviewMoment: (id: string, step: number) => call<ReviewView>('POST', `/sessions/${id}/review/moment`, { step }),
   stopReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/stop`),
   reviewSettings: (id: string, s: { model?: ModelChoice }) => call<ReviewView>('POST', `/sessions/${id}/review/settings`, s),
   clearReview: (id: string) => call<ReviewView>('DELETE', `/sessions/${id}/review`),
