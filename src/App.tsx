@@ -10,7 +10,7 @@ import {
   ScenarioErrors,
   EmptyState,
 } from "./components/ScenarioErrors/ScenarioErrors";
-import { TablePicker } from "./components/Tables/TablePicker";
+import { TablePicker, TablePickerButton } from "./components/Tables/TablePicker";
 import { Table } from "./components/Table/Table";
 import { TopBar } from "./components/TopBar/TopBar";
 import { useTutorChat } from "./components/Tutor/useTutorChat";
@@ -24,25 +24,22 @@ export default function App() {
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
+  const [pickerOpen, setPickerOpen] = useState(false);
   // Reopens after a deck save reloads the page.
   const [deckHubOpen, setDeckHubOpen] = useState(() => deckFromUrl() !== undefined);
   const { scenarios, branches, branchIds } = useScenarios();
   const { add, appendStep, undo } = useBranchStore();
   const all = [...scenarios, ...branches];
-  const result =
-    all.find((r) => resultId(r) === scenarioId) ??
-    all.find((r) => r.ok) ??
-    all[0];
+  const result = all.find((r) => resultId(r) === scenarioId);
   const currentId = result && resultId(result);
+  // Nothing open (a fresh start, or what was open is gone): the picker is the
+  // home screen.
+  const home = !sessionId && !result && all.length > 0;
   const isBranch = !!currentId && branchIds.has(currentId);
   // Branches live in this browser, so only the repo's lessons get a tutor.
   const tutor = useTutorChat(
     liveSessions && !sessionId && !isBranch ? currentId : undefined,
   );
-
-  useEffect(() => {
-    if (currentId && currentId !== scenarioId) open(currentId);
-  }, [currentId, scenarioId, open]);
 
   // The API is optional; undefined sessions means it isn't running.
   const refreshTables = () => void api.listSessions().then(setLiveSessions);
@@ -69,16 +66,13 @@ export default function App() {
         <img src="/icon.svg" alt="" className="size-7 rounded-md" />
         <span className="hidden sm:inline">Duel Table</span>
       </h1>
-      <TablePicker
+      <TablePickerButton
         tables={liveSessions}
         scenarios={scenarios}
         branches={branches}
         tableId={sessionId}
         scenarioId={currentId}
-        onOpenTable={(id) => (id ? openSession(id, Infinity) : openSession(undefined))}
-        onOpenScenario={(id) => open(id)}
-        onNewGame={() => setNewGameOpen(true)}
-        onChanged={refreshTables}
+        onClick={() => setPickerOpen(true)}
       />
       <Menu label="☰" title="More" align="right">
         <ImportBranch takenIds={all.map(resultId)} />
@@ -98,6 +92,20 @@ export default function App() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
+      <TablePicker
+        open={pickerOpen || home}
+        required={home}
+        onClose={() => setPickerOpen(false)}
+        tables={liveSessions}
+        scenarios={scenarios}
+        branches={branches}
+        tableId={sessionId}
+        scenarioId={currentId}
+        onOpenTable={(id) => (id ? openSession(id, Infinity) : openSession(undefined))}
+        onOpenScenario={(id) => open(id)}
+        onNewGame={() => setNewGameOpen(true)}
+        onChanged={refreshTables}
+      />
       <NewGameDialog
         key={newGameDeck}
         open={newGameOpen}

@@ -1,11 +1,13 @@
 // What's on the table: one picker for your tables (games and boards on the
 // local API, which you can rename and delete) and the lessons and scenarios
-// in the repo (view-only; "New table from here" plays on from one).
-import { Pencil, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+// in the repo (view-only; "New table from here" plays on from one). It's a
+// dialog, opened from the header, and it's also the home screen: with
+// nothing open it shows on its own and can't be closed until you pick.
+import { Pencil, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react'
 import { api, type SessionSummary } from '../../api/client'
 import type { ResolveResult } from '../../scenarios/resolve'
-import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
+import { MenuLabel } from '../Menu/Menu'
 
 type Props = {
   tables?: SessionSummary[] // undefined: the API isn't running
@@ -13,6 +15,12 @@ type Props = {
   branches: ResolveResult[]
   tableId?: string
   scenarioId?: string
+}
+
+type DialogProps = Props & {
+  open: boolean
+  required: boolean // the home screen: no closing it without a pick
+  onClose: () => void
   onOpenTable: (id: string | undefined) => void
   onOpenScenario: (id: string) => void
   onNewGame: () => void
@@ -34,21 +42,59 @@ function details(t: SessionSummary) {
   return [!autoTitle(t) && t.kind === 'game' && matchup(t), result, day(t.updatedAt)].filter(Boolean).join(' · ')
 }
 
-export function TablePicker({ tables, scenarios, branches, tableId, scenarioId, onOpenTable, onOpenScenario, onNewGame, onChanged }: Props) {
+const currentLabel = ({ tables, scenarios, branches, tableId, scenarioId }: Props) => {
+  const current = tableId ? tables?.find((t) => t.id === tableId) : undefined
+  const scenario = !tableId ? [...scenarios, ...branches].find((r) => key(r) === scenarioId) : undefined
+  return current ? tableName(current) : scenario ? scenarioTitle(scenario) : (tableId ?? 'Tables')
+}
+
+// The header button: what's open, and a click opens the picker.
+export function TablePickerButton({ onClick, ...props }: Props & { onClick: () => void }) {
+  return (
+    <button type="button" className="btn min-w-0" title="Tables, lessons and scenarios" onClick={onClick}>
+      <span className="block max-w-[14rem] truncate sm:max-w-[22rem]">{currentLabel(props)}</span> <span className="text-[0.6rem] text-faint">▾</span>
+    </button>
+  )
+}
+
+export function TablePicker({ open, required, onClose, tables, scenarios, branches, tableId, scenarioId, onOpenTable, onOpenScenario, onNewGame, onChanged }: DialogProps) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = ref.current
+    if (open && !dialog?.open) dialog?.showModal()
+    if (!open && dialog?.open) dialog.close()
+  }, [open])
+  const pick = (go: () => void) => () => {
+    go()
+    onClose()
+  }
+
   const newest = [...(tables ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   const sections: [string, SessionSummary[]][] = [
     ['In progress', newest.filter((t) => t.kind === 'game' && !t.winner)],
     ['Past games', newest.filter((t) => t.kind === 'game' && t.winner)],
     ['Boards', newest.filter((t) => t.kind === 'board')],
   ]
-  const current = tableId ? tables?.find((t) => t.id === tableId) : undefined
-  const scenario = !tableId ? [...scenarios, ...branches].find((r) => key(r) === scenarioId) : undefined
-  const label = current ? tableName(current) : scenario ? scenarioTitle(scenario) : (tableId ?? 'Tables')
 
   return (
-    <Menu label={<span className="block max-w-[14rem] truncate sm:max-w-[22rem]">{label}</span>} title="Tables, lessons and scenarios">
-      <div className="max-h-[70vh] w-[min(28rem,90vw)] overflow-y-auto">
-        {tables && <MenuItem onClick={onNewGame}>New game…</MenuItem>}
+    <dialog
+      ref={ref}
+      aria-label="Tables, lessons and scenarios"
+      onClose={onClose}
+      onCancel={(e) => required && e.preventDefault()}
+      onClick={(e) => !required && e.target === ref.current && ref.current.close()}
+      className="panel m-auto max-h-[min(44rem,88dvh)] w-[min(32rem,94vw)] bg-surface p-0 text-ink backdrop:bg-bg/80 backdrop:backdrop-blur-md"
+    >
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+        <h2 className="flex-1 font-display text-lg font-semibold">{required ? 'What would you like to open?' : 'Open'}</h2>
+        {!required && (
+          <button type="button" className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink" aria-label="Close" onClick={onClose}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      <div className="p-1.5">
+        {tables && <Row onClick={pick(onNewGame)}>New game…</Row>}
         {sections.map(
           ([title, rows]) =>
             rows.length > 0 && (
@@ -59,7 +105,7 @@ export function TablePicker({ tables, scenarios, branches, tableId, scenarioId, 
                     key={t.id}
                     table={t}
                     current={t.id === tableId}
-                    onOpen={() => onOpenTable(t.id)}
+                    onOpen={pick(() => onOpenTable(t.id))}
                     onChanged={onChanged}
                     onDeleted={() => t.id === tableId && onOpenTable(undefined)}
                   />
@@ -69,27 +115,31 @@ export function TablePicker({ tables, scenarios, branches, tableId, scenarioId, 
         )}
         <MenuLabel>Lessons & scenarios</MenuLabel>
         {scenarios.map((r) => (
-          <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={() => onOpenScenario(key(r))} />
+          <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={pick(() => onOpenScenario(key(r)))} />
         ))}
         {branches.length > 0 && (
           <>
             <MenuLabel>Your branches</MenuLabel>
             {branches.map((r) => (
-              <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={() => onOpenScenario(key(r))} />
+              <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={pick(() => onOpenScenario(key(r)))} />
             ))}
           </>
         )}
       </div>
-    </Menu>
+    </dialog>
   )
+}
+
+function Row({ className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" className={`block rounded px-2.5 py-1.5 text-left text-sm hover:bg-raised ${className}`} {...props} />
 }
 
 function ScenarioRow({ r, current, onOpen }: { r: ResolveResult; current: boolean; onOpen: () => void }) {
   return (
-    <MenuItem onClick={onOpen} aria-current={current} className={`w-full ${current ? 'text-gold' : ''}`}>
+    <Row onClick={onOpen} aria-current={current} className={`w-full ${current ? 'text-gold' : ''}`}>
       <span className="block truncate">{scenarioTitle(r)}</span>
       {r.ok && <span className="text-xs text-muted">{r.scenario.game.steps.length} steps</span>}
-    </MenuItem>
+    </Row>
   )
 }
 
@@ -123,7 +173,7 @@ function TableRow({
   if (mode === 'rename') {
     return (
       <form
-        data-keep-open
+       
         className="flex items-center gap-1 px-1.5 py-1"
         onSubmit={(e) => {
           e.preventDefault()
@@ -136,7 +186,7 @@ function TableRow({
           className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-sm"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setMode(undefined))}
+          onKeyDown={(e) => e.key === 'Escape' && (e.preventDefault(), setMode(undefined))}
         />
         <button type="submit" className="btn px-2 py-1 text-xs">
           Save
@@ -150,12 +200,12 @@ function TableRow({
   }
   return (
     <div className="group flex items-start gap-1">
-      <MenuItem onClick={onOpen} aria-current={current} className={`min-w-0 flex-1 ${current ? 'text-gold' : ''}`}>
+      <Row onClick={onOpen} aria-current={current} className={`min-w-0 flex-1 ${current ? 'text-gold' : ''}`}>
         <span className="block truncate">{tableName(table)}</span>
         <span className="block truncate text-xs text-muted">{details(table)}</span>
-      </MenuItem>
+      </Row>
       {mode === 'delete' ? (
-        <span data-keep-open className="flex shrink-0 items-center gap-1 self-center pr-1 text-xs">
+        <span className="flex shrink-0 items-center gap-1 self-center pr-1 text-xs">
           <button type="button" className="btn px-2 py-1 text-danger" onClick={() => void run(api.deleteSession(table.id), onDeleted)}>
             Delete
           </button>
@@ -164,7 +214,7 @@ function TableRow({
           </button>
         </span>
       ) : (
-        <span data-keep-open className="flex shrink-0 self-center opacity-60 group-hover:opacity-100">
+        <span className="flex shrink-0 self-center opacity-60 group-hover:opacity-100">
           <button
             type="button"
             className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink"

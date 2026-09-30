@@ -1,5 +1,7 @@
-// Playback position and preferences, persisted so a reload lands where you
-// were. `position` is 0 for the setup and n for "after step n".
+// What's open and the playback position, and preferences. Only the
+// preferences are saved: what's open lives in the URL (urlSync), so a reload
+// lands where you were and a fresh start opens the picker. `position` is 0 for
+// the setup and n for "after step n".
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
@@ -8,7 +10,7 @@ export const BASE_STEP_MS = 2500
 
 type PlayerState = {
   scenarioId?: string
-  sessionId?: string // live mode; comes from the URL, not persisted
+  sessionId?: string // live mode
   position: number
   speed: number
   playing: boolean
@@ -23,7 +25,7 @@ type PlayerState = {
   setMuted: (muted: boolean) => void
 }
 
-type Persisted = Pick<PlayerState, 'position' | 'speed' | 'muted'> & { scenarioId: string | undefined }
+type Persisted = Pick<PlayerState, 'speed' | 'muted'>
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -43,16 +45,13 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: 'duel-table/player',
-      version: 2,
-      partialize: ({ scenarioId, position, speed, muted }): Persisted => ({ scenarioId, position, speed, muted }),
-      // Only called when the stored version differs. Version 1 also saved
-      // followFocus; anything else unrecognised starts fresh.
-      migrate: (old, version): Persisted => {
-        if (version === 1) {
-          const { scenarioId, position, speed } = old as Persisted
-          return { scenarioId, position, speed, muted: false }
-        }
-        return { scenarioId: undefined, position: 0, speed: 1, muted: false }
+      version: 3,
+      partialize: ({ speed, muted }): Persisted => ({ speed, muted }),
+      // Only called when the stored version differs. Earlier versions also
+      // saved what was open; the preferences carry over.
+      migrate: (old): Persisted => {
+        const { speed = 1, muted = false } = (old ?? {}) as Partial<Persisted>
+        return { speed, muted }
       },
     },
   ),
