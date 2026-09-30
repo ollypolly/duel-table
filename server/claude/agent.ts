@@ -4,6 +4,7 @@
 import { createSdkMcpServer, query, tool, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { z } from 'zod'
 import type { ModelChoice } from '../../src/api/game'
+import { MomentSchema, type Moment } from '../../src/api/review'
 import type { Player } from '../../src/engine'
 import { PlayerSchema, SetupSchema, type Setup } from '../../src/scenarios/schema'
 import type { Handover } from './service'
@@ -22,6 +23,9 @@ export type DuelTools = {
   handOver?(player: Player, until: Handover['until']): Promise<string>
   takeBack?(player: Player): string
   ask?(question: string, options?: string[]): string
+  // Reviewing a finished game: the table after any step, and marking key moments.
+  tableAt?(step: number): string
+  mark?(moment: Moment): string
 }
 
 export type AgentEvent =
@@ -37,7 +41,7 @@ const MAX_TURNS = 60
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
 export const sdkAgent: Agent = (req) => {
-  const { answer, setup, handOver, takeBack, ask } = req.tools
+  const { answer, setup, handOver, takeBack, ask, tableAt, mark } = req.tools
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
@@ -92,6 +96,17 @@ export const sdkAgent: Agent = (req) => {
             ),
           ]
         : []),
+      ...(tableAt && mark
+        ? [
+            tool('tableAt', 'The table after a step (0 for the start), with both sides open.', { step: z.int().min(0) }, async ({ step }) => text(tableAt(step))),
+            tool(
+              'mark',
+              'Mark a key moment of the game: it shows on their timeline and in the list they step through. Marking a step again replaces it.',
+              MomentSchema.shape,
+              async (input) => text(mark(input)),
+            ),
+          ]
+        : []),
     ],
   })
   const q = query({
@@ -106,6 +121,7 @@ export const sdkAgent: Agent = (req) => {
         'mcp__duel__card',
         ...(answer ? ['mcp__duel__answer'] : []),
         ...(setup ? ['mcp__duel__setup', 'mcp__duel__handOver', 'mcp__duel__takeBack', 'mcp__duel__ask'] : []),
+        ...(mark ? ['mcp__duel__tableAt', 'mcp__duel__mark'] : []),
       ],
       settingSources: [],
       maxTurns: MAX_TURNS,
