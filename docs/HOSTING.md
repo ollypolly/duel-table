@@ -36,7 +36,9 @@ The dev server is fine here: it's one person's tool, and it reloads prompts and 
    tailscale serve --bg 5180
    tailscale serve status
    ```
-   The first time, it may ask the owner to enable HTTPS certificates for the tailnet in the admin console. `tailscale serve --bg` keeps the setting across reboots. `tailscale serve reset` turns it off.
+   That takes port 443 on the machine's tailnet address. If something else already answers there (a reverse proxy the tailnet also uses), serve on another port instead, e.g. `tailscale serve --bg --https=10001 5180`, and the URL gets `:10001`.
+
+   The first time, it may ask the owner to enable HTTPS certificates for the tailnet in the admin console. `tailscale serve --bg` keeps the setting across reboots. `tailscale serve --https=443 off` (or the port you used) turns it off; not `tailscale serve reset`, which clears everything else served from the machine too.
 8. **Check from another device.** Open the `https://…ts.net` URL on the owner's phone. Start a lesson (New game → Lesson with Claude) to check Claude works from there. On the phone, Share → Add to Home Screen installs it as an app.
 
 ## Bringing games over
