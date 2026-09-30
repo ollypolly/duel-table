@@ -41,6 +41,16 @@
   }
 }
 
+/* iOS zooms the page into any text box under 16px when it's focused. Outside
+   the layers so it beats text-xs and friends. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
 /* A glass panel with a gold hairline along the top edge. */
 @utility panel {
   position: relative;
