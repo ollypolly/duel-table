@@ -247,7 +247,7 @@ export function Table({
                 worth knowing, and the quick button over its right end. Closed,
                 it and the playback bar under it show. */}
             {phone && (
-              <div className="relative shrink-0 border-b border-line">
+              <div className={`relative shrink-0 border-b border-line ${activity?.action ? 'your-move' : ''}`}>
                 <button
                   type="button"
                   className="flex w-full touch-none flex-col items-center gap-1.5 px-3 pb-2.5 pt-2"
