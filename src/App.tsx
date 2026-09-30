@@ -3,14 +3,14 @@ import { api, type SessionSummary } from "./api/client";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
 import { deckFromUrl } from "./hooks/urlSync";
-import { Menu, MenuItem, MenuLabel } from "./components/Menu/Menu";
+import { Menu, MenuItem } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
 import { NewGameDialog } from "./components/Game/NewGameDialog";
 import {
   ScenarioErrors,
   EmptyState,
 } from "./components/ScenarioErrors/ScenarioErrors";
-import { ScenarioPicker } from "./components/ScenarioPicker/ScenarioPicker";
+import { TablePicker } from "./components/Tables/TablePicker";
 import { Table } from "./components/Table/Table";
 import { TopBar } from "./components/TopBar/TopBar";
 import { branchFrom } from "./branches/branches";
@@ -40,9 +40,8 @@ export default function App() {
   }, [currentId, scenarioId, open]);
 
   // The API is optional; undefined sessions means it isn't running.
-  useEffect(() => {
-    void api.listSessions().then(setLiveSessions);
-  }, [sessionId]);
+  const refreshTables = () => void api.listSessions().then(setLiveSessions);
+  useEffect(refreshTables, [sessionId]);
 
   const goLive = async (position: number) => {
     const s = await api.createSession({
@@ -62,34 +61,17 @@ export default function App() {
   const nav = (
     <>
       <h1 className="hidden shrink-0 font-bold tracking-tight sm:block">Duel Table</h1>
-      {all.length > 0 && (
-        <ScenarioPicker
-          scenarios={scenarios}
-          branches={branches}
-          value={currentId}
-          onChange={(id) => open(id)}
-        />
-      )}
-      {liveSessions && (
-        <Menu
-          label={
-            <>
-              Live<span className="hidden sm:inline">{sessionId && `: ${sessionId}`}</span>
-            </>
-          }
-          title="Sessions on the local API"
-        >
-          <MenuItem onClick={() => setNewGameOpen(true)}>New game…</MenuItem>
-          <MenuLabel>Open a session</MenuLabel>
-          {liveSessions.length === 0 && <MenuItem disabled>No sessions yet</MenuItem>}
-          {liveSessions.map((s) => (
-            <MenuItem key={s.id} onClick={() => openSession(s.id, Infinity)} aria-current={s.id === sessionId}>
-              {s.id}: {s.title}
-            </MenuItem>
-          ))}
-          {sessionId && <MenuItem onClick={() => openSession(undefined)}>Leave live mode</MenuItem>}
-        </Menu>
-      )}
+      <TablePicker
+        tables={liveSessions}
+        scenarios={scenarios}
+        branches={branches}
+        tableId={sessionId}
+        scenarioId={currentId}
+        onOpenTable={(id) => (id ? openSession(id, Infinity) : openSession(undefined))}
+        onOpenScenario={(id) => open(id)}
+        onNewGame={() => setNewGameOpen(true)}
+        onChanged={refreshTables}
+      />
       <Menu label="☰" title="More">
         <ImportBranch takenIds={all.map(resultId)} />
         {liveSessions && <MenuItem onClick={() => setDeckHubOpen(true)}>Decks…</MenuItem>}

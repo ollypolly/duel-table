@@ -46,7 +46,7 @@ Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither
 
 ## Playing a game
 
-**Live → New game…** picks your deck, the opponent's deck, and the opponent: the bot, or Claude (with a model, Opus or Sonnet, and whether it coaches you).
+**Tables → New game…** picks your deck, the opponent's deck, and the opponent: the bot, or Claude (with a model, Opus or Sonnet, and whether it coaches you).
 
 The rules engine asks you what to do: the options appear in the scene panel and the cards involved light up. Drag a card from your hand onto a zone to summon, set or activate it, or click it to see its options.
 
@@ -87,7 +87,7 @@ curl -s -X POST $API/sessions/s-1a2b3c/steps -H 'content-type: application/json'
 
 These boards check only physical things (a missing card, an occupied slot is a `422`). Rules are enforced only in games on the rules engine.
 
-In the browser, **More → Go live** starts a session at the current step, and your free-play moves there are posted to it, so you and whatever is driving the API act on the same board. Sessions can also run as **interactive lessons**, with steps shown when you click Next and questions in the scene panel: see [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).
+In the browser, the **Tables** picker lists your games (in progress and past, with the Claude chat kept) and boards, which you can rename and delete, above the lessons and scenarios. **More → New table from here** starts a session at the current step, and your free-play moves there are posted to it, so you and whatever is driving the API act on the same board. Sessions can also run as **interactive lessons**, with steps shown when you click Next and questions in the scene panel: see [Running an interactive lesson](docs/API.md#running-an-interactive-lesson).
 
 ## Where things are
 

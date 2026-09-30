@@ -21,7 +21,18 @@ import type { FetchResult } from './ygoprodeck'
 
 const ErrorSchema = z.object({ error: z.string(), details: z.array(z.string()).optional() })
 const IssueSchema = z.object({ severity: z.enum(['error', 'warning']), message: z.string(), action: z.number().optional() })
-const SummarySchema = z.object({ id: z.string(), title: z.string(), steps: z.number(), basedOn: z.string().optional() })
+const SeatSchema = z.object({ name: z.string(), deck: z.string().optional(), deckName: z.string().optional() })
+const SummarySchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  steps: z.number(),
+  basedOn: z.string().optional(),
+  updatedAt: z.string().openapi({ description: 'When it was last saved (ISO)' }),
+  players: z.object({ p1: SeatSchema, p2: SeatSchema }),
+  turn: z.number(),
+  kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),
+  winner: z.enum(['p1', 'p2']).optional(),
+})
 const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),
   state: z.unknown().openapi({ description: 'BoardState after the last step (queued ones included)' }),
@@ -342,6 +353,33 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       responses: { 200: json(SessionSchema, 'The session'), ...errors },
     }),
     (c) => c.json(sessions.get(c.req.valid('param').id), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'patch',
+      path: '/sessions/{id}',
+      summary: 'Rename a session',
+      request: { params: IdParam, ...body(z.object({ title: z.string().trim().min(1) }).strict()) },
+      responses: { 200: json(SessionSchema, 'The renamed session'), ...errors },
+    }),
+    (c) => c.json(sessions.rename(c.req.valid('param').id, c.req.valid('json').title), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'delete',
+      path: '/sessions/{id}',
+      summary: 'Delete a session, with its game and Claude chat',
+      description: '409 if another session starts from this one (details lists them).',
+      request: { params: IdParam },
+      responses: { 200: json(z.object({ deleted: z.string() }), 'Deleted'), 409: json(ErrorSchema, 'Other sessions start from it'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      sessions.remove(id)
+      return c.json({ deleted: id }, 200)
+    },
   )
 
   app.openapi(

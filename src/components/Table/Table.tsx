@@ -243,8 +243,8 @@ export function Table({
                   <Menu label="More">
                     {!freePlay && onStep && <MenuItem onClick={() => goTo(last)}>Free play at the end</MenuItem>}
                     {!freePlay && onGoLive && (
-                      <MenuItem title="Start a session on the local API that Claude can drive with curl" onClick={() => onGoLive(position)}>
-                        Go live from here
+                      <MenuItem title="Start a table from this step to play on (Claude can join it over the API)" onClick={() => onGoLive(position)}>
+                        New table from here
                       </MenuItem>
                     )}
                     {menuItems}

@@ -97,6 +97,29 @@ describe('SessionService', () => {
     const reloaded = new SessionService(ctx, diskStore(dir))
     expect(reloaded.get(id).steps).toBe(2)
   })
+
+  it('lists who is playing, renames and deletes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'duel-sessions-'))
+    const svc = new SessionService(ctx, diskStore(dir))
+    const removed: string[] = []
+    svc.onRemove.push((id) => removed.push(id))
+    const { id } = svc.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', opponentName: 'Claude', seed: 1 })
+    expect(svc.list()).toEqual([
+      expect.objectContaining({
+        id,
+        kind: 'board',
+        turn: expect.any(Number),
+        updatedAt: expect.any(String),
+        players: { p1: expect.objectContaining({ name: 'You', deck: 'chazz-armed-ojama' }), p2: expect.objectContaining({ name: 'Claude', deck: 'super-quant' }) },
+      }),
+    ])
+    expect(svc.rename(id, 'Quant OTK').title).toBe('Quant OTK')
+    expect(new SessionService(ctx, diskStore(dir)).get(id).title).toBe('Quant OTK')
+    svc.remove(id)
+    expect(removed).toEqual([id])
+    expect(readdirSync(dir)).toEqual([])
+    expect(() => svc.get(id)).toThrow(SessionError)
+  })
 })
 
 describe('lessons', () => {

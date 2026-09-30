@@ -47,6 +47,8 @@ export function diskStore(dir: string): SessionStore {
       mkdirSync(dir, { recursive: true })
       writeFileSync(join(dir, `${file.id}.json`), `${JSON.stringify(file, null, 2)}\n`)
     },
+    remove: (id) => rmSync(join(dir, `${id}.json`), { force: true }),
+    updatedAt: (id) => (existsSync(join(dir, `${id}.json`)) ? statSync(join(dir, `${id}.json`)).mtimeMs : undefined),
   }
 }
 

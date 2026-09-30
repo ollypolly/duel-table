@@ -1,12 +1,22 @@
 // Typed fetch client for the local API, plus the SSE subscription live mode
 // uses. Everything is optional: playback works without the server.
 import type { CardData } from '../data/cardDb'
-import type { Issue, Step } from '../engine'
+import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
 import type { Answer, LessonView } from './lesson'
 
-export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
+export type SessionSummary = {
+  id: string
+  title: string
+  steps: number
+  basedOn?: string
+  updatedAt: string
+  players: Record<Player, { name: string; deck?: string; deckName?: string }>
+  turn: number
+  kind: 'game' | 'board'
+  winner?: Player
+}
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView }
 
 export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[] }
@@ -49,6 +59,8 @@ export const api = {
   deleteDeck: (id: string) => call<{ path: string }>('DELETE', `/decks/${id}`),
   // undefined when the server isn't running.
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),
+  renameSession: (id: string, title: string) => call<SessionSummary>('PATCH', `/sessions/${id}`, { title }),
+  deleteSession: (id: string) => call<{ deleted: string }>('DELETE', `/sessions/${id}`),
   createSession: (opts: { scenario: string; atStep: number }) => call<SessionSummary>('POST', '/sessions', opts),
   // The viewer's own moves, so Claude can tell them from its steps.
   applyStep: (id: string, step: Step) => call<{ position: number }>('POST', `/sessions/${id}/steps`, { ...step, author: 'user' }),

@@ -168,6 +168,7 @@ export const ScenarioSchema = z
         bots: z.array(PlayerSchema).optional().describe('Players the random bot answers for'),
         claude: PlayerSchema.optional().describe('The player Claude answers for'),
         shuffled: z.boolean().optional().describe('The Decks were shuffled from the seed (games saved before that replay unshuffled)'),
+        winner: PlayerSchema.optional().describe('Who won, once the duel is over'),
       })
       .strict()
       .optional()

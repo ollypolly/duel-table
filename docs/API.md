@@ -20,7 +20,7 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 
 ## Workflow
 
-1. Create a session, or find the one the human started with the "Go live" button (`GET /sessions`). To play a deck, read it first with `GET /decks/{id}`, or create it from a decklist with `POST /decks`.
+1. Create a session, or find the one the human started with "New table from here" (`GET /sessions`). To play a deck, read it first with `GET /decks/{id}`, or create it from a decklist with `POST /decks`.
 2. `GET /sessions/{id}` and read `state`: hands, field, LP, turn, phase.
 3. Look up card text with `GET /cards?name=...` before relying on what a card does. Your memory of card text may be wrong.
 4. `POST /sessions/{id}/steps` one step at a time. Check the response: `issues` holds warnings, a `422` means nothing was applied.

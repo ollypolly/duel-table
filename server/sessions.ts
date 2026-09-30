@@ -14,15 +14,18 @@ import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { Lesson } from './lesson'
 import type { GameView } from '../src/api/game'
+import type { Player } from '../src/engine'
 
 export { SessionError }
 
 export type SessionStore = {
   load(): ScenarioFile[]
   save(file: ScenarioFile): void
+  remove(id: string): void
+  updatedAt?(id: string): number | undefined // when it was last saved, if known
 }
 
-export const memoryStore = (): SessionStore => ({ load: () => [], save: () => {} })
+export const memoryStore = (): SessionStore => ({ load: () => [], save: () => {}, remove: () => {} })
 
 export type CreateOptions = {
   scenario?: string
@@ -34,15 +37,23 @@ export type CreateOptions = {
   opponentName?: string // defaults to Friend
 }
 
-export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
+export type SessionSummary = {
+  id: string
+  title: string
+  steps: number
+  basedOn?: string
+  updatedAt: string
+  players: Record<Player, { name: string; deck?: string; deckName?: string }>
+  turn: number
+  kind: 'game' | 'board' // a game on the rules engine, or a free board
+  winner?: Player // the other player's LP hit 0
+}
 export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView }
 type Duel = NonNullable<ScenarioFile['duel']>
-export type ApplyResult =
-  | { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number }
-  | { ok: false; issues: Issue[] }
+export type ApplyResult = { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number } | { ok: false; issues: Issue[] }
 
 type Listener = (view: SessionView) => void
-type Live = { file: ScenarioFile; resolved: ResolvedScenario; lesson: Lesson }
+type Live = { file: ScenarioFile; resolved: ResolvedScenario; lesson: Lesson; updatedAt: number }
 
 export class SessionService {
   private sessions = new Map<string, Live>()
@@ -51,6 +62,8 @@ export class SessionService {
   private store: SessionStore
   // Live game state for sessions on the rules engine (set by GameService).
   gameView?: (id: string) => GameView | undefined
+  // Told when a session is deleted, to drop what else they hold for it.
+  onRemove: ((id: string) => void)[] = []
 
   // ctx is a function so edits to scenarios/ and decks/ are picked up.
   constructor(ctx: () => ResolveContext, store: SessionStore = memoryStore()) {
@@ -58,18 +71,19 @@ export class SessionService {
     this.store = store
     for (const file of store.load()) {
       const r = this.resolve(file)
-      if (r.ok) this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario) })
+      if (r.ok)
+        this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario), updatedAt: store.updatedAt?.(file.id) ?? Date.now() })
     }
   }
 
   list(): SessionSummary[] {
-    return [...this.sessions.values()].map(({ file, resolved }) => summary(file, resolved))
+    return [...this.sessions.values()].map((s) => this.summary(s))
   }
 
   get(id: string): SessionView {
     const s = this.live(id)
     const game = s.file.duel && this.gameView?.(id)
-    return { ...summary(s.file, s.resolved), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view(), ...(game && { game }) }
+    return { ...this.summary(s), file: s.file, state: s.resolved.timeline.at(-1)!.state, lesson: s.lesson.view(), ...(game && { game }) }
   }
 
   create(opts: CreateOptions): SessionView {
@@ -104,7 +118,7 @@ export class SessionService {
   // viewer's own steps (author "user") can't jump the queue.
   apply(id: string, step: Step, { strict = false, reveal }: { strict?: boolean; reveal?: Reveal } = {}): ApplyResult {
     const s = this.live(id)
-    if (s.file.duel) throw new SessionError(409, "this is a game on the rules engine: answer its prompts instead of posting steps")
+    if (s.file.duel) throw new SessionError(409, 'this is a game on the rules engine: answer its prompts instead of posting steps')
     if (step.author === 'user' && s.lesson.view().queued) throw new SessionError(409, 'steps are still queued for the viewer')
     const state = s.resolved.timeline.at(-1)!.state
     const issues = validateStep(tableRules, state, step.actions)
@@ -138,6 +152,21 @@ export class SessionService {
     else Object.assign(file, { extends: { ...s.file.extends, atStep: at - 1 }, steps: [] })
     this.commit(file)
     return this.get(file.id)
+  }
+
+  rename(id: string, title: string): SessionView {
+    this.commit({ ...this.live(id).file, title })
+    return this.notify(id)
+  }
+
+  remove(id: string) {
+    this.live(id)
+    const children = [...this.sessions.values()].filter((s) => s.file.extends?.scenario === id).map((s) => s.file.id)
+    if (children.length) throw new SessionError(409, `sessions ${children.join(', ')} start from this one`, children)
+    for (const fn of this.onRemove) fn(id)
+    this.sessions.delete(id)
+    this.listeners.delete(id)
+    this.store.remove(id)
   }
 
   // Games: steps translated from the rules engine, with its saved answers.
@@ -205,7 +234,7 @@ export class SessionService {
     const r = this.resolve(file)
     if (!r.ok) throw new SessionError(422, 'the session no longer resolves', r.errors)
     const lesson = this.sessions.get(file.id)?.lesson ?? this.newLesson(file.id, r.scenario)
-    this.sessions.set(file.id, { file, resolved: r.scenario, lesson })
+    this.sessions.set(file.id, { file, resolved: r.scenario, lesson, updatedAt: Date.now() })
     this.store.save(file)
     return r.scenario
   }
@@ -226,6 +255,29 @@ export class SessionService {
     return resolveScenario(file, { ...ctx, scenarios: { ...sessions, ...ctx.scenarios } })
   }
 
+  private summary({ file, resolved, updatedAt }: Live): SessionSummary {
+    const last = resolved.timeline.at(-1)!.state
+    const decks = this.ctx().decks as Record<string, { name?: string } | undefined>
+    const player = (p: Player) => {
+      const { name, deck } = resolved.game.setup.players[p]
+      const deckName = deck && decks[deck]?.name
+      return { name, ...(deck && { deck }), ...(deckName && { deckName }) }
+    }
+    const lost = (['p1', 'p2'] as const).find((p) => last.players[p].lp <= 0)
+    const winner = file.duel?.winner ?? (lost && (lost === 'p1' ? 'p2' : 'p1'))
+    return {
+      id: file.id,
+      title: file.title,
+      steps: resolved.game.steps.length,
+      ...(file.extends && { basedOn: file.extends.scenario }),
+      updatedAt: new Date(updatedAt).toISOString(),
+      players: { p1: player('p1'), p2: player('p2') },
+      turn: last.turn,
+      kind: file.duel ? 'game' : 'board',
+      ...(file.duel && winner && { winner }),
+    }
+  }
+
   private live(id: string): Live {
     const s = this.sessions.get(id)
     if (!s) throw new SessionError(404, `no session "${id}"`)
@@ -243,10 +295,3 @@ export class SessionService {
 const missing = (id: string): never => {
   throw new SessionError(404, `no scenario "${id}"`)
 }
-
-const summary = (file: ScenarioFile, r: ResolvedScenario): SessionSummary => ({
-  id: file.id,
-  title: file.title,
-  steps: r.game.steps.length,
-  ...(file.extends && { basedOn: file.extends.scenario }),
-})

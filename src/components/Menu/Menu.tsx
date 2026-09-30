@@ -52,12 +52,12 @@ export function Menu({
   )
 }
 
-export function MenuItem({ children, danger, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+export function MenuItem({ children, danger, className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
   return (
     <button
       type="button"
       role="menuitem"
-      className={`rounded px-2.5 py-1.5 text-left text-sm whitespace-nowrap hover:bg-raised disabled:opacity-40 disabled:hover:bg-transparent ${danger ? 'text-danger' : ''}`}
+      className={`rounded px-2.5 py-1.5 text-left text-sm whitespace-nowrap hover:bg-raised disabled:opacity-40 disabled:hover:bg-transparent ${danger ? 'text-danger' : ''} ${className}`}
       {...props}
     >
       {children}

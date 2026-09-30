@@ -6,7 +6,7 @@
 //
 // Each game's record (settings, chat, cost, the SDK session to resume) is
 // saved by a ClaudeStore, so a game carries on after a restart.
-import { mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ChatEntry, ClaudeSettings, ClaudeView, GamePrompt, ModelChoice } from '../../src/api/game'
 import type { CardDb } from '../../src/data/cardDb'
@@ -28,11 +28,11 @@ export type ClaudeRecord = {
   texts?: string[] // cards whose text Claude has been given
 }
 
-export type ClaudeStore = { load(id: string): ClaudeRecord | undefined; save(id: string, r: ClaudeRecord): void }
+export type ClaudeStore = { load(id: string): ClaudeRecord | undefined; save(id: string, r: ClaudeRecord): void; remove(id: string): void }
 
 export const memoryClaudeStore = (): ClaudeStore => {
   const m = new Map<string, ClaudeRecord>()
-  return { load: (id) => m.get(id), save: (id, r) => void m.set(id, r) }
+  return { load: (id) => m.get(id), save: (id, r) => void m.set(id, r), remove: (id) => void m.delete(id) }
 }
 
 export const diskClaudeStore = (dir: string): ClaudeStore => ({
@@ -41,6 +41,7 @@ export const diskClaudeStore = (dir: string): ClaudeStore => ({
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, `${id}.json`), `${JSON.stringify(r, null, 2)}\n`)
   },
+  remove: (id) => rmSync(join(dir, `${id}.json`), { force: true }),
 })
 
 const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
@@ -78,6 +79,11 @@ export class ClaudeService {
     this.store = store
     games.onCreate = (id, opts) => opts.claude && this.join(id, opts.claude, opts)
     games.onChange = (id) => void this.poke(id)
+    sessions.onRemove.push((id) => {
+      void this.seats.get(id)?.run?.interrupt()
+      this.seats.delete(id)
+      this.store.remove(id)
+    })
     games.claudeView = (id) => {
       const s = this.seat(id)
       return s && { player: s.player, model: s.model, coach: s.coach, share: s.share, status: s.status, chat: s.chat, costUsd: s.costUsd }
@@ -306,6 +312,7 @@ export class ClaudeService {
   }
 
   private save(id: string, seat: Seat) {
+    if (this.seats.get(id) !== seat) return // deleted while a run was finishing
     const { player, model, coach, share, sessionId, chat, costUsd, seen, texts } = seat
     this.store.save(id, { player, model, coach, share, ...(sessionId && { sessionId }), chat, costUsd, seen, ...(texts && { texts }) })
   }

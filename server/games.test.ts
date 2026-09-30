@@ -13,7 +13,7 @@ const ctx = repoContext()
 
 const saving = () => {
   const files = new Map<string, ScenarioFile>()
-  const store: SessionStore = { load: () => [...files.values()], save: (f) => void files.set(f.id, f) }
+  const store: SessionStore = { load: () => [...files.values()], save: (f) => void files.set(f.id, f), remove: (id) => void files.delete(id) }
   return store
 }
 

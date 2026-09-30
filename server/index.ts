@@ -16,6 +16,7 @@ const port = Number(process.env.API_PORT ?? 5181)
 const ctx = repoContext()
 const sessions = new SessionService(ctx, diskStore(join(ROOT, 'sessions')))
 const games = new GameService(sessions, ctx, () => loadOcg(join(ROOT, ocgDataDir())))
+void games.recordResults()
 
 // Prompts are read per run, so edits apply to the next one.
 const prompt = (name: string) => readFileSync(join(ROOT, 'prompts', `${name}.md`), 'utf8')

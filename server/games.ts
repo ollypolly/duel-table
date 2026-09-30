@@ -48,6 +48,7 @@ export class GameService {
     this.ctx = ctx
     this.ocg = ocg
     sessions.gameView = (id) => this.view(id)
+    sessions.onRemove.push((id) => this.games.delete(id))
   }
 
   async create(opts: CreateGameOptions): Promise<SessionView> {
@@ -157,10 +158,30 @@ export class GameService {
       bots: live.bots,
       ...(live.claude && { claude: live.claude }),
       ...(live.shuffled && { shuffled: true }),
+      ...(live.game.duel.result && { winner: live.game.duel.result.player }),
     }
     const view = this.sessions.appendGame(id, steps, duel, (s) => (paced.has(s) ? { afterMs: BOT_STEP_MS } : undefined))
     this.onChange?.(id)
     return view
+  }
+
+  // Games saved before the winner was, get it by replaying them (without
+  // tracking them, so nobody is asked anything). Slow, so run it in the
+  // background at startup.
+  async recordResults() {
+    const ocg = await this.ocg()
+    for (const { id } of this.sessions.list()) {
+      const file = this.sessions.export(id)
+      if (!file.duel || file.duel.winner || this.games.has(id)) continue
+      try {
+        const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
+        game.replay(file.duel.responses.map(decodeResponse))
+        const result = game.duel.result
+        if (result && !this.games.has(id)) this.sessions.appendGame(id, [], { ...file.duel, winner: result.player })
+      } catch {
+        // A game that no longer replays stays as it is.
+      }
+    }
   }
 
   private ask(live: Live, p: Progress): Question {

@@ -1,0 +1,192 @@
+// What's on the table: one picker for your tables (games and boards on the
+// local API, which you can rename and delete) and the lessons and scenarios
+// in the repo (view-only; "New table from here" plays on from one).
+import { Pencil, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { api, type SessionSummary } from '../../api/client'
+import type { ResolveResult } from '../../scenarios/resolve'
+import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
+
+type Props = {
+  tables?: SessionSummary[] // undefined: the API isn't running
+  scenarios: ResolveResult[]
+  branches: ResolveResult[]
+  tableId?: string
+  scenarioId?: string
+  onOpenTable: (id: string | undefined) => void
+  onOpenScenario: (id: string) => void
+  onNewGame: () => void
+  onChanged: () => void // a table was renamed or deleted
+}
+
+const key = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id)
+const scenarioTitle = (r: ResolveResult) => (r.ok ? r.scenario.title : `⚠ ${r.id} (invalid)`)
+
+const seat = (p: SessionSummary['players']['p1']) => (p.deckName ? `${p.name} (${p.deckName})` : p.name)
+const matchup = (t: SessionSummary) => `${seat(t.players.p1)} vs ${seat(t.players.p2)}`
+// Titles the server made up; a renamed table shows its own.
+const autoTitle = (t: SessionSummary) => t.kind === 'game' && t.title.startsWith('Game: ')
+const tableName = (t: SessionSummary) => (autoTitle(t) ? matchup(t) : t.title)
+
+const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+function details(t: SessionSummary) {
+  const result = t.winner ? `${t.winner === 'p1' ? 'You' : t.players.p2.name} won, turn ${t.turn}` : t.kind === 'game' ? `Turn ${t.turn}` : `${t.steps} steps`
+  return [!autoTitle(t) && t.kind === 'game' && matchup(t), result, day(t.updatedAt)].filter(Boolean).join(' · ')
+}
+
+export function TablePicker({ tables, scenarios, branches, tableId, scenarioId, onOpenTable, onOpenScenario, onNewGame, onChanged }: Props) {
+  const newest = [...(tables ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const sections: [string, SessionSummary[]][] = [
+    ['In progress', newest.filter((t) => t.kind === 'game' && !t.winner)],
+    ['Past games', newest.filter((t) => t.kind === 'game' && t.winner)],
+    ['Boards', newest.filter((t) => t.kind === 'board')],
+  ]
+  const current = tableId ? tables?.find((t) => t.id === tableId) : undefined
+  const scenario = !tableId ? [...scenarios, ...branches].find((r) => key(r) === scenarioId) : undefined
+  const label = current ? tableName(current) : scenario ? scenarioTitle(scenario) : (tableId ?? 'Tables')
+
+  return (
+    <Menu label={<span className="block max-w-[14rem] truncate sm:max-w-[22rem]">{label}</span>} title="Tables, lessons and scenarios">
+      <div className="max-h-[70vh] w-[min(28rem,90vw)] overflow-y-auto">
+        {tables && <MenuItem onClick={onNewGame}>New game…</MenuItem>}
+        {sections.map(
+          ([title, rows]) =>
+            rows.length > 0 && (
+              <section key={title}>
+                <MenuLabel>{title}</MenuLabel>
+                {rows.map((t) => (
+                  <TableRow
+                    key={t.id}
+                    table={t}
+                    current={t.id === tableId}
+                    onOpen={() => onOpenTable(t.id)}
+                    onChanged={onChanged}
+                    onDeleted={() => t.id === tableId && onOpenTable(undefined)}
+                  />
+                ))}
+              </section>
+            ),
+        )}
+        <MenuLabel>Lessons & scenarios</MenuLabel>
+        {scenarios.map((r) => (
+          <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={() => onOpenScenario(key(r))} />
+        ))}
+        {branches.length > 0 && (
+          <>
+            <MenuLabel>Your branches</MenuLabel>
+            {branches.map((r) => (
+              <ScenarioRow key={key(r)} r={r} current={!tableId && key(r) === scenarioId} onOpen={() => onOpenScenario(key(r))} />
+            ))}
+          </>
+        )}
+      </div>
+    </Menu>
+  )
+}
+
+function ScenarioRow({ r, current, onOpen }: { r: ResolveResult; current: boolean; onOpen: () => void }) {
+  return (
+    <MenuItem onClick={onOpen} aria-current={current} className={`w-full ${current ? 'text-gold' : ''}`}>
+      <span className="block truncate">{scenarioTitle(r)}</span>
+      {r.ok && <span className="text-xs text-muted">{r.scenario.game.steps.length} steps</span>}
+    </MenuItem>
+  )
+}
+
+function TableRow({
+  table,
+  current,
+  onOpen,
+  onChanged,
+  onDeleted,
+}: {
+  table: SessionSummary
+  current: boolean
+  onOpen: () => void
+  onChanged: () => void
+  onDeleted: () => void
+}) {
+  const [mode, setMode] = useState<'rename' | 'delete'>()
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const run = (p: Promise<unknown>, after?: () => void) =>
+    p.then(
+      () => {
+        setMode(undefined)
+        setError('')
+        after?.()
+        onChanged()
+      },
+      (e: Error) => setError(e.message),
+    )
+
+  if (mode === 'rename') {
+    return (
+      <form
+        data-keep-open
+        className="flex items-center gap-1 px-1.5 py-1"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (name.trim()) void run(api.renameSession(table.id, name.trim()))
+        }}
+      >
+        <input
+          autoFocus
+          aria-label="Table name"
+          className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-sm"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setMode(undefined))}
+        />
+        <button type="submit" className="btn px-2 py-1 text-xs">
+          Save
+        </button>
+        <button type="button" className="btn px-2 py-1 text-xs" onClick={() => setMode(undefined)}>
+          Cancel
+        </button>
+        {error && <p className="text-xs text-danger">{error}</p>}
+      </form>
+    )
+  }
+  return (
+    <div className="group flex items-start gap-1">
+      <MenuItem onClick={onOpen} aria-current={current} className={`min-w-0 flex-1 ${current ? 'text-gold' : ''}`}>
+        <span className="block truncate">{tableName(table)}</span>
+        <span className="block truncate text-xs text-muted">{details(table)}</span>
+      </MenuItem>
+      {mode === 'delete' ? (
+        <span data-keep-open className="flex shrink-0 items-center gap-1 self-center pr-1 text-xs">
+          <button type="button" className="btn px-2 py-1 text-danger" onClick={() => void run(api.deleteSession(table.id), onDeleted)}>
+            Delete
+          </button>
+          <button type="button" className="btn px-2 py-1" onClick={() => setMode(undefined)}>
+            Keep
+          </button>
+        </span>
+      ) : (
+        <span data-keep-open className="flex shrink-0 self-center opacity-60 group-hover:opacity-100">
+          <button
+            type="button"
+            className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink"
+            aria-label={`Rename ${tableName(table)}`}
+            onClick={() => {
+              setName(tableName(table))
+              setMode('rename')
+            }}
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            type="button"
+            className="rounded p-1.5 text-muted hover:bg-raised hover:text-danger"
+            aria-label={`Delete ${tableName(table)}`}
+            onClick={() => setMode('delete')}
+          >
+            <Trash2 size={13} />
+          </button>
+        </span>
+      )}
+      {error && <p className="px-2.5 text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
