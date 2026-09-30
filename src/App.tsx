@@ -91,7 +91,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg text-ink">
+    <div className="flex h-full flex-col overflow-hidden bg-bg text-ink">
       <TablePicker
         open={pickerOpen || home}
         required={home}

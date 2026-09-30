@@ -8,6 +8,7 @@ import { initUrlSync } from './hooks/urlSync'
 import { rawScenarios } from './scenarios/load'
 import { useCosmeticsStore } from './store/cosmeticsStore'
 
+if (new URLSearchParams(location.search).has('debug-viewport')) void import('./debugViewport')
 initUrlSync()
 // Sleeves etc. picked per seat, before they were per deck, go to the free
 // table's decks.

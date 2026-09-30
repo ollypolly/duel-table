@@ -32,6 +32,24 @@
 }
 
 @layer base {
+  /* The app scrolls inside itself, never the page, so a pull down on a phone
+     doesn't drag the whole thing. The installed iPhone app draws under the
+     status bar, but its dvh (and 100%) stop a status bar short of the bottom,
+     so there the page is lvh tall, as in workout-app. */
+  html,
+  body,
+  #root {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  @media (display-mode: standalone) {
+    html,
+    body,
+    #root {
+      height: 100lvh;
+    }
+  }
   body {
     @apply bg-bg font-sans text-ink antialiased;
   }
