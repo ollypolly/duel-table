@@ -1,6 +1,7 @@
 // Deep links: ?scenario=<id>&step=<n> opens that moment (?session=<id> for a
 // live session), and the URL follows along as you step, so a link can point
-// at an exact position. ?decks=<id> opens the deck hub on a deck.
+// at an exact position. ?decks=<id> opens the deck hub on a deck, and
+// ?panel=open|closed keeps the scene panel (the phone's sheet) as you left it.
 import { usePlayerStore } from '../store/playerStore'
 
 export function initUrlSync() {
@@ -29,3 +30,14 @@ export function initUrlSync() {
 }
 
 export const deckFromUrl = () => new URLSearchParams(window.location.search).get('decks') ?? undefined
+
+export const panelFromUrl = () => {
+  const panel = new URLSearchParams(window.location.search).get('panel')
+  return panel === 'open' ? true : panel === 'closed' ? false : undefined
+}
+
+export function writePanel(open: boolean) {
+  const url = new URL(window.location.href)
+  url.searchParams.set('panel', open ? 'open' : 'closed')
+  if (url.href !== window.location.href) window.history.replaceState(null, '', url)
+}

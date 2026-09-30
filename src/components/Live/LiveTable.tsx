@@ -60,6 +60,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     if (prev?.seq === cursor.seq) return
     followed.current = cursor
     if (session.review) return
+    // On a (re)load, straight to where it's got to, without replaying the last move.
+    if (!prev) return goTo(cursor.position)
     const { position, speed } = usePlayerStore.getState()
     if (prev && position !== prev.position && !replay.current) return
     stopReplay()

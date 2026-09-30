@@ -9,6 +9,7 @@ import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step, ZoneRef } from '../../engine'
 import { useFreePlay } from '../../hooks/useFreePlay'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { panelFromUrl, writePanel } from '../../hooks/urlSync'
 import { usePlayback, usePlaybackKeys } from '../../hooks/usePlayback'
 import type { ResolvedScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
@@ -104,8 +105,10 @@ export function Table({
   const { position: rawPosition, playing, speed, followFocus, muted, goTo, setPlaying, setSpeed, setFollowFocus, setMuted } = usePlayerStore()
   const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
   // The scene panel slides off to the left. Open by default unless the
-  // screen is phone-sized, where it would cover the board.
-  const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
+  // screen is phone-sized, where it would cover the board; the URL keeps it
+  // as you left it over a reload.
+  const [panelOpen, setPanelOpen] = useState(() => panelFromUrl() ?? (typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches))
+  useEffect(() => writePanel(panelOpen), [panelOpen])
   const phone = useMediaQuery('(max-width: 639px)')
   const { ref: sheetRef, peekRef: sheetPeekRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
