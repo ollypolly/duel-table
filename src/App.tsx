@@ -65,7 +65,10 @@ export default function App() {
 
   const nav = (
     <>
-      <h1 className="hidden shrink-0 font-bold tracking-tight sm:block">Duel Table</h1>
+      <h1 className="flex shrink-0 items-center gap-2 font-bold tracking-tight">
+        <img src="/icon.svg" alt="" className="size-7 rounded-md" />
+        <span className="hidden sm:inline">Duel Table</span>
+      </h1>
       <TablePicker
         tables={liveSessions}
         scenarios={scenarios}

@@ -78,7 +78,8 @@ const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
 type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; notes?: string[]; showOnce?: boolean; run?: AgentRun; busy: boolean }
 
 // Moves Claude can play in a row in a lesson before it has to stop.
-const MAX_BATCH = 12
+const MAX_BATCH = 20
+const PLAY_ON = 'The person has nothing to decide yet, so play on and sum up when they do, unless this move needs explaining on its own.'
 
 // Times Claude is reminded of a question it left open before a default pick.
 const NUDGES = 2
@@ -487,7 +488,8 @@ export class ClaudeService {
 
   // One move a run, unless Claude batches routine moves (up to MAX_BATCH):
   // after a move, a new position or a question, Claude explains and stops,
-  // and carries on when the person presses Next.
+  // and carries on when the person presses Next. The opponent's moves run
+  // on by themselves while p1 has nothing to decide in between.
   private lessonTools(id: string, seat: Seat): DuelTools {
     const lesson = seat.lesson!
     let paused: 'moved' | 'asked' | undefined
@@ -515,9 +517,13 @@ export class ClaudeService {
         seat.chat.push({ from: 'move', text: `${state.players[prompt.player].name}: ${picked.join(', ')}` })
         this.changed(id, seat)
         const { steps } = this.sessions.export(id)
-        if (steps.slice(before).some((s) => s.label) && (!batch || ++batched >= MAX_BATCH)) paused = 'moved'
+        const next = await this.question(id, seat)
+        const runOn = batch || (prompt.player === 'p2' && next?.player === 'p2')
+        const moved = steps.slice(before).some((s) => s.label)
+        if (moved && (!runOn || ++batched >= MAX_BATCH)) paused = 'moved'
         const result = await this.afterLessonAnswer(id, seat)
-        return paused ? `${result}\n\n${wait()}` : result
+        if (paused) return `${result}\n\n${wait()}`
+        return moved && !batch && runOn ? `${result}\n\n${PLAY_ON}` : result
       },
       setup: async (setup, lp) => {
         if (paused) return wait()
