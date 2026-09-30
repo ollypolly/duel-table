@@ -72,7 +72,7 @@ export function DeckHub({ open, initial, onClose, onPlay }: Props) {
         setInspecting(undefined)
       }}
       onClick={(e) => e.target === ref.current && ref.current.close()}
-      className="panel m-auto h-[min(52rem,94vh)] w-[min(72rem,96vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
+      className="panel m-auto h-[min(52rem,calc(var(--safe-h)-1rem))] w-[min(72rem,96vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
     >
       {open && (
         <div className="flex h-full flex-col">

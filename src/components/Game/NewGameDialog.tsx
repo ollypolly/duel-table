@@ -78,7 +78,7 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && ref.current.close()}
-      className="panel m-auto w-[min(26rem,94vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
+      className="panel m-auto max-h-[calc(var(--safe-h)-2rem)] w-[min(26rem,94vw)] p-0 text-ink backdrop:bg-bg/70 backdrop:backdrop-blur-md"
     >
       {open && (
         <form

@@ -34,7 +34,7 @@ export function CardInspector({
           transition={{ duration: 0.15 }}
           role="dialog"
           aria-label={card.visible ? card.name : 'Face-down card'}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-bg/60 p-4 backdrop-blur-md sm:p-10"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-bg/60 pad-safe backdrop-blur-md sm:[--pad:2.5rem]"
           onClick={(e) => e.target === e.currentTarget && onClose()}
         >
           <motion.div

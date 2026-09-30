@@ -83,7 +83,7 @@ export function TablePicker({ open, required, onClose, tables, scenarios, branch
       onClose={onClose}
       onCancel={(e) => required && e.preventDefault()}
       onClick={(e) => !required && e.target === ref.current && ref.current.close()}
-      className="panel m-auto max-h-[min(44rem,88dvh)] w-[min(32rem,94vw)] bg-surface p-0 text-ink backdrop:bg-bg/80 backdrop:backdrop-blur-md"
+      className="panel m-auto max-h-[min(44rem,calc(var(--safe-h)-2rem))] w-[min(32rem,94vw)] bg-surface p-0 text-ink backdrop:bg-bg/80 backdrop:backdrop-blur-md"
     >
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <h2 className="flex-1 font-display text-lg font-semibold">{required ? 'What would you like to open?' : 'Open'}</h2>

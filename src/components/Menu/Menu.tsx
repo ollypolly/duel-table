@@ -41,7 +41,7 @@ export function Menu({
         role="menu"
         hidden={!open}
         // Solid, not glass: the table's status showed through blurred.
-        className={`panel absolute z-40 flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-1.5rem)] min-w-44 flex-col overflow-y-auto bg-surface p-1 backdrop-blur-none ${align === 'left' ? 'left-0' : 'right-0'} ${side === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
+        className={`panel absolute z-40 flex max-h-[calc(var(--safe-h)-4rem)] max-w-[calc(100vw-1.5rem)] min-w-44 flex-col overflow-y-auto bg-surface p-1 backdrop-blur-none ${align === 'left' ? 'left-0' : 'right-0'} ${side === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
         onClick={(e) => {
           const el = e.target as HTMLElement
           if (el.closest('button') && !el.closest('[data-keep-open]')) setOpen(false)

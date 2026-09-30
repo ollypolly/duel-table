@@ -211,7 +211,7 @@ export function Table({
         <motion.div
           ref={sheetRef}
           {...sheetProps}
-          className={`pointer-events-none absolute inset-x-0 bottom-[env(safe-area-inset-bottom)] z-10 flex flex-col *:pointer-events-auto sm:bottom-auto sm:left-3 sm:right-auto sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
+          className={`pointer-events-none absolute inset-x-0 bottom-(--safe-bottom) z-10 flex flex-col *:pointer-events-auto sm:bottom-auto sm:left-3 sm:right-auto sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
             chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
           } ${panelOpen ? '' : 'sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
@@ -319,7 +319,7 @@ export function Table({
         </motion.div>
 
         {/* Under the phone sheet: the home bar's safe area, in the sheet's colour. */}
-        {phone && <div className="absolute inset-x-0 bottom-0 z-10 h-[env(safe-area-inset-bottom)] bg-surface" />}
+        {phone && <div className="absolute inset-x-0 bottom-0 z-10 h-(--safe-bottom) bg-surface" />}
 
         <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
