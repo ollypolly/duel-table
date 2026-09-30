@@ -12,6 +12,7 @@ type PlayerState = {
   position: number
   speed: number
   playing: boolean
+  muted: boolean
   followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; back on at each load and each scenario or game opened
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
@@ -19,9 +20,10 @@ type PlayerState = {
   setSpeed: (speed: number) => void
   setPlaying: (playing: boolean) => void
   setFollowFocus: (followFocus: boolean) => void
+  setMuted: (muted: boolean) => void
 }
 
-type Persisted = Pick<PlayerState, 'position' | 'speed'> & { scenarioId: string | undefined }
+type Persisted = Pick<PlayerState, 'position' | 'speed' | 'muted'> & { scenarioId: string | undefined }
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -29,6 +31,7 @@ export const usePlayerStore = create<PlayerState>()(
       position: 0,
       speed: 1,
       playing: false,
+      muted: false,
       followFocus: true,
       open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true }),
       openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false, followFocus: true }),
@@ -36,19 +39,20 @@ export const usePlayerStore = create<PlayerState>()(
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),
       setFollowFocus: (followFocus) => set({ followFocus }),
+      setMuted: (muted) => set({ muted }),
     }),
     {
       name: 'duel-table/player',
       version: 2,
-      partialize: ({ scenarioId, position, speed }): Persisted => ({ scenarioId, position, speed }),
+      partialize: ({ scenarioId, position, speed, muted }): Persisted => ({ scenarioId, position, speed, muted }),
       // Only called when the stored version differs. Version 1 also saved
       // followFocus; anything else unrecognised starts fresh.
       migrate: (old, version): Persisted => {
         if (version === 1) {
           const { scenarioId, position, speed } = old as Persisted
-          return { scenarioId, position, speed }
+          return { scenarioId, position, speed, muted: false }
         }
-        return { scenarioId: undefined, position: 0, speed: 1 }
+        return { scenarioId: undefined, position: 0, speed: 1, muted: false }
       },
     },
   ),

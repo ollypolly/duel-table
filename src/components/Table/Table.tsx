@@ -3,7 +3,7 @@
 // narration and playback controls. Clicking a card opens it with what you can
 // do with it; free play adds a header menu and drag-to-move.
 import { ChevronDown, ChevronUp, Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step, ZoneRef } from '../../engine'
 import { useFreePlay } from '../../hooks/useFreePlay'
@@ -14,6 +14,7 @@ import { SeatDecks } from '../../store/cosmeticsStore'
 import { useUiStore } from '../../store/uiStore'
 import { buildBoardView, cardFace, type CardFace } from '../../view/boardView'
 import { stepFocus } from '../../view/focus'
+import { play, stepSounds } from '../../view/sounds'
 import { Board2D } from '../Board/Board2D'
 import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
@@ -91,7 +92,7 @@ export function Table({
   draggable,
   onCardDrop,
 }: TableProps) {
-  const { position: rawPosition, playing, speed, followFocus, goTo, setPlaying, setSpeed, setFollowFocus } = usePlayerStore()
+  const { position: rawPosition, playing, speed, followFocus, muted, goTo, setPlaying, setSpeed, setFollowFocus, setMuted } = usePlayerStore()
   const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board.
@@ -113,6 +114,13 @@ export function Table({
     for (const e of entry.events) if (e.type === 'lpChanged') changes[e.player] = (changes[e.player] ?? 0) + e.to - e.from
     return changes
   }, [entry])
+  // The step you just moved onto makes its sounds; jumps and stepping back are quiet.
+  const heard = useRef(position)
+  useEffect(() => {
+    const forward = position === heard.current + 1
+    heard.current = position
+    if (forward && !muted) stepSounds(entry.events, step?.actions).forEach((s, i) => setTimeout(() => play(s), i * 150))
+  }, [position, entry, step, muted])
   const freePlay = !!onStep && position === last
   const fp = useFreePlay(entry.state, (s) => {
     onStep?.(s)
@@ -234,6 +242,8 @@ export function Table({
                 onGoTo={(p) => goTo(Math.min(Math.max(0, p), last))}
                 onPlaying={setPlaying}
                 onSpeed={setSpeed}
+                muted={muted}
+                onMuted={setMuted}
               >
                 {!freePlay && onBranch && (
                   <button type="button" className="btn btn-primary" onClick={() => onBranch(position)}>

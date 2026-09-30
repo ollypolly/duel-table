@@ -1,4 +1,4 @@
-import { ChevronDown, Pause, Play, SkipBack, SkipForward, StepBack, StepForward } from 'lucide-react'
+import { ChevronDown, Pause, Play, SkipBack, SkipForward, StepBack, StepForward, Volume2, VolumeX } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { SPEEDS } from '../../store/playerStore'
 
@@ -15,6 +15,8 @@ export function StepControls({
   onGoTo,
   onPlaying,
   onSpeed,
+  muted,
+  onMuted,
   children,
 }: {
   position: number
@@ -24,6 +26,8 @@ export function StepControls({
   onGoTo: (position: number) => void
   onPlaying: (playing: boolean) => void
   onSpeed: (speed: number) => void
+  muted?: boolean
+  onMuted?: (muted: boolean) => void
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -59,6 +63,11 @@ export function StepControls({
           <span className="min-w-0 flex-1 truncate">{position === 0 ? 'Setup' : labels[position - 1]}</span>
           <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
+        {onMuted && (
+          <button type="button" className={btn} onClick={() => onMuted(!muted)} aria-pressed={!muted} title={muted ? 'Sound off' : 'Sound on'}>
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+        )}
       </div>
       {open && (
         <div className="space-y-2">
