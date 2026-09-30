@@ -305,7 +305,7 @@ The server reports whether a Claude login is available. The UI shows the Claude 
 - **Only our tools.** Built-in Claude Code tools (Bash, file edits, web) are disabled. Our tools are an in-process MCP server (`createSdkMcpServer` with Zod tools). Each tool is a thin wrapper over `server/sessions.ts`, alongside the HTTP routes, and reuses their schemas.
 - **Transport.** Existing SSE plus POST, no WebSocket. Claude's chat, status and cost are part of the game's view, so they arrive over the session SSE stream as whole messages (no token streaming). The browser sends chat, Stop, Resume and settings as POSTs.
 - **Layout.** The Claude panel (chat, Stop/Resume, model, Coach, Show my cards, cost) sits in the scene panel under the game's question. Step narration stays below it.
-- **Rules.** Games against Claude run on OCG Core (spiked, see below). Free play, scenarios and lessons stay on our own engine.
+- **Rules.** Games against Claude, and Claude-run lessons, run on OCG Core (spiked, see below). Free play, scenarios and the preset lessons stay on our own engine.
 - **Models.** Opus by default, with Sonnet selectable, since Sonnet is quicker for an opponent's turn.
 
 ### Play against Claude (first)
@@ -331,14 +331,18 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 
 ### Then
 
-1. **Claude everywhere in the app.** With a Claude login, the chat is always there, not only in a game against Claude, and Claude can act in the app: open a scenario or session, start a game, move your view to a step, fork, set up a lesson, look up cards and decks. It's the same agent and chat panel as in a game, with a wider tool set.
+1. **Lessons on the rules engine.** Ask Claude to teach you a deck, a combo or a matchup, freeform. Claude operates the game on OCG Core: it can play both sides to show a line, or hand you a turn and watch. Nothing it shows can be illegal, because the engine refuses it (the preset lessons are scripted on our own engine and only hand-checked).
+   - **Start from a position** (first, and useful alone): place cards straight into zones before the duel starts, as EDOPro puzzles do, beginning on your turn in Main Phase 1. Any preset lesson's starting board becomes a rules-enforced practice game.
+   - **Claude drives, or hands over.** It answers the engine's questions for whichever side it's playing, narrating as it goes, and can give you either side for a turn or a single decision. It asks choice and text questions (the lesson runtime's prompts, `server/lesson.ts`) and checks your move against its line.
+   - **Rewind** replays the duel minus your last answers, to show the right line. The coach's takeback uses the same thing.
+   - "Teach me this deck" in the deck hub starts one for that deck.
+2. **Claude everywhere in the app.** With a Claude login, the chat is always there, not only in a game against Claude, and Claude can act in the app: open a scenario or session, start a game, move your view to a step, fork, set up a lesson, look up cards and decks. It's the same agent and chat panel as in a game, with a wider tool set.
    - **One tool layer, two ways in.** The tools are defined once, over the services the HTTP routes use (sessions, games, lessons, decks), with the same Zod schemas. The in-app agent gets them in-process (`createSdkMcpServer`, as the duel tools are now). The server also exposes them as an MCP server over Streamable HTTP (`/mcp`, local only), so Claude Code or another MCP client can drive the same app, and the browser follows along as it does for curl today.
    - **What the chat is attached to.** A conversation belongs to the app, not one session, and it's told what you're looking at (screen, session, step). In a game against Claude it stays the opponent: fair-play limits apply to its game tools, whatever else it can do.
    - **Alternative to weigh:** the browser-side WebMCP proposal (`navigator.modelContext`), where the page itself registers tools for an agent in the browser. It's still early; server-side MCP works today and covers Claude Code.
-   - Subsumes "Claude drives the review" below, and gives lessons their tools.
-2. **Lessons.** Claude sets up an opening hand and paces it with Next. "Teach me this deck" in the deck hub starts one for that deck. It asks choice and text questions, and sets move prompts that it checks, undoing to show the right line if needed. It uses the existing lesson runtime (`server/lesson.ts`).
+   - Subsumes "Claude drives the review" below, and reuses the lesson tools.
 3. **Tables, then a home screen.** The Tables picker replaced the scenario dropdown and the Live menu: games (in progress and past, with who played whom and the Claude chat kept), boards, then lessons and scenarios, with rename and delete.
-   - **A home screen to open on**, instead of dropping you into the last table or the free-table scenario. A chat-style opener with buttons: Play the bot, Play Claude, Start a lesson, Add a deck, Browse scenarios, and a box to ask Claude anything. Without a Claude login, the buttons still work and the Claude parts show how to log in. Asking a question needs Claude everywhere (1).
+   - **A home screen to open on**, instead of dropping you into the last table or the free-table scenario. A chat-style opener with buttons: Play the bot, Play Claude, Start a lesson, Add a deck, Browse scenarios, and a box to ask Claude anything. Without a Claude login, the buttons still work and the Claude parts show how to log in. Asking a question needs Claude everywhere (2).
 4. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
