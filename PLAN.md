@@ -350,7 +350,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - **Mid-game review.** Not yet: a game still in play would need Claude's fair-play view (`publicLabel`, `describeTable` from p1's side) and only the steps so far.
    - **Lessons that set up again.** A lesson's `setup` wipes the steps before it (`restartGame`), so a review only has the steps since the last setup, plus the whole chat. Keeping earlier runs would fix that.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
-   - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.
+   - **Claude leads the review.** On the `claude-moments` branch, not merged: a first look that marks the key moments (blunders, mistakes, missed chances, good plays) on the step bar, and Next moment to step through them with Claude asking what you'd do first. The flow needs the work in 6 before it merges.
 5. **Hosting: my own server over Tailscale.** duel-table stays a personal tool, not public: `npm run dev` on the server, logged in to Claude Code, and `tailscale serve` for HTTPS on the tailnet. The steps are in [docs/HOSTING.md](docs/HOSTING.md), written for Claude Code on the server to follow. It installs to a phone's home screen (manifest, icons, no service worker). Running on servitor at `https://servitor.tail59f26.ts.net:10001` (443 is left to nginx).
 
    **Fixes from using it on a phone**, in build order:
@@ -363,6 +363,12 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    7. **A quick button on the sheet's header**, so routine answers don't need the sheet opened: Don't respond to a chain, the next phase on your move (Battle Phase, then Main Phase 2 or End turn), and Next in a lesson or while the bot's moves show. Nothing where it takes a real choice.
 
    Only my devices can reach it, so auth, spend limits and card-image terms don't come up. Public hosting would need all three, plus storage beyond files.
+6. **Being led, in lessons and reviews.** Both should feel like Claude is taking you through something, and neither does yet. In a lesson Claude mostly plays and you press Let Claude play it or Next, with little teaching in between. In a review (on `claude-moments`), pressing Next moment a few times queues a lead per press, and the replies pile up out of step with the moment you're on. What they share: Claude leads a short run of beats, one at a time, and you do something at each.
+   - **One beat at a time.** A beat is a moment in a review, or a point in a lesson (a combo, a card, a decision). The current beat is pinned at the top of the chat with its progress ("Moment 3 of 8", "Step 2 of 4: extend with Ojamatch"), and Next only goes on once it's done. Going to another beat while Claude is on this one stops it and drops what was queued, so there's one reply per beat.
+   - **You do something at every beat.** Claude asks before it tells: what would you play here, what does this card do, which target. The `ask` tool gives a few plausible choices as buttons, or a written answer, and Claude says why yours was right or not. In a lesson, your side's decisions are yours by default, with Let Claude play it as the smaller button, and Claude explains before its own moves, not after.
+   - **Plan up front, wrap up at the end.** A lesson opens with what it'll cover (3 to 5 beats), and a review with the moments it found. Both end with two or three takeaways.
+   - **The chat reads as sections.** Each beat's header, question, your answer and Claude's verdict stay together, rather than one running stream.
+   - **Questions to settle first:** whether a beat is a server-side record (a `beats` list on the lesson and review, like `moments`) or only a chat convention; how much of the lesson flow moves from the prompt into tools that enforce it, as pacing already does; and whether the review's first look should use Sonnet, since it costs about as much as a few answers on Opus.
 
 ### Rules for games: OCG Core
 
