@@ -104,7 +104,7 @@ export class SessionService {
         id,
         title: opts.title ?? `Live: ${opts.deck}`,
         seed: opts.seed ?? Math.floor(Math.random() * 2 ** 31),
-        players: { p1: { name: 'You', deck: opts.deck }, p2: { name: opts.opponentName ?? 'Friend', deck: opts.opponentDeck ?? opts.deck } },
+        players: { p1: { name: 'You', ...this.deck(opts.deck) }, p2: { name: opts.opponentName ?? 'Friend', ...this.deck(opts.opponentDeck ?? opts.deck) } },
         steps: [],
       }
     } else {
@@ -260,7 +260,7 @@ export class SessionService {
     const decks = this.ctx().decks as Record<string, { name?: string } | undefined>
     const player = (p: Player) => {
       const { name, deck } = resolved.game.setup.players[p]
-      const deckName = deck && decks[deck]?.name
+      const deckName = file.players?.[p].list?.name ?? (deck && decks[deck]?.name)
       return { name, ...(deck && { deck }), ...(deckName && { deckName }) }
     }
     const lost = (['p1', 'p2'] as const).find((p) => last.players[p].lp <= 0)
@@ -276,6 +276,13 @@ export class SessionService {
       kind: file.duel ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
     }
+  }
+
+  // A deck and a copy of its list, so editing the deck later leaves this
+  // session as it was.
+  private deck(id: string) {
+    const list = this.ctx().decks[id] as NonNullable<ScenarioFile['players']>['p1']['list']
+    return { deck: id, ...(list && { list }) }
   }
 
   private live(id: string): Live {

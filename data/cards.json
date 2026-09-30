@@ -87,6 +87,18 @@
       "race": "Quick-Play"
     },
     {
+      "id": 50277355,
+      "name": "Cross-Sheep",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 monsters with different names\nIf a monster is Special Summoned to a zone this card points to: You can apply the following effects, in sequence, based on the card types of the monster(s) this card points to.\n● Ritual: Draw 2 cards, then discard 2 cards. ● Fusion: Special Summon 1 Level 4 or lower monster from your GY. ● Synchro: All monsters you control gain 700 ATK. ● Xyz: All monsters your opponent controls lose 700 ATK.\nYou can only use this effect of \"Cross-Sheep\" once per turn.",
+      "atk": 700,
+      "level": null,
+      "linkval": 2,
+      "attribute": "EARTH",
+      "race": "Beast"
+    },
+    {
       "id": 65681983,
       "name": "Crossout Designator",
       "type": "Spell Card",
@@ -172,12 +184,64 @@
       "race": "Normal"
     },
     {
+      "id": 24361622,
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 Dragon monsters\nOnce per opponent's turn, if this card is in the Extra Monster Zone (Quick Effect): You can Tribute 1 monster from your hand or field; return 1 face-up card on the field to the hand. If this card is Tributed: Special Summon 1 Dragon monster from your hand or Deck, but make its ATK/DEF 0. You can only use this effect of \"Hieratic Seal of the Heavenly Spheres\" once per turn.",
+      "atk": 0,
+      "level": 0,
+      "linkval": 2,
+      "attribute": "LIGHT",
+      "race": "Dragon",
+      "archetype": "Hieratic"
+    },
+    {
       "id": 10045474,
       "name": "Infinite Impermanence",
       "type": "Trap Card",
       "frameType": "trap",
       "desc": "Target 1 face-up monster your opponent controls; negate its effects (until the end of this turn), then, if this card was Set before activation and is on the field at resolution, for the rest of this turn all other Spell/Trap effects in this column are negated. If you control no cards, you can activate this card from your hand.",
       "race": "Normal"
+    },
+    {
+      "id": 2857636,
+      "name": "Knightmare Phoenix",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 monsters with different names\nIf this card is Link Summoned: You can discard 1 card, then target 1 Spell/Trap your opponent controls; destroy it, then, if this card was co-linked when this effect was activated, you can draw 1 card. You can only use this effect of \"Knightmare Phoenix\" once per turn. Co-linked monsters you control cannot be destroyed by battle.",
+      "atk": 1900,
+      "level": 0,
+      "linkval": 2,
+      "attribute": "FIRE",
+      "race": "Fiend",
+      "archetype": "Knightmare"
+    },
+    {
+      "id": 38342335,
+      "name": "Knightmare Unicorn",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2+ monsters with different names\nIf this card is Link Summoned: You can discard 1 card, then target 1 card on the field; shuffle it into the Deck, then, if this card was co-linked when this effect was activated, you can draw 1 card. You can only use this effect of \"Knightmare Unicorn\" once per turn. While any co-linked \"Knightmare\" monsters are on the field, for your normal draw in your Draw Phase, draw 1 card for each different card name among those co-linked \"Knightmare\" monsters, instead of drawing just 1 card.",
+      "atk": 2200,
+      "level": 0,
+      "linkval": 3,
+      "attribute": "DARK",
+      "race": "Fiend",
+      "archetype": "Knightmare"
+    },
+    {
+      "id": 9839945,
+      "name": "Lyna the Light Charmer, Lustrous",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 monsters, including a LIGHT monster\n(This card is always treated as a \"Familiar-Possessed\" card.)\nYou can target 1 LIGHT monster in your opponent's GY; Special Summon it to your zone this card points to. If this Link Summoned card is destroyed by battle, or is destroyed by an opponent's card effect while in its owner's Monster Zone: You can add 1 LIGHT monster with 1500 or less DEF from your Deck to your hand. You can only use each effect of \"Lyna the Light Charmer, Lustrous\" once per turn.",
+      "atk": 1850,
+      "level": null,
+      "linkval": 2,
+      "attribute": "LIGHT",
+      "race": "Spellcaster",
+      "archetype": "Charmer"
     },
     {
       "id": 48608796,
@@ -375,6 +439,18 @@
       "linkval": 3,
       "attribute": "FIRE",
       "race": "Fiend"
+    },
+    {
+      "id": 29301450,
+      "name": "S:P Little Knight",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 Effect Monsters\nIf this card is Link Summoned using a Fusion, Synchro, Xyz, or Link Monster as material: You can target 1 card on the field or in either GY; banish it, also your monsters cannot attack directly this turn. When your opponent activates a card or effect (Quick Effect): You can target 2 face-up monsters on the field, including a monster you control; banish both until the End Phase. You can only use each effect of \"S:P Little Knight\" once per turn.",
+      "atk": 1600,
+      "level": null,
+      "linkval": 2,
+      "attribute": "DARK",
+      "race": "Warrior"
     },
     {
       "id": 87871125,
@@ -604,12 +680,49 @@
       "archetype": "Super Quant"
     },
     {
+      "id": 93039339,
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "type": "XYZ Monster",
+      "frameType": "xyz",
+      "desc": "2 Level 12 monsters\nDuring the turn, or turn after, your opponent Special Summoned 2 or more monsters from the Extra Deck, you can also Xyz Summon this card by using 1 monster you control with the highest ATK (your choice, if tied). (Transfer its materials to this card.) If you do, you cannot Normal or Special Summon monsters for the rest of this turn. While this Xyz Summoned monster is on the field, neither player can activate the effects of monsters with 3000 or more ATK. Once per turn: You can detach 1 material from this card; return 1 monster from the field to the hand.",
+      "atk": 2900,
+      "def": 2900,
+      "rank": 12,
+      "attribute": "DARK",
+      "race": "Fiend"
+    },
+    {
+      "id": 26847978,
+      "name": "Tri-Brigade Ferrijit the Barren Blossom",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 Beast, Beast-Warrior, and/or Winged Beast monsters\nDuring your Main Phase: You can Special Summon 1 Level 4 or lower Beast, Beast-Warrior, or Winged Beast monster from your hand, also you cannot use monsters as Link Material for the rest of this turn, except Beast, Beast-Warrior, or Winged Beast monsters. If this card is sent to the GY: You can draw 1 card, then place 1 card from your hand on the bottom of the Deck. You can only use each effect of \"Tri-Brigade Ferrijit the Barren Blossom\" once per turn.",
+      "atk": 1600,
+      "level": null,
+      "linkval": 2,
+      "attribute": "EARTH",
+      "race": "Beast",
+      "archetype": "Tri-Brigade"
+    },
+    {
       "id": 25311006,
       "name": "Triple Tactics Talent",
       "type": "Spell Card",
       "frameType": "spell",
       "desc": "If your opponent has activated a monster effect during your Main Phase this turn: Activate 1 of these effects;\n● Draw 2 cards.\n● Take control of 1 monster your opponent controls until the End Phase.\n● Look at your opponent's hand, and choose 1 card from it to shuffle into the Deck.\nYou can only activate 1 \"Triple Tactics Talent\" per turn.",
       "race": "Normal"
+    },
+    {
+      "id": 77058170,
+      "name": "Underclock Taker",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 Effect Monsters\nOnce per turn: You can target 1 face-up monster this card points to and 1 face-up monster your opponent controls; the opponent's target loses ATK equal to the ATK of the target this monster points to, until the end of this turn.",
+      "atk": 1000,
+      "level": 0,
+      "linkval": 2,
+      "attribute": "DARK",
+      "race": "Cyberse"
     },
     {
       "id": 51638941,

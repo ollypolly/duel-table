@@ -294,7 +294,7 @@ function DeckEditor({
       {inUse && dirty && (
         <p className="rounded border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
           {deck.usedBy.join(', ')} {deck.usedBy.length === 1 ? 'uses' : 'use'} this deck, and changing its cards can break their steps. <strong>Save as new…</strong>{' '}
-          keeps them working.
+          keeps them working. Your games keep their own copy of the list either way.
         </p>
       )}
       {error &&

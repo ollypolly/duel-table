@@ -33,11 +33,18 @@ describe('resolveScenario', () => {
     const r = resolveScenario(base, ctx())
     if (!r.ok) throw new Error(r.errors.join('\n'))
     const s = r.scenario
-    expect(s.game.setup.players.p1.pool).toHaveLength(49)
+    expect(s.game.setup.players.p1.pool).toHaveLength(55)
     expect(s.timeline).toHaveLength(4)
     expect(s.timeline[0].state.players.p1.zones.hand).toEqual(['p1-ojamatch-1', 'p1-fusion-tag-1'])
     expect(s.timeline[0].state.cards['p1-ojamatch-1'].cardId).toBe(38395123)
-    expect(s.timeline[0].state.players.p1.zones.extraDeck).toContain('p1-xyz-dragon-cannon-2')
+    expect(s.timeline[0].state.players.p1.zones.extraDeck).toContain('p1-xyz-dragon-cannon-1')
+  })
+
+  it("uses a game's copy of its deck over the deck file", () => {
+    const list = { id: 'chazz-armed-ojama', name: 'Old list', main: [{ name: 'Ojamatch', count: 3 }], extra: [] }
+    const r = resolveScenario({ ...base, setup: undefined, players: { ...base.players, p1: { name: 'You', deck: 'chazz-armed-ojama', list } } }, ctx())
+    if (!r.ok) throw new Error(r.errors.join('\n'))
+    expect(r.scenario.game.setup.players.p1).toMatchObject({ deck: 'chazz-armed-ojama', pool: [{ name: 'Ojamatch' }, { name: 'Ojamatch' }, { name: 'Ojamatch' }] })
   })
 
   it('resolves the shipped free-table scenario', () => {
@@ -63,9 +70,7 @@ describe('resolveScenario', () => {
 
   it('names the failing step and suggests iids', () => {
     const bad = { ...base, steps: [...base.steps, { label: 'Oops', actions: [{ type: 'flip', card: 'p1-ojamatch-9' }] }] }
-    expect(errorsOf(bad)).toEqual([
-      'Step 4, action 1: Unknown card "p1-ojamatch-9" (step "Oops"). Did you mean p1-ojamatch-1, p1-ojamatch-2, p1-ojamatch-3?',
-    ])
+    expect(errorsOf(bad)).toEqual(['Step 4, action 1: Unknown card "p1-ojamatch-9" (step "Oops"). Did you mean p1-ojamatch-1, p1-ojamatch-2, p1-ojamatch-3?'])
   })
 
   it('collects tableRules warnings without failing', () => {

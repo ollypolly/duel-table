@@ -18,9 +18,7 @@ export const ZoneRefSchema = z
   .strict()
   .refine((r) => r.zone === 'extraMonster' || r.player, { message: 'player is required for this zone' })
 
-export const CauseSchema = z
-  .object({ card: iid.optional(), reason: z.enum(['cost', 'effect', 'battle', 'rule', 'manual']) })
-  .strict()
+export const CauseSchema = z.object({ card: iid.optional(), reason: z.enum(['cost', 'effect', 'battle', 'rule', 'manual']) }).strict()
 
 export const ModifierSchema = z
   .object({
@@ -45,8 +43,7 @@ export const CustomCardSchema = z
   })
   .strict()
 
-const action = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
-  z.object({ type: z.literal(type), cause: CauseSchema.optional(), ...shape }).strict()
+const action = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) => z.object({ type: z.literal(type), cause: CauseSchema.optional(), ...shape }).strict()
 
 export const ActionSchema = z.discriminatedUnion('type', [
   action('move', {
@@ -130,15 +127,27 @@ export const PlacementSchema = z.union([
   z.null(),
 ])
 
+export const DeckSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]+$/),
+    name: z.string().min(1),
+    main: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()),
+    extra: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).default([]),
+  })
+  .strict()
+
 export const ScenarioPlayerSchema = z
   .object({
     name: z.string().min(1),
     lp: z.number().optional(),
     deck: z.string().optional().describe('id of a file in decks/'),
+    list: DeckSchema.optional().describe(
+      "A copy of the deck as it was when this game started, used instead of decks/<deck>, so editing the deck doesn't change the game",
+    ),
     cards: z.array(CardRefSchema).optional().describe('cards owned in addition to the deck'),
   })
   .strict()
-  .refine((p) => p.deck || p.cards?.length, { message: 'give a deck, cards, or both' })
+  .refine((p) => p.deck || p.list || p.cards?.length, { message: 'give a deck, cards, or both' })
 
 export const ScenarioSchema = z
   .object({
@@ -147,20 +156,31 @@ export const ScenarioSchema = z
     title: z.string().min(1),
     description: z.string().optional(),
     seed: z.int().optional(),
-    extends: z.object({ scenario: z.string(), atStep: z.int().min(-1) }).strict().optional(),
+    extends: z
+      .object({ scenario: z.string(), atStep: z.int().min(-1) })
+      .strict()
+      .optional(),
     players: z.object({ p1: ScenarioPlayerSchema, p2: ScenarioPlayerSchema }).strict().optional(),
     setup: z
       .object({
         p1: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
         p2: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
         extraMonster: z
-          .array(z.union([z.null(), z.object({ player: PlayerSchema, name: z.string(), position: PositionSchema.optional(), materials: z.array(z.string()).optional() }).strict()]))
+          .array(
+            z.union([
+              z.null(),
+              z.object({ player: PlayerSchema, name: z.string(), position: PositionSchema.optional(), materials: z.array(z.string()).optional() }).strict(),
+            ]),
+          )
           .max(2)
           .optional(),
       })
       .strict()
       .optional(),
-    start: z.object({ turn: z.int().min(1).optional(), activePlayer: PlayerSchema.optional(), phase: PhaseSchema.optional() }).strict().optional(),
+    start: z
+      .object({ turn: z.int().min(1).optional(), activePlayer: PlayerSchema.optional(), phase: PhaseSchema.optional() })
+      .strict()
+      .optional(),
     steps: z.array(StepSchema).default([]),
     duel: z
       .object({
@@ -180,15 +200,6 @@ export const ScenarioSchema = z
     message: 'a fork inherits players, setup, start and seed from its parent; remove them',
     path: ['extends'],
   })
-
-export const DeckSchema = z
-  .object({
-    id: z.string().regex(/^[a-z0-9-]+$/),
-    name: z.string().min(1),
-    main: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()),
-    extra: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).default([]),
-  })
-  .strict()
 
 export type ScenarioFile = z.infer<typeof ScenarioSchema>
 export type DeckFile = z.infer<typeof DeckSchema>

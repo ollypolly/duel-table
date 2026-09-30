@@ -78,6 +78,9 @@ export const writeRepoFile =
     const path = join(root, dir, `${file.id}.json`)
     if (existsSync(path) && !overwrite) throw new Error(`${dir}/${file.id}.json already exists (pass overwrite: true to replace it)`)
     mkdirSync(join(root, dir), { recursive: true })
-    writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`)
+    let json = JSON.stringify(file, null, 2)
+    // Decks keep one card per line, as they're written by hand.
+    if (dir === 'decks') json = json.replace(/\{\n\s+("name": .*),\n\s+("count": \d+)\n\s+\}/g, '{ $1, $2 }')
+    writeFileSync(path, `${json}\n`)
     return relative(root, path)
   }

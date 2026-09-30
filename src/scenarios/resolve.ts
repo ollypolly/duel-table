@@ -129,11 +129,11 @@ function buildSetup(file: ScenarioFile, ctx: ResolveContext): GameSetup {
   const setupPlayer = (player: Player): PlayerSetup => {
     const p = players[player]
     const pool: SetupCard[] = []
-    if (p.deck) {
-      const rawDeck = ctx.decks[p.deck]
+    if (p.list || p.deck) {
+      const rawDeck = p.list ?? ctx.decks[p.deck!]
       if (!rawDeck) errors.push(`players.${player}.deck: unknown deck "${p.deck}" (known: ${Object.keys(ctx.decks).join(', ') || 'none'})`)
       else {
-        const deck = parseDeck(rawDeck, `deck ${p.deck}`)
+        const deck = parseDeck(rawDeck, `deck ${p.deck ?? p.list!.id}`)
         for (const e of [...deck.main, ...deck.extra]) {
           const card = lookup(e.name, `deck ${p.deck}`)
           if (card) for (let i = 0; i < e.count; i++) pool.push(card)
