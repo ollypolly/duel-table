@@ -72,6 +72,7 @@ type TableProps = {
   // The button you're most likely to want next, on the phone sheet's header
   // so it doesn't need opening: pass on a chain, the next phase, Next.
   quick?: { label: string; run: () => void }
+  marks?: { step: number; className: string }[]
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -96,6 +97,7 @@ export function Table({
   chat,
   activity,
   quick,
+  marks,
   choosable,
   onChoose,
   cardActions,
@@ -312,6 +314,7 @@ export function Table({
                 onSpeed={setSpeed}
                 muted={muted}
                 onMuted={setMuted}
+                marks={marks}
               >
                 {!freePlay && onBranch && (
                   <button type="button" className="btn btn-primary" onClick={() => onBranch(position)}>

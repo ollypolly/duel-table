@@ -4,10 +4,12 @@
 // how it ended, every step, and the game's chat. After that, each message
 // brings it up to date with anything new, says which step you're looking
 // at, and shows the table there. The game's over, so both sides are open.
+// A new review starts with Claude looking through the game for its key
+// moments, which you then step through with Claude leading each one.
 // One review per session, kept by a RecordStore so it carries on after a
 // restart.
 import type { ChatEntry, ModelChoice } from '../../src/api/game'
-import { reviewable, type ReviewView } from '../../src/api/review'
+import { reviewable, type Moment, type ReviewView } from '../../src/api/review'
 import type { CardDb } from '../../src/data/cardDb'
 import type { BoardState } from '../../src/engine'
 import { SessionError, type SessionService } from '../sessions'
@@ -24,15 +26,22 @@ export type ReviewRecord = {
   read: number // steps Claude has been told about
   heard: number // entries of the game's chat Claude has been given
   texts?: string[] // cards whose text Claude has been given
+  moments: Moment[]
+  scanned: boolean // Claude finished its first look for key moments
 }
+
+// Something for Claude to answer: your questions, its first look through the
+// game, or leading you through a moment it marked.
+type Asked = { position: number } & ({ text: string } | { scan: true } | { lead: Moment })
 
 // interrupted: stopped by you, so the run ending early isn't an error.
 type Review = ReviewRecord & {
   status: ReviewView['status']
-  queue: { text: string; position: number }[]
+  queue: Asked[]
   position: number
   run?: AgentRun
   busy: boolean
+  scanning?: boolean
   interrupted?: boolean
 }
 
@@ -46,7 +55,14 @@ export type ReviewDeps = {
   store?: RecordStore<ReviewRecord>
 }
 
-const fresh = (model: ModelChoice = 'opus'): ReviewRecord => ({ open: true, model, chat: [], costUsd: 0, read: 0, heard: 0 })
+const fresh = (model: ModelChoice = 'opus'): ReviewRecord => ({ open: true, model, chat: [], costUsd: 0, read: 0, heard: 0, moments: [], scanned: false })
+
+const KIND: Record<Moment['kind'], string> = { blunder: 'a blunder', mistake: 'a mistake', missed: 'a missed chance', good: 'a good play' }
+
+const SCAN =
+  "Before they ask anything, go through the whole game and find its key moments, for both sides: blunders, mistakes, missed chances and good plays. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one on the step of the move itself, checking the number against the list, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
+const LEAD =
+  "Take them through it. If the choice was theirs, ask what they'd do here before you say what you'd have done. If it was the other side's, say what happened and why it mattered."
 
 const SPEAKER: Record<ChatEntry['from'], string> = { you: 'The person', claude: 'Claude', move: 'Claude played', note: 'The app' }
 
@@ -86,6 +102,7 @@ export class ReviewService {
     const r = this.find(id) ?? this.load(id, fresh())
     r.open = true
     this.changed(id, r)
+    this.scan(id, r)
     return this.view(r)
   }
 
@@ -102,6 +119,19 @@ export class ReviewService {
     const r = this.need(id)
     r.chat.push({ from: 'you', text })
     r.queue.push({ text, position })
+    this.changed(id, r)
+    void this.pump(id, r)
+    return this.view(r)
+  }
+
+  // Go to a moment Claude marked, and have it take you through it. You're
+  // shown the table just before the move, where the choice was made.
+  moment(id: string, step: number): ReviewView {
+    const r = this.need(id)
+    const m = r.moments.find((m) => m.step === step)
+    if (!m) throw new SessionError(409, `Claude didn't mark step ${step}`)
+    r.chat.push({ from: 'note', text: `Step ${m.step}, ${KIND[m.kind]}` })
+    r.queue.push({ lead: m, position: m.step - 1 })
     this.changed(id, r)
     void this.pump(id, r)
     return this.view(r)
@@ -130,6 +160,7 @@ export class ReviewService {
     await r.run?.interrupt()
     Object.assign(r, fresh(r.model), { sessionId: undefined, texts: undefined })
     this.changed(id, r)
+    this.scan(id, r)
     return this.view(r)
   }
 
@@ -138,8 +169,15 @@ export class ReviewService {
     while (this.find(id)?.busy) await new Promise((res) => setTimeout(res, 5))
   }
 
-  private view({ model, status, chat, costUsd }: Review): ReviewView {
-    return { model, status, chat, costUsd }
+  private view({ model, status, chat, costUsd, moments, scanned }: Review): ReviewView {
+    return { model, status, chat, costUsd, moments, scanned }
+  }
+
+  // Claude's first look, unless it's had one or is having it.
+  private scan(id: string, r: Review) {
+    if (r.scanned || r.scanning || r.queue.some((a) => 'scan' in a)) return
+    r.queue.unshift({ scan: true, position: this.sessions.get(id).file.steps.length })
+    void this.pump(id, r)
   }
 
   private find(id: string): Review | undefined {
@@ -151,7 +189,8 @@ export class ReviewService {
   }
 
   private load(id: string, rec: ReviewRecord): Review {
-    const r: Review = { ...rec, status: 'idle', queue: [], position: 0, busy: false }
+    // A review from before moments has none.
+    const r: Review = { ...rec, moments: rec.moments ?? [], scanned: rec.scanned ?? false, status: 'idle', queue: [], position: 0, busy: false }
     this.reviews.set(id, r)
     return r
   }
@@ -167,17 +206,23 @@ export class ReviewService {
     r.busy = true
     try {
       while (r.queue.length) {
-        const asked = r.queue.splice(0)
+        // Questions go together; a first look or a moment goes on its own.
+        const n = r.queue.findIndex((a) => !('text' in a))
+        const asked = r.queue.splice(0, n === 0 ? 1 : n < 0 ? r.queue.length : n)
+        const first = asked[0]
         r.position = asked.at(-1)!.position
-        await this.run(
-          id,
-          r,
-          this.message(
-            id,
-            r,
-            asked.map((a) => a.text),
-          ),
-        )
+        if ('scan' in first) {
+          r.scanning = true
+          r.moments = []
+          r.scanned = await this.run(id, r, this.message(id, r, SCAN))
+          r.scanning = false
+        } else {
+          const ask =
+            'lead' in first
+              ? `They've gone to the moment you marked at step ${first.lead.step}, ${KIND[first.lead.kind]} by ${first.lead.player} ("${first.lead.title}"), and are looking at the table just before it. ${LEAD}`
+              : asked.map((a) => ('text' in a ? `They ask: ${a.text}` : '')).join('\n')
+          await this.run(id, r, this.message(id, r, ask))
+        }
       }
     } finally {
       r.busy = false
@@ -185,7 +230,7 @@ export class ReviewService {
     }
   }
 
-  private message(id: string, r: Review, questions: string[]): string {
+  private message(id: string, r: Review, ask: string): string {
     const view = this.sessions.get(id)
     const { steps } = view.file
     const { players } = view.state
@@ -204,10 +249,11 @@ export class ReviewService {
     }
     const position = Math.min(Math.max(0, r.position), steps.length)
     const where = position === 0 ? 'the start, before step 1' : `step ${position}: ${steps[position - 1].label ?? '(no label)'}`
-    parts.push(`They're looking at ${where} (of ${steps.length} steps). p1 is ${players.p1.name}, p2 is ${players.p2.name}.`)
+    if (ask === SCAN) parts.push(`The table at the end. p1 is ${players.p1.name}, p2 is ${players.p2.name}.`)
+    else parts.push(`They're looking at ${where} (of ${steps.length} steps). p1 is ${players.p1.name}, p2 is ${players.p2.name}.`)
     const state = this.state(id, r)
     parts.push(this.texts(state, r), describeTable(state, 'p1', this.db(), true))
-    parts.push(questions.map((q) => `They ask: ${q}`).join('\n'))
+    parts.push(ask)
     return parts.filter(Boolean).join('\n\n')
   }
 
@@ -238,7 +284,8 @@ export class ReviewService {
     return `Card texts (new to you):\n${fresh.map((n) => cardText(this.db(), n)).join('\n\n')}`
   }
 
-  private async run(id: string, r: Review, message: string) {
+  // Whether it finished without an error or being stopped.
+  private async run(id: string, r: Review, message: string): Promise<boolean> {
     r.status = 'thinking'
     this.changed(id, r)
     const run = this.agent({
@@ -246,10 +293,16 @@ export class ReviewService {
       system: this.system(),
       model: r.model,
       sessionId: r.sessionId,
-      tools: { table: () => describeTable(this.state(id, r), 'p1', this.db(), true), card: (name) => cardText(this.db(), name) },
+      tools: {
+        table: () => describeTable(this.state(id, r), 'p1', this.db(), true),
+        card: (name) => cardText(this.db(), name),
+        tableAt: (step) => describeTable(this.sessions.stateAt(id, step), 'p1', this.db(), true),
+        mark: (m) => this.mark(id, r, m),
+      },
     })
     r.run = run
     const chat = r.chat // a reply finishing after Start over stays out of the new chat
+    let ok = false
     try {
       for await (const e of run.events) {
         if (e.type === 'text') chat.push({ from: 'claude', text: e.text })
@@ -257,6 +310,7 @@ export class ReviewService {
           if (r.chat === chat) r.sessionId = e.sessionId ?? r.sessionId
           r.costUsd += e.costUsd
           if (e.error && !r.interrupted) chat.push({ from: 'note', text: `Claude stopped with an error: ${e.error}` })
+          ok = !e.error && !r.interrupted && r.chat === chat
         }
         this.changed(id, r)
       }
@@ -265,12 +319,21 @@ export class ReviewService {
       r.status = 'idle'
       r.interrupted = false
     }
+    return ok
+  }
+
+  private mark(id: string, r: Review, m: Moment): string {
+    const steps = this.sessions.get(id).file.steps.length
+    if (m.step > steps) return `There are only ${steps} steps.`
+    r.moments = [...r.moments.filter((x) => x.step !== m.step), m].sort((a, b) => a.step - b.step)
+    this.changed(id, r)
+    return `Marked step ${m.step}.`
   }
 
   private changed(id: string, r: Review) {
     if (this.reviews.get(id) !== r) return // deleted while a run was finishing
-    const { open, model, sessionId, chat, costUsd, read, heard, texts } = r
-    this.store.save(id, { open, model, ...(sessionId && { sessionId }), chat, costUsd, read, heard, ...(texts && { texts }) })
+    const { open, model, sessionId, chat, costUsd, read, heard, texts, moments, scanned } = r
+    this.store.save(id, { open, model, ...(sessionId && { sessionId }), chat, costUsd, read, heard, ...(texts && { texts }), moments, scanned })
     this.sessions.touch(id)
   }
 }
