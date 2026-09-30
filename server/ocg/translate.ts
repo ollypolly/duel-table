@@ -5,7 +5,19 @@
 // we name them by iid. Field slots line up one to one. In piles (Deck, hand,
 // GY, banished, Extra Deck) copies of a card are interchangeable, so a card
 // leaving a pile is found by its code, and our Deck order never matters.
-import { applyAction, type Action, type BoardState, type Iid, type Intent, type Phase, type Player, type Position, type Step, type SummonMethod, type ZoneRef } from '../../src/engine'
+import {
+  applyAction,
+  type Action,
+  type BoardState,
+  type Iid,
+  type Intent,
+  type Phase,
+  type Player,
+  type Position,
+  type Step,
+  type SummonMethod,
+  type ZoneRef,
+} from '../../src/engine'
 import { LOC, M, POS, QUERY, type Msg, type Ocg } from './lib'
 import { playerOf, type OcgDuel } from './duel'
 
@@ -118,19 +130,20 @@ export class Translator {
       this.begin({ label: PHASE_LABEL[phase] }, author)
       this.act({ type: 'phase', phase })
     } else if (m instanceof M.YGOProMsgDraw) {
-      for (const raw of m.cards) this.act({ type: 'move', card: this.inPile(playerOf(m.player), 'deck', raw & 0x7fffffff), to: { player: playerOf(m.player), zone: 'hand' } })
+      for (const raw of m.cards)
+        this.act({ type: 'move', card: this.inPile(playerOf(m.player), 'deck', raw & 0x7fffffff), to: { player: playerOf(m.player), zone: 'hand' } })
       this.labelIfNone(m.count === 1 ? 'Draw' : `Draw ${m.count}`, author)
     } else if (m instanceof M.YGOProMsgMove) {
       this.move(m, author)
     } else if (m instanceof M.YGOProMsgPosChange) {
       const iid = this.at({ ...m.card }, m.code)
-      const was = face(m.previousPosition)
-      const now = face(m.currentPosition)
-      if (was.faceUp !== now.faceUp) this.act({ type: 'flip', card: iid })
-      if (was.position !== now.position) this.act({ type: 'position', card: iid, position: now.position })
+      this.setPosition(iid, m.currentPosition, m.card.location === LOC.mzone)
       this.labelIfNone(`Change ${this.name(iid)}'s position`, author)
     } else if (m instanceof M.YGOProMsgSummoning || m instanceof M.YGOProMsgSpSummoning || m instanceof M.YGOProMsgFlipSummoning) {
       const iid = this.at(m, m.code)
+      // A Flip Summon has no position message of its own: the new position
+      // comes on this one.
+      if (m instanceof M.YGOProMsgFlipSummoning) this.setPosition(iid, m.position, true)
       const method = m instanceof M.YGOProMsgSummoning ? 'normal' : m instanceof M.YGOProMsgFlipSummoning ? 'flip' : this.specialMethod(m.code)
       this.markSummon(iid, method)
       const intent: Intent = method === 'normal' ? { type: 'normalSummon', card: iid } : { type: 'specialSummon', card: iid, method }
@@ -149,7 +162,10 @@ export class Translator {
     } else if (m instanceof M.YGOProMsgAttack) {
       const attacker = this.at(m.attacker)
       const target = m.defender.location ? this.at(m.defender) : undefined
-      this.begin({ label: `${this.name(attacker)} attacks ${target ? this.name(target) : 'directly'}`, intent: { type: 'attack', attacker, ...(target && { target }) } }, author)
+      this.begin(
+        { label: `${this.name(attacker)} attacks ${target ? this.name(target) : 'directly'}`, intent: { type: 'attack', attacker, ...(target && { target }) } },
+        author,
+      )
       this.act(target ? { type: 'arrow', from: attacker, to: target } : { type: 'highlight', cards: [attacker] })
     } else if (m instanceof M.YGOProMsgDamage || m instanceof M.YGOProMsgPayLpCost) {
       const value = m instanceof M.YGOProMsgDamage ? m.value : m.cost
@@ -166,6 +182,15 @@ export class Translator {
     } else if (m instanceof M.YGOProMsgSwap) {
       throw new Error('swapping control of two monsters is not supported yet')
     }
+  }
+
+  // Bring a card to the core's position, from wherever ours is. Only
+  // monsters turn sideways.
+  private setPosition(iid: Iid, pos: number, monster: boolean) {
+    const card = this.state.cards[iid]
+    const now = face(pos)
+    if (card.faceUp !== now.faceUp) this.act({ type: 'flip', card: iid })
+    if (monster && card.position !== now.position) this.act({ type: 'position', card: iid, position: now.position })
   }
 
   private move(m: InstanceType<typeof M.YGOProMsgMove>, author?: Step['author']) {
@@ -366,7 +391,11 @@ export function diffWithCore(state: BoardState, duel: OcgDuel): string[] {
       [LOC.extra, 'extraDeck'],
     ]
     for (const [location, zone] of piles) {
-      const theirs = duel.fieldCards(player, location, QUERY.code).filter((c) => c && !c.empty).map((c) => c.code ?? 0).sort()
+      const theirs = duel
+        .fieldCards(player, location, QUERY.code)
+        .filter((c) => c && !c.empty)
+        .map((c) => c.code ?? 0)
+        .sort()
       const ours = zones[zone].map(code).sort()
       if (theirs.join() !== ours.join()) out.push(`${player} ${zone}: core [${theirs}] vs ours [${ours}]`)
     }
