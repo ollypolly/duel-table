@@ -134,6 +134,10 @@ export function Table({
     for (const e of entry.events) if (e.type === 'lpChanged') changes[e.player] = (changes[e.player] ?? 0) + e.to - e.from
     return changes
   }, [entry])
+  // Damage pops up on a step you move to, not the one a (re)load lands on.
+  const [landed] = useState(position)
+  const [moved, setMoved] = useState(false)
+  if (!moved && position !== landed) setMoved(true)
   // The step you just moved onto makes its sounds; jumps and stepping back are quiet.
   const heard = useRef(position)
   useEffect(() => {
@@ -344,7 +348,7 @@ export function Table({
         {/* Under the phone sheet: the home bar's safe area, in the sheet's colour. */}
         {phone && <div className="absolute inset-x-0 bottom-0 z-10 h-(--safe-bottom) bg-surface" />}
 
-        <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
+        <DamagePopups changes={moved ? lpChanges : {}} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
         {freePlay && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center *:pointer-events-auto sm:left-[27rem] sm:right-32">
