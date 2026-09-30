@@ -310,15 +310,18 @@ export class ClaudeService {
   private async message(id: string, seat: Seat, prompt: GamePrompt | undefined, nudge: boolean): Promise<string> {
     const { state } = await this.games.get(id)
     const parts: string[] = []
-    for (const text of seat.queue.splice(0)) parts.push(`Your opponent says: ${text}`)
+    const said = seat.queue.splice(0)
+    for (const text of said) parts.push(`Your opponent says: ${text}`)
     const events = this.catchUp(id, seat)
     if (events.length) parts.push(`Since you last looked:\n${events.map((e) => `- ${e}`).join('\n')}`)
-    const shown = seat.share || !!seat.showOnce
+    // Talking to Claude while they have a decision shows it their question
+    // (and so the cards it names), as a hint does: it's what they're asking about.
+    const theirs = await this.games.asking(id, other(seat.player))
+    const shown = seat.share || !!seat.showOnce || (said.length > 0 && !!theirs)
     seat.showOnce = false
     parts.push(this.texts(state, seat, shown), describeTable(state, seat.player, this.db(), shown))
     if (shown) {
       parts.push('Your opponent is showing you their hidden cards (named above) so you can advise them: when they ask, explain the best play for them and why.')
-      const theirs = await this.games.asking(id, other(seat.player))
       if (theirs) parts.push(describeQuestion(theirs, state, other(seat.player), this.db(), true))
     }
     if (prompt) {
@@ -446,6 +449,9 @@ export class ClaudeService {
     parts.push(this.texts(state, seat, true), describeTable(state, 'p1', this.db(), true), this.seatsNote(id, seat))
     if (prompt) parts.push(this.lessonQuestion(prompt, state))
     else parts.push('Nothing is being asked of a player you hold right now.')
+    // Handed p1, the person may be asking about their own decision.
+    const theirs = seat.lesson!.holds.includes('p1') ? undefined : await this.games.asking(id, 'p1')
+    if (theirs) parts.push(`The person is deciding. ${this.lessonQuestion(theirs, state)}`)
     return parts.filter(Boolean).join('\n\n')
   }
 

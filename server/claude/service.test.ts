@@ -135,7 +135,9 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       { from: 'claude', text: 'Hello from the fake.' },
     ])
     expect(sessions.get(v.id).game?.prompt?.player ?? 'p1').toBe('p1')
-    expect(last.message).not.toContain('showing you their hidden cards')
+    // Talking while they have a decision shows Claude their question, like a hint.
+    expect(last.message).toContain('showing you their hidden cards')
+    expect(last.message).toMatch(/Your opponent is being asked/)
 
     // Shown the person's cards, Claude gets their side and their question.
     claude.settings(v.id, { share: true })

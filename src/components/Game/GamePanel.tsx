@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
-import { cardFace } from '../../view/boardView'
+import { cardFace, VIEWER } from '../../view/boardView'
 
 export type GameChoice = {
   focused?: Iid // single-choice prompts: the card whose options are shown
@@ -26,8 +26,9 @@ type Props = {
 
 export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onHint, busy }: Props) {
   const name = (iid: Iid) => {
+    // Your own cards are named even in your decks: an Extra Deck summon, or a search.
     const f = cardFace(state, iid, cardDb)
-    return f.visible ? f.name : 'Face-down card'
+    return f.visible || f.owner === VIEWER ? f.name : 'Face-down card'
   }
   const { prompt, winner, waitingFor } = game
 
