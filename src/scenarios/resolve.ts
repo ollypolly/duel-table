@@ -120,7 +120,9 @@ function buildSetup(file: ScenarioFile, ctx: ResolveContext): GameSetup {
     const card = ctx.db.byName(name)
     if (card) return { name: card.name, cardId: card.id, extra: isExtraDeckCard(card) }
     const close = ctx.db.closeMatches(name)
-    errors.push(`${where}: unknown card "${name}"${close.length ? `. Did you mean ${close.map((c) => `"${c}"`).join(', ')}?` : ' (run npm run fetch-cards if it is a real card)'}`)
+    errors.push(
+      `${where}: unknown card "${name}"${close.length ? `. Did you mean ${close.map((c) => `"${c}"`).join(', ')}?` : ' (run npm run fetch-cards if it is a real card)'}`,
+    )
     return undefined
   }
 
@@ -165,7 +167,7 @@ function buildSetup(file: ScenarioFile, ctx: ResolveContext): GameSetup {
         return { ...p, name: canonical(p.name, where), ...(p.materials && { materials: p.materials.map((m) => canonical(m, `${where}.materials`)) }) }
       })
     }
-    return { name: p.name, lp: p.lp, pool, placed }
+    return { name: p.name, lp: p.lp, ...(p.deck && { deck: p.deck }), pool, placed }
   }
 
   const setup: GameSetup = {

@@ -1,6 +1,6 @@
 // Node-side file access: the card DB, decks and scenarios from the repo, and
 // the sessions/ directory. Read on demand so edits show up without a restart.
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { createCardDb, type CardDbFile } from '../src/data/cardDb'
 import type { ResolveContext } from '../src/scenarios/resolve'
@@ -49,6 +49,23 @@ export function diskStore(dir: string): SessionStore {
     },
   }
 }
+
+// Delete a deck file from the repo: decks/<id>.json, or whichever file has that id.
+export type RemoveRepoFile = (dir: 'decks', id: string) => string
+
+export const removeRepoFile =
+  (root = ROOT): RemoveRepoFile =>
+  (dir, id) => {
+    const named = join(root, dir, `${id}.json`)
+    const path = existsSync(named)
+      ? named
+      : readdirSync(join(root, dir))
+          .map((f) => join(root, dir, f))
+          .find((p) => p.endsWith('.json') && (readJson(p) as { id?: string }).id === id)
+    if (!path) throw new Error(`no ${dir} file for "${id}"`)
+    rmSync(path)
+    return relative(root, path)
+  }
 
 // Write a scenario or deck file into the repo. Refuses to overwrite by default.
 export type WriteRepoFile = (dir: 'scenarios' | 'decks', file: { id: string }, overwrite: boolean) => string

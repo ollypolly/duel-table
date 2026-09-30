@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
-import { CosmeticsDialog } from "./components/Cosmetics/Cosmetics";
+import { DeckHub } from "./components/Decks/DeckHub";
+import { deckFromUrl } from "./hooks/urlSync";
 import { Menu, MenuItem, MenuLabel } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
 import { NewGameDialog } from "./components/Game/NewGameDialog";
@@ -20,8 +21,10 @@ import { usePlayerStore } from "./store/playerStore";
 export default function App() {
   const { scenarioId, sessionId, open, openSession } = usePlayerStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
-  const [cosmeticsOpen, setCosmeticsOpen] = useState(false);
   const [newGameOpen, setNewGameOpen] = useState(false);
+  const [newGameDeck, setNewGameDeck] = useState<string>();
+  // Reopens after a deck save reloads the page.
+  const [deckHubOpen, setDeckHubOpen] = useState(() => deckFromUrl() !== undefined);
   const { scenarios, branches, branchIds } = useScenarios();
   const { add, appendStep, undo } = useBranchStore();
   const all = [...scenarios, ...branches];
@@ -89,17 +92,30 @@ export default function App() {
       )}
       <Menu label="☰" title="More">
         <ImportBranch takenIds={all.map(resultId)} />
-        <MenuItem onClick={() => setCosmeticsOpen(true)}>Sleeves, deck boxes & playmats…</MenuItem>
+        {liveSessions && <MenuItem onClick={() => setDeckHubOpen(true)}>Decks…</MenuItem>}
       </Menu>
-      <CosmeticsDialog open={cosmeticsOpen} onClose={() => setCosmeticsOpen(false)} />
+      <DeckHub
+        open={deckHubOpen}
+        initial={deckFromUrl()}
+        onClose={() => setDeckHubOpen(false)}
+        onPlay={(deck) => {
+          setNewGameDeck(deck);
+          setNewGameOpen(true);
+        }}
+      />
     </>
   );
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-bg text-ink">
       <NewGameDialog
+        key={newGameDeck}
         open={newGameOpen}
-        onClose={() => setNewGameOpen(false)}
+        deck={newGameDeck}
+        onClose={() => {
+          setNewGameOpen(false);
+          setNewGameDeck(undefined);
+        }}
         onStarted={(id) => {
           setNewGameOpen(false);
           openSession(id, Infinity);

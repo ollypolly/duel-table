@@ -4,10 +4,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { initUrlSync } from './hooks/urlSync'
+import { rawScenarios } from './scenarios/load'
 import { useCosmeticsStore } from './store/cosmeticsStore'
 
 initUrlSync()
-void useCosmeticsStore.getState().load()
+// Sleeves etc. picked per seat, before they were per deck, go to the free
+// table's decks.
+const freeTable = rawScenarios['free-table'] as { players?: Record<'p1' | 'p2', { deck?: string }> } | undefined
+void useCosmeticsStore.getState().load({ p1: freeTable?.players?.p1.deck, p2: freeTable?.players?.p2.deck })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

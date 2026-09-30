@@ -29,7 +29,8 @@ export type CardDb = {
 export const imagePath = (id: number, size: 'full' | 'small' = 'small') =>
   size === 'small' ? `/cards/small/${id}.jpg` : `/cards/${id}.jpg`
 
-export const isExtraDeckCard = (c: CardData) => /fusion|synchro|xyz|link/.test(c.frameType)
+export const isExtraFrame = (frameType: string) => /fusion|synchro|xyz|link/.test(frameType)
+export const isExtraDeckCard = (c: CardData) => isExtraFrame(c.frameType)
 export const isMonster = (c: CardData) => c.type.includes('Monster')
 
 export const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')

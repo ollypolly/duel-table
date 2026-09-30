@@ -64,9 +64,11 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     }
   }
 
-  // Follow the focus. The first placement jumps rather than easing in; free
-  // mode leaves the camera wherever it was.
-  const target = size && worldW && mode !== 'free' ? frame(size, worldW, mode, insetLeft) : undefined
+  // Follow the focus. The first placement jumps rather than easing in, and
+  // frames the whole table even in free mode; after that, free mode leaves the
+  // camera wherever it was.
+  const area = mode !== 'free' ? mode : placed.current ? undefined : 'all'
+  const target = size && worldW && area ? frame(size, worldW, area, insetLeft) : undefined
   useEffect(() => {
     if (!target) return
     goTo(target, !placed.current)

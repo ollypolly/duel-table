@@ -1,16 +1,18 @@
-// Each seat's sleeves, deck box and playmat: images you pick, kept in this
-// browser's IndexedDB (too big for localStorage) and served as object URLs.
-// They belong to the seat (p1 at the bottom, p2 at the top), not a scenario.
+// Each deck's sleeves (Main and Extra), deck box and playmat: images you pick in
+// the deck hub, or a colour for sleeves, kept in this browser's IndexedDB (too
+// big for localStorage). Images are served as object URLs, colours as "#rrggbb". The board shows a seat's through SeatDecks, the deck each
+// player is using.
+import { createContext, useContext } from 'react'
 import { create } from 'zustand'
 import type { Player } from '../engine'
 
-export const COSMETICS = ['sleeve', 'deckBox', 'playmat'] as const
+export const COSMETICS = ['sleeve', 'extraSleeve', 'deckBox', 'playmat'] as const
 export type Cosmetic = (typeof COSMETICS)[number]
-export type Cosmetics = Record<Player, Partial<Record<Cosmetic, string>>> // object URLs
+type ByDeck = Record<string, Partial<Record<Cosmetic, string>>> // deck id → object URL or colour
 
 const DB = 'duel-table'
 const STORE = 'cosmetics'
-const key = (player: Player, kind: Cosmetic) => `${player}:${kind}`
+const key = (deck: string, kind: Cosmetic) => `${deck}:${kind}`
 
 function db(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -31,31 +33,53 @@ async function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRe
 }
 
 type CosmeticsState = {
-  cosmetics: Cosmetics
-  load: () => Promise<void>
-  set: (player: Player, kind: Cosmetic, file: Blob | undefined) => Promise<void>
+  cosmetics: ByDeck
+  // seatDecks: where images saved per seat (before they were per deck) go.
+  load: (seatDecks: Partial<Record<Player, string>>) => Promise<void>
+  set: (deck: string, kind: Cosmetic, value: Blob | string | undefined) => Promise<void>
 }
 
 export const useCosmeticsStore = create<CosmeticsState>()((set, get) => {
-  const put = (player: Player, kind: Cosmetic, blob: Blob | undefined) => {
-    const old = get().cosmetics[player][kind]
-    if (old) URL.revokeObjectURL(old)
+  const put = (deck: string, kind: Cosmetic, value: Blob | string | undefined) => {
+    const old = get().cosmetics[deck]?.[kind]
+    if (old?.startsWith('blob:')) URL.revokeObjectURL(old)
     const c = get().cosmetics
-    set({ cosmetics: { ...c, [player]: { ...c[player], [kind]: blob && URL.createObjectURL(blob) } } })
+    set({ cosmetics: { ...c, [deck]: { ...c[deck], [kind]: value instanceof Blob ? URL.createObjectURL(value) : value } } })
   }
   return {
-    cosmetics: { p1: {}, p2: {} },
-    load: async () => {
+    cosmetics: {},
+    load: async (seatDecks) => {
       if (typeof indexedDB === 'undefined') return
       const [keys = [], blobs = []] = await Promise.all([tx('readonly', (s) => s.getAllKeys()), tx('readonly', (s) => s.getAll())])
-      keys.forEach((k, i) => {
-        const [player, kind] = String(k).split(':') as [Player, Cosmetic]
-        put(player, kind, blobs[i] as Blob)
-      })
+      for (const [i, k] of keys.entries()) {
+        let [deck, kind] = String(k).split(':') as [string, Cosmetic]
+        const moved = seatDecks[deck as Player]
+        if (moved) {
+          await tx('readwrite', (s) => s.put(blobs[i], key(moved, kind)))
+          await tx('readwrite', (s) => s.delete(k))
+          deck = moved
+        }
+        put(deck, kind, blobs[i] as Blob | string)
+      }
     },
-    set: async (player, kind, file) => {
-      await tx('readwrite', (s) => (file ? s.put(file, key(player, kind)) : s.delete(key(player, kind))))
-      put(player, kind, file)
+    set: async (deck, kind, value) => {
+      await tx('readwrite', (s) => (value ? s.put(value, key(deck, kind)) : s.delete(key(deck, kind))))
+      put(deck, kind, value)
     },
   }
 })
+
+// The deck each seat is playing, for its cosmetics. Set by the Table.
+export const SeatDecks = createContext<Partial<Record<Player, string>>>({})
+
+export function useSeatCosmetic(player: Player, kind: Cosmetic): string | undefined {
+  const deck = useContext(SeatDecks)[player]
+  return useCosmeticsStore((s) => (deck ? s.cosmetics[deck]?.[kind] : undefined))
+}
+
+// Extra Deck cards wear the Extra sleeves, or the Main ones when there are none.
+export function useSleeve(player: Player, extra: boolean): string | undefined {
+  const main = useSeatCosmetic(player, 'sleeve')
+  const extraSleeve = useSeatCosmetic(player, 'extraSleeve')
+  return (extra && extraSleeve) || main
+}

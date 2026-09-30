@@ -1,5 +1,6 @@
 // Typed fetch client for the local API, plus the SSE subscription live mode
 // uses. Everything is optional: playback works without the server.
+import type { CardData } from '../data/cardDb'
 import type { Issue, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
@@ -8,9 +9,21 @@ import type { Answer, LessonView } from './lesson'
 export type SessionSummary = { id: string; title: string; steps: number; basedOn?: string }
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView }
 
-class ApiError extends Error {
+export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[] }
+export type DeckEntry = { name: string; count: number }
+export type Deck = {
+  id: string
+  name: string
+  size: { main: number; extra: number }
+  main: (CardData & DeckEntry)[]
+  extra: (CardData & DeckEntry)[]
+  warnings: string[]
+  usedBy: string[]
+}
+
+export class ApiError extends Error {
   readonly status: number
-  readonly body: { error?: string; details?: string[]; issues?: Issue[] }
+  readonly body: { error?: string; details?: string[]; issues?: Issue[]; unknown?: { name: string; suggestions: string[] }[] }
   constructor(status: number, body: ApiError['body']) {
     super([body.error ?? `HTTP ${status}`, ...(body.details ?? []), ...(body.issues ?? []).map((i) => i.message)].join(': '))
     this.status = status
@@ -29,6 +42,11 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const api = {
+  decks: () => call<DeckSummary[]>('GET', '/decks'),
+  deck: (id: string) => call<Deck>('GET', `/decks/${id}`),
+  // Either a pasted decklist or the cards. Unknown names fail with 422 and suggestions (ApiError.body.unknown).
+  saveDeck: (d: { id: string; name: string; overwrite?: boolean } & ({ list: string } | { cards: DeckEntry[] })) => call<Deck>('POST', '/decks', d),
+  deleteDeck: (id: string) => call<{ path: string }>('DELETE', `/decks/${id}`),
   // undefined when the server isn't running.
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),
   createSession: (opts: { scenario: string; atStep: number }) => call<SessionSummary>('POST', '/sessions', opts),

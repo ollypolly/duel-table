@@ -118,8 +118,34 @@ export function cardFace(state: BoardState, iid: Iid, db: CardDb): CardFace {
   }
 }
 
-const customFrame = (kind?: string) =>
-  kind === 'spell' ? 'spell' : kind === 'trap' ? 'trap' : kind === 'extra' ? 'fusion' : 'effect'
+// A card out of any game (e.g. in a decklist), face-up, for the inspector.
+export function catalogFace(data: CardData): CardFace {
+  return {
+    iid: `catalog-${data.id}`,
+    cardId: data.id,
+    data,
+    name: data.name,
+    baseName: data.name,
+    owner: VIEWER,
+    controller: VIEWER,
+    faceUp: true,
+    set: false,
+    visible: true,
+    position: 'atk',
+    atk: data.atk,
+    def: data.def,
+    baseAtk: data.atk,
+    baseDef: data.def,
+    modifiers: [],
+    highlighted: false,
+    revealed: false,
+    image: imagePath(data.id, 'small'),
+    imageFull: imagePath(data.id, 'full'),
+    frame: data.frameType,
+  }
+}
+
+const customFrame = (kind?: string) => (kind === 'spell' ? 'spell' : kind === 'trap' ? 'trap' : kind === 'extra' ? 'fusion' : 'effect')
 
 export function buildBoardView(state: BoardState, db: CardDb): BoardView {
   const face = (iid: Iid) => cardFace(state, iid, db)

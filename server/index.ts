@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
 import { ClaudeService, diskClaudeStore } from './claude/service'
-import { diskStore, repoContext, ROOT, writeRepoFile } from './files'
+import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
@@ -47,6 +47,7 @@ const app = createApp({
   games,
   claude: { service, account: checkAccount },
   writeFile: writeRepoFile(),
+  removeFile: removeRepoFile(),
   addCards: (names) => addCards(names, ROOT),
 })
 

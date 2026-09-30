@@ -7,9 +7,9 @@
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { AnimatePresence, motion } from 'motion/react'
-import { useRef, useState, type CSSProperties } from 'react'
+import { useContext, useRef, useState, type CSSProperties } from 'react'
 import { PLAYERS, type Iid, type Player } from '../../engine'
-import { useCosmeticsStore } from '../../store/cosmeticsStore'
+import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
 import type { PlacedCard, ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
@@ -38,7 +38,9 @@ export function Board2D({
 }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
   const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove)
-  const cosmetics = useCosmeticsStore((s) => s.cosmetics)
+  const seatDecks = useContext(SeatDecks)
+  const byDeck = useCosmeticsStore((s) => s.cosmetics)
+  const cosmetics = (p: Player) => (seatDecks[p] && byDeck[seatDecks[p]]) || {}
   const lit = new Set(choosable)
   const canDrag = new Set(onCardDrop ? draggable : [])
   const litPiles = new Set(view.cards.filter((c) => lit.has(c.iid) && c.stackIndex !== undefined).map((c) => `${c.zone.player}:${c.zone.zone}`))
@@ -73,17 +75,17 @@ export function Board2D({
               ...cam.style,
             }}
           >
-            {PLAYERS.map((p) => cosmetics[p].playmat && <Playmat key={p} player={p} src={cosmetics[p].playmat} />)}
+            {PLAYERS.map((p) => cosmetics(p).playmat && <Playmat key={p} player={p} src={cosmetics(p).playmat!} />)}
             <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
             {view.zones.map((z) => (
               <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`)} onClick={() => onZoneClick?.(z.ref)} />
             ))}
             {PLAYERS.map(
               (p) =>
-                cosmetics[p].deckBox && (
+                cosmetics(p).deckBox && (
                   <img
                     key={p}
-                    src={cosmetics[p].deckBox}
+                    src={cosmetics(p).deckBox}
                     alt="Deck box"
                     draggable={false}
                     className="pointer-events-none absolute rounded-[6%] object-cover shadow-lg shadow-black/70"

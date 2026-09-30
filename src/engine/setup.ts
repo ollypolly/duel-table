@@ -21,6 +21,7 @@ export type Placement = {
 export type PlayerSetup = {
   name: string
   lp?: number
+  deck?: string // the deck file it came from, for its sleeves and mat
   pool: SetupCard[] // every card this player owns, in deck-list order
   // Starting positions. Slot zones use array index as slot (null = empty).
   // For the deck, listed cards go on top in order; the rest are shuffled below.
@@ -107,10 +108,7 @@ export function createInitialState(setup: GameSetup): BoardState {
 
   for (const player of PLAYERS) {
     const zones = state.players[player].zones
-    for (const [zone, entries] of Object.entries(setup.players[player].placed ?? {}) as [
-      PlayerZone,
-      (Placement | null)[],
-    ][]) {
+    for (const [zone, entries] of Object.entries(setup.players[player].placed ?? {}) as [PlayerZone, (Placement | null)[]][]) {
       if (!ZONES[zone]) throw new EngineError(`Unknown zone "${zone}" in ${player}'s setup`)
       entries.forEach((p, i) => {
         if (!p) return

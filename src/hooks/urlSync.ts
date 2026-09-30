@@ -1,6 +1,6 @@
 // Deep links: ?scenario=<id>&step=<n> opens that moment (?session=<id> for a
 // live session), and the URL follows along as you step, so a link can point
-// at an exact position.
+// at an exact position. ?decks=<id> opens the deck hub on a deck.
 import { usePlayerStore } from '../store/playerStore'
 
 export function initUrlSync() {
@@ -27,3 +27,5 @@ export function initUrlSync() {
   write()
   usePlayerStore.subscribe(write)
 }
+
+export const deckFromUrl = () => new URLSearchParams(window.location.search).get('decks') ?? undefined

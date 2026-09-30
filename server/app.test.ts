@@ -95,10 +95,30 @@ describe('API', () => {
 
     it('lists decks and shows one with card text', async () => {
       const { call } = setup()
-      expect((await call('GET', '/decks')).json).toContainEqual({ id: 'chazz-armed-ojama', name: expect.any(String), size: { main: 40, extra: expect.any(Number) } })
+      expect((await call('GET', '/decks')).json).toContainEqual({
+        id: 'chazz-armed-ojama',
+        name: expect.any(String),
+        size: { main: 40, extra: expect.any(Number) },
+        usedBy: expect.arrayContaining(['free-table']),
+      })
       const deck = await call('GET', '/decks/chazz-armed-ojama')
       expect(deck.json.main).toContainEqual(expect.objectContaining({ name: 'Ojamatch', count: 3, desc: expect.any(String) }))
+      expect(deck.json.usedBy).toContain('free-table')
       expect((await call('GET', '/decks/nope')).status).toBe(404)
+    })
+
+    it('deletes a deck, unless a scenario uses it', async () => {
+      const removed: string[] = []
+      const withSpare = () => ({ ...ctx(), decks: { ...ctx().decks, spare: { id: 'spare', name: 'Spare', main: [], extra: [] } } })
+      const app = createApp({ sessions: new SessionService(withSpare), ctx: withSpare, removeFile: (dir, id) => (removed.push(id), `${dir}/${id}.json`) })
+      const del = async (id: string) => {
+        const res = await app.request(`/api/decks/${id}`, { method: 'DELETE' })
+        return { status: res.status, json: (await res.json()) as any }
+      }
+      expect(await del('chazz-armed-ojama')).toMatchObject({ status: 409, json: { details: expect.arrayContaining(['free-table']) } })
+      expect((await del('nope')).status).toBe(404)
+      expect(await del('spare')).toEqual({ status: 200, json: { path: 'decks/spare.json' } })
+      expect(removed).toEqual(['spare'])
     })
 
     it('creates a deck from a pasted list, fetching unknown cards', async () => {
@@ -160,4 +180,3 @@ describe('API', () => {
     expect((await call('GET', `${at}/wait?timeout=9999`)).status).toBe(400)
   })
 })
-

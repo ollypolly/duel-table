@@ -12,7 +12,7 @@ type PlayerState = {
   position: number
   speed: number
   playing: boolean
-  followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; on at each page load
+  followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; back on at each load and each scenario or game opened
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
   goTo: (position: number) => void
@@ -30,8 +30,8 @@ export const usePlayerStore = create<PlayerState>()(
       speed: 1,
       playing: false,
       followFocus: true,
-      open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false }),
-      openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false }),
+      open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true }),
+      openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false, followFocus: true }),
       goTo: (position) => set({ position }),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),

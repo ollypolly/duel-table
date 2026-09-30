@@ -15,7 +15,7 @@ import type { ClaudeService } from './claude/service'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
-import type { WriteRepoFile } from './files'
+import type { RemoveRepoFile, WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
 import type { FetchResult } from './ygoprodeck'
 
@@ -42,13 +42,14 @@ type AppDeps = {
   sessions: SessionService
   ctx: () => ResolveContext
   writeFile?: WriteRepoFile // without it, nothing is written to the repo
+  removeFile?: RemoveRepoFile // without it, decks can't be deleted
   addCards?: (names: string[]) => Promise<FetchResult> // without it, unknown cards aren't fetched
   games?: GameService // without it, there are no games on the rules engine
   // Claude as a player; account says whether a Claude login is available.
   claude?: { service: ClaudeService; account: () => Promise<ClaudeAccount | undefined> }
 }
 
-export function createApp({ sessions, ctx, writeFile, addCards, games, claude }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -72,7 +73,9 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       method: 'get',
       path: '/scenarios',
       summary: 'List scenarios',
-      responses: { 200: json(z.array(z.object({ id: z.string(), title: z.string().optional(), steps: z.number().optional(), errors: z.array(z.string()).optional() })), 'Scenarios') },
+      responses: {
+        200: json(z.array(z.object({ id: z.string(), title: z.string().optional(), steps: z.number().optional(), errors: z.array(z.string()).optional() })), 'Scenarios'),
+      },
     }),
     (c) => {
       const context = ctx()
@@ -92,7 +95,10 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       path: '/scenarios/{id}',
       summary: 'A resolved scenario: its file, every step and any warnings',
       request: { params: IdParam },
-      responses: { 200: json(z.object({ id: z.string(), title: z.string(), steps: z.array(StepSchema), warnings: z.array(z.string()), file: z.unknown() }), 'Scenario'), ...errors },
+      responses: {
+        200: json(z.object({ id: z.string(), title: z.string(), steps: z.array(StepSchema), warnings: z.array(z.string()), file: z.unknown() }), 'Scenario'),
+        ...errors,
+      },
     }),
     (c) => {
       const context = ctx()
@@ -133,7 +139,14 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       method: 'get',
       path: '/cards/{id}',
       summary: 'Look a card up by passcode',
-      request: { params: z.object({ id: z.coerce.number().int().openapi({ param: { name: 'id', in: 'path' } }) }) },
+      request: {
+        params: z.object({
+          id: z.coerce
+            .number()
+            .int()
+            .openapi({ param: { name: 'id', in: 'path' } }),
+        }),
+      },
       responses: { 200: json(z.unknown(), 'The card'), 404: json(ErrorSchema, 'Unknown passcode') },
     }),
     (c) => {
@@ -154,12 +167,32 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
     warnings: z.array(z.string()),
   })
 
+  // Scenarios whose players use a deck: editing it may break their steps.
+  const usedBy = (context: ResolveContext, id: string) =>
+    Object.entries(context.scenarios).flatMap(([sid, raw]) => {
+      const players = (raw as { players?: Record<string, { deck?: string }> }).players ?? {}
+      return Object.values(players).some((p) => p?.deck === id) ? [sid] : []
+    })
+
   app.openapi(
     createRoute({
       method: 'get',
       path: '/decks',
       summary: 'List decks',
-      responses: { 200: json(z.array(z.object({ id: z.string(), name: z.string().optional(), size: z.object({ main: z.number(), extra: z.number() }).optional(), errors: z.array(z.string()).optional() })), 'Decks') },
+      responses: {
+        200: json(
+          z.array(
+            z.object({
+              id: z.string(),
+              name: z.string().optional(),
+              size: z.object({ main: z.number(), extra: z.number() }).optional(),
+              usedBy: z.array(z.string()).openapi({ description: 'Scenarios that use this deck' }),
+              errors: z.array(z.string()).optional(),
+            }),
+          ),
+          'Decks',
+        ),
+      },
     }),
     (c) => {
       const context = ctx()
@@ -167,9 +200,9 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
         Object.entries(context.decks).map(([id, raw]) => {
           try {
             const d = expandDeck(parseDeck(raw, `deck ${id}`), context.db)
-            return { id: d.id, name: d.name, size: d.size }
+            return { id: d.id, name: d.name, size: d.size, usedBy: usedBy(context, id) }
           } catch (e) {
-            return { id, errors: [e instanceof Error ? e.message : String(e)] }
+            return { id, usedBy: usedBy(context, id), errors: [e instanceof Error ? e.message : String(e)] }
           }
         }),
         200,
@@ -181,9 +214,9 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
     createRoute({
       method: 'get',
       path: '/decks/{id}',
-      summary: 'A deck with every card\'s text and stats',
+      summary: "A deck with every card's text and stats",
       request: { params: IdParam },
-      responses: { 200: json(ExpandedDeckSchema, 'The deck'), ...errors },
+      responses: { 200: json(ExpandedDeckSchema.extend({ usedBy: z.array(z.string()) }), 'The deck'), ...errors },
     }),
     (c) => {
       const context = ctx()
@@ -191,7 +224,7 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       const raw = context.decks[id]
       if (!raw) return c.json({ error: `no deck "${id}"`, details: [`known: ${Object.keys(context.decks).join(', ') || 'none'}`] }, 404)
       try {
-        return c.json(expandDeck(parseDeck(raw, `deck ${id}`), context.db), 200)
+        return c.json({ ...expandDeck(parseDeck(raw, `deck ${id}`), context.db), usedBy: usedBy(context, id) }, 200)
       } catch (e) {
         return c.json({ error: e instanceof Error ? e.message : String(e) }, 422)
       }
@@ -251,6 +284,26 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
     },
   )
 
+  app.openapi(
+    createRoute({
+      method: 'delete',
+      path: '/decks/{id}',
+      summary: 'Delete a deck file',
+      description: "Refused while a scenario uses the deck, since the scenario wouldn't load without it.",
+      request: { params: IdParam },
+      responses: { 200: json(z.object({ path: z.string() }), 'Deleted'), 409: json(ErrorSchema, 'In use'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      const context = ctx()
+      if (!context.decks[id]) return c.json({ error: `no deck "${id}"` }, 404)
+      const users = usedBy(context, id)
+      if (users.length) return c.json({ error: `"${id}" is used by ${users.join(', ')}`, details: users }, 409)
+      if (!removeFile) return c.json({ error: 'decks are read-only here' }, 400)
+      return c.json({ path: removeFile('decks', id) }, 200)
+    },
+  )
+
   // Sessions ------------------------------------------------------------------
 
   app.openapi(
@@ -276,13 +329,18 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
     (c) => c.json(sessions.create(c.req.valid('json')), 201),
   )
 
-  app.openapi(
-    createRoute({ method: 'get', path: '/sessions', summary: 'List sessions', responses: { 200: json(z.array(SummarySchema), 'Sessions') } }),
-    (c) => c.json(sessions.list(), 200),
+  app.openapi(createRoute({ method: 'get', path: '/sessions', summary: 'List sessions', responses: { 200: json(z.array(SummarySchema), 'Sessions') } }), (c) =>
+    c.json(sessions.list(), 200),
   )
 
   app.openapi(
-    createRoute({ method: 'get', path: '/sessions/{id}', summary: 'A session: its log (as a scenario file) and current state', request: { params: IdParam }, responses: { 200: json(SessionSchema, 'The session'), ...errors } }),
+    createRoute({
+      method: 'get',
+      path: '/sessions/{id}',
+      summary: 'A session: its log (as a scenario file) and current state',
+      request: { params: IdParam },
+      responses: { 200: json(SessionSchema, 'The session'), ...errors },
+    }),
     (c) => c.json(sessions.get(c.req.valid('param').id), 200),
   )
 
@@ -314,7 +372,10 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       method: 'post',
       path: '/sessions/{id}/undo',
       summary: 'Drop the last step (a queued one first)',
-      request: { params: IdParam, body: { content: { 'application/json': { schema: z.object({ author: z.enum(['user', 'claude']).optional() }).strict() } }, required: false } },
+      request: {
+        params: IdParam,
+        body: { content: { 'application/json': { schema: z.object({ author: z.enum(['user', 'claude']).optional() }).strict() } }, required: false },
+      },
       responses: { 200: json(SessionSchema, 'The session'), 409: json(ErrorSchema, 'Nothing to undo'), ...errors },
     }),
     async (c) => {
@@ -341,7 +402,19 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       summary: 'The session as a scenario file; with write: true, also saved to scenarios/<id>.json',
       request: {
         params: IdParam,
-        ...body(z.object({ id: z.string().regex(/^[a-z0-9-]+$/).optional(), title: z.string().optional(), write: z.boolean().optional(), overwrite: z.boolean().optional() }).strict()),
+        ...body(
+          z
+            .object({
+              id: z
+                .string()
+                .regex(/^[a-z0-9-]+$/)
+                .optional(),
+              title: z.string().optional(),
+              write: z.boolean().optional(),
+              overwrite: z.boolean().optional(),
+            })
+            .strict(),
+        ),
       },
       responses: { 200: json(z.object({ file: z.unknown(), path: z.string().optional() }), 'Exported'), ...errors, 409: json(ErrorSchema, 'File exists') },
     }),
@@ -520,7 +593,8 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       method: 'post',
       path: '/sessions/{id}/cursor',
       summary: 'Point the viewer at a position, or replay from..position',
-      description: "Viewers following along jump there; anyone who has scrubbed away gets a 'Back to live' button instead. Only shown positions (up to lesson.revealed) are allowed.",
+      description:
+        "Viewers following along jump there; anyone who has scrubbed away gets a 'Back to live' button instead. Only shown positions (up to lesson.revealed) are allowed.",
       request: { params: IdParam, ...body(CursorSchema.omit({ seq: true }).strict()) },
       responses: { 200: json(SessionSchema, 'The session'), ...errors },
     }),
@@ -540,7 +614,13 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
   )
 
   app.openapi(
-    createRoute({ method: 'delete', path: '/sessions/{id}/prompt', summary: 'Withdraw the open prompt', request: { params: IdParam }, responses: { 200: json(SessionSchema, 'The session'), ...conflict, ...errors } }),
+    createRoute({
+      method: 'delete',
+      path: '/sessions/{id}/prompt',
+      summary: 'Withdraw the open prompt',
+      request: { params: IdParam },
+      responses: { 200: json(SessionSchema, 'The session'), ...conflict, ...errors },
+    }),
     (c) => c.json(sessions.withdraw(c.req.valid('param').id), 200),
   )
 

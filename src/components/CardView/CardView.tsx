@@ -1,4 +1,5 @@
-import { useCosmeticsStore } from '../../store/cosmeticsStore'
+import { isExtraFrame } from '../../data/cardDb'
+import { useSleeve } from '../../store/cosmeticsStore'
 import type { CardFace } from '../../view/boardView'
 
 const FRAME_COLOURS: Record<string, string> = {
@@ -16,17 +17,10 @@ const FRAME_COLOURS: Record<string, string> = {
 // One card, face or back. Sized by its parent (fills it).
 export function CardView({ card, showFace }: { card: CardFace; showFace?: boolean }) {
   const face = showFace ?? card.visible
-  const sleeve = useCosmeticsStore((s) => s.cosmetics[card.owner].sleeve)
+  const sleeve = useSleeve(card.owner, isExtraFrame(card.frame))
   if (!face) return <CardBack sleeve={sleeve} />
   if (card.image) {
-    return (
-      <img
-        src={card.image}
-        alt={card.name}
-        draggable={false}
-        className={`h-full w-full rounded-[4%] object-cover ${card.set ? 'opacity-60 saturate-50' : ''}`}
-      />
-    )
+    return <img src={card.image} alt={card.name} draggable={false} className={`h-full w-full rounded-[4%] object-cover ${card.set ? 'opacity-60 saturate-50' : ''}`} />
   }
   return (
     <div
@@ -43,9 +37,12 @@ export function CardView({ card, showFace }: { card: CardFace; showFace?: boolea
   )
 }
 
-// The owner's sleeve, or the classic brown back with its dark swirl, drawn
-// rather than scanned.
+// The owner's sleeve (an image or a matte colour), or the classic brown back
+// with its dark swirl, drawn rather than scanned.
 function CardBack({ sleeve }: { sleeve?: string }) {
+  if (sleeve?.startsWith('#')) {
+    return <div className="h-full w-full rounded-[4%] border border-black/50 bg-linear-to-br from-white/15 to-black/20" style={{ backgroundColor: sleeve }} />
+  }
   if (sleeve) return <img src={sleeve} alt="" draggable={false} className="h-full w-full rounded-[4%] border border-black/50 object-cover" />
   return (
     <div className="flex h-full w-full items-center justify-center rounded-[4%] border border-black/50 bg-[radial-gradient(ellipse_at_30%_20%,#9a5a22,#4a2410_55%,#1d0d06)]">

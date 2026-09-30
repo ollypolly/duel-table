@@ -7,9 +7,9 @@ import { rawDecks } from '../../scenarios/load'
 
 const decks = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id }))
 
-export function NewGameDialog({ open, onClose, onStarted }: { open: boolean; onClose: () => void; onStarted: (id: string) => void }) {
+export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: { open: boolean; deck?: string; onClose: () => void; onStarted: (id: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [deck, setDeck] = useState(decks[0]?.id ?? '')
+  const [deck, setDeck] = useState(initialDeck ?? decks[0]?.id ?? '')
   const [opponentDeck, setOpponentDeck] = useState(decks[1]?.id ?? decks[0]?.id ?? '')
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)

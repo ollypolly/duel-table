@@ -10,6 +10,7 @@ import { useFreePlay } from '../../hooks/useFreePlay'
 import { usePlayback, usePlaybackKeys } from '../../hooks/usePlayback'
 import type { ResolvedScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
+import { SeatDecks } from '../../store/cosmeticsStore'
 import { useUiStore } from '../../store/uiStore'
 import { buildBoardView, cardFace, type CardFace } from '../../view/boardView'
 import { stepFocus } from '../../view/focus'
@@ -136,9 +137,11 @@ export function Table({
   const focus = !followFocus ? 'free' : freePlay ? 'all' : stepFocus(entry.state, step, entry.events)
   const stepWarnings = scenario.warnings.filter((w) => w.startsWith(`Step ${position},`))
   const closeInspector = useCallback(() => inspect(undefined), [inspect])
+  const { p1, p2 } = scenario.game.setup.players
+  const seatDecks = useMemo(() => ({ p1: p1.deck, p2: p2.deck }), [p1.deck, p2.deck])
 
   return (
-    <>
+    <SeatDecks.Provider value={seatDecks}>
       <TopBar
         nav={
           <>
@@ -305,6 +308,6 @@ export function Table({
           }
         />
       )}
-    </>
+    </SeatDecks.Provider>
   )
 }
