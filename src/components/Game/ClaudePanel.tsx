@@ -1,12 +1,12 @@
-// Claude, when it plays one side or tutors a lesson. The chat log fills the
+// Claude, when it plays one side, tutors a lesson or reviews a game. The chat log fills the
 // middle of the scene panel: what it says, with its moves and the app's notes
 // in among it. The input bar sits at the bottom with Stop/Resume and a
 // settings menu: the model, coaching and what to send it (in a game), and the
 // cost so far (what the same tokens would cost on the API; on a Claude plan it
 // comes out of your usage).
-import { Check, Eye, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
+import { Check, Eye, LogOut, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { ClaudeSettings, ClaudeView, ModelChoice } from '../../api/game'
+import type { ChatEntry, ClaudeSettings, ClaudeView, ModelChoice } from '../../api/game'
 import { CardMarkdown, CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
@@ -22,9 +22,20 @@ const MODELS: [ModelChoice, string][] = [
   ['sonnet', 'Sonnet (faster, lighter on usage)'],
 ]
 
-type ChatProps = { claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }; empty?: string }
+// earlier: a chat that came before this one (the game's, above a review), dimmed.
+type ChatProps = { claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }; empty?: string; earlier?: { chat: ChatEntry[]; divider: string } }
 
-export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.' }: ChatProps) {
+function Entry({ e }: { e: ChatEntry }) {
+  return e.from === 'claude' ? (
+    <div className={`chat-md ${STYLE.claude}`}>
+      <CardMarkdown>{e.text}</CardMarkdown>
+    </div>
+  ) : (
+    <p className={`whitespace-pre-wrap ${STYLE[e.from]}`}>{e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}</p>
+  )
+}
+
+export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier }: ChatProps) {
   const list = useRef<HTMLDivElement>(null)
   const { chat, status } = claude
   useEffect(() => {
@@ -33,18 +44,20 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
 
   return (
     <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
-      {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">{empty}</p>}
-      {chat.map((e, i) =>
-        e.from === 'claude' ? (
-          <div key={i} className={`chat-md ${STYLE.claude}`}>
-            <CardMarkdown>{e.text}</CardMarkdown>
+      {earlier && earlier.chat.length > 0 && (
+        <>
+          <div className="flex flex-col gap-1.5 opacity-60">
+            {earlier.chat.map((e, i) => (
+              <Entry key={i} e={e} />
+            ))}
           </div>
-        ) : (
-          <p key={i} className={`whitespace-pre-wrap ${STYLE[e.from]}`}>
-            {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}
-          </p>
-        ),
+          <p className="my-1 flex items-center gap-2 text-xs text-gold before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">{earlier.divider}</p>
+        </>
       )}
+      {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">{empty}</p>}
+      {chat.map((e, i) => (
+        <Entry key={i} e={e} />
+      ))}
       {status === 'thinking' && <p className="animate-pulse text-xs text-muted">Claude is thinking…</p>}
       {status === 'stopped' && <p className="text-xs text-warn">Stopped. Resume, or say something, to carry on.</p>}
     </div>
@@ -63,8 +76,8 @@ function Checked({ on, role, onClick, children }: { on: boolean; role: 'menuitem
   )
 }
 
-// A lesson's tutor has no coaching or sharing to set, never waits stopped,
-// and can start over instead.
+// A lesson's tutor and a review have no coaching or sharing to set, never
+// wait stopped, and can start over instead. A review can also be left (onEnd).
 type InputProps = {
   claude: Pick<ClaudeView, 'model' | 'costUsd'> & Partial<Pick<ClaudeView, 'coach' | 'share'>> & { status: ClaudeView['status'] }
   placeholder?: string
@@ -73,9 +86,10 @@ type InputProps = {
   onResume?: () => void
   onSettings: (s: ClaudeSettings) => void
   onClear?: () => void
+  onEnd?: { label: string; run: () => void }
 }
 
-export function ClaudeInput({ claude, placeholder = 'Say something to Claude…', onChat, onStop, onResume, onSettings, onClear }: InputProps) {
+export function ClaudeInput({ claude, placeholder = 'Say something to Claude…', onChat, onStop, onResume, onSettings, onClear, onEnd }: InputProps) {
   const [text, setText] = useState('')
   const { status } = claude
   const send = () => {
@@ -130,6 +144,14 @@ export function ClaudeInput({ claude, placeholder = 'Say something to Claude…'
             <span className="flex items-center gap-2">
               <RotateCcw size={14} aria-hidden />
               Start over
+            </span>
+          </MenuItem>
+        )}
+        {onEnd && (
+          <MenuItem onClick={onEnd.run}>
+            <span className="flex items-center gap-2">
+              <LogOut size={14} aria-hidden />
+              {onEnd.label}
             </span>
           </MenuItem>
         )}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
+import { reviewable } from "./api/review";
+import { toast } from "sonner";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
 import { deckFromUrl } from "./hooks/urlSync";
@@ -25,6 +27,9 @@ export default function App() {
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Whether there's a Claude login, rechecked when the picker opens.
+  const [claudeOn, setClaudeOn] = useState(false);
+  useEffect(() => void api.claude().then((s) => setClaudeOn(s.available)), [pickerOpen]);
   // Reopens after a deck save reloads the page.
   const [deckHubOpen, setDeckHubOpen] = useState(() => deckFromUrl() !== undefined);
   const { scenarios, branches, branchIds } = useScenarios();
@@ -44,6 +49,13 @@ export default function App() {
   // The API is optional; undefined sessions means it isn't running.
   const refreshTables = () => void api.listSessions().then(setLiveSessions);
   useEffect(refreshTables, [sessionId]);
+  const table = liveSessions?.find((t) => t.id === sessionId);
+
+  // From the picker it opens at the start; from the More menu, where you are.
+  const review = (id: string) =>
+    api.startReview(id).then(() => {
+      if (id !== sessionId) openSession(id, 0);
+    });
 
   const goLive = async (position: number) => {
     const s = await api.createSession({
@@ -77,6 +89,9 @@ export default function App() {
       <Menu label="☰" title="More" align="right">
         <ImportBranch takenIds={all.map(resultId)} />
         {liveSessions && <MenuItem onClick={() => setDeckHubOpen(true)}>Decks…</MenuItem>}
+        {claudeOn && table && reviewable(table) && (
+          <MenuItem onClick={() => void review(table.id).catch((e: Error) => toast.error(e.message))}>Review with Claude</MenuItem>
+        )}
       </Menu>
       <DeckHub
         open={deckHubOpen}
@@ -105,6 +120,7 @@ export default function App() {
         onOpenScenario={(id) => open(id)}
         onNewGame={() => setNewGameOpen(true)}
         onChanged={refreshTables}
+        onReview={claudeOn ? review : undefined}
       />
       <NewGameDialog
         key={newGameDeck}

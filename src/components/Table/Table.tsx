@@ -65,7 +65,8 @@ type TableProps = {
   // A live game. New steps show as toasts on the board. While the panel is
   // hidden, its handle shows Claude typing and a dot for a message from it
   // you haven't seen or a question waiting for you, and those toast too.
-  activity?: { typing: boolean; messages: number; latest?: string; action: boolean }
+  // who: who's talking, if not the other player (Claude, in a review).
+  activity?: { typing: boolean; messages: number; latest?: string; action: boolean; who?: string }
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -104,6 +105,7 @@ export function Table({
   const { ref: sheetRef, peekRef: sheetPeekRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
   const messages = activity?.messages ?? 0
+  const talker = activity?.who ?? scenario.timeline.at(-1)!.state.players.p2.name
   const [seen, setSeen] = useState(messages)
   if (panelOpen && seen !== messages) setSeen(messages)
   const typing = !panelOpen && !!activity?.typing
@@ -198,7 +200,7 @@ export function Table({
         {activity && (
           <LiveFeed
             steps={scenario.game.steps}
-            opponent={scenario.timeline.at(-1)!.state.players.p2.name}
+            opponent={talker}
             messages={messages}
             latest={activity.latest}
             action={activity.action}
@@ -255,12 +257,12 @@ export function Table({
                     <span className="font-semibold text-gold">Your move</span>
                   ) : activity?.typing ? (
                     <>
-                      <span className="text-muted">{view.players.p2.name} is typing</span>
+                      <span className="text-muted">{talker} is typing</span>
                       <TypingDots />
                     </>
                   ) : messages > seen && activity?.latest ? (
                     <span className="truncate">
-                      <span className="font-semibold">{view.players.p2.name}:</span> {activity.latest.replace(/[*_`#>]/g, '')}
+                      <span className="font-semibold">{talker}:</span> {activity.latest.replace(/[*_`#>]/g, '')}
                     </span>
                   ) : (
                     <span className="truncate text-muted">

@@ -51,13 +51,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   }
   useEffect(() => () => clearInterval(replay.current), [])
 
-  // Follow the presenter cursor if you were where it last pointed.
+  // Follow the presenter cursor if you were where it last pointed. Not in a
+  // review, where you move about the game yourself.
   useEffect(() => {
     if (!result?.ok || !session) return
     const cursor = session.lesson.cursor
     const prev = followed.current
     if (prev?.seq === cursor.seq) return
     followed.current = cursor
+    if (session.review) return
     const { position, speed } = usePlayerStore.getState()
     if (prev && position !== prev.position && !replay.current) return
     stopReplay()
@@ -186,13 +188,39 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     !!lesson && position !== lesson.cursor.position && !(lesson.cursor.from !== undefined && position >= lesson.cursor.from && position < lesson.cursor.position)
   const backToLive = () => lesson && goTo(lesson.cursor.position)
 
+  // A review of a finished game takes the chat over, with the game's chat above it.
+  const review = session?.review
+  const steps = result?.ok ? result.scenario.game.steps.length : 0
+  const reviewChat = review && {
+    log: (
+      <ClaudeChat
+        claude={review}
+        empty="Ask Claude about the game. It sees the table at the step you're on, and knows how it went."
+        earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
+      />
+    ),
+    input: (
+      <ClaudeInput
+        claude={review}
+        placeholder="Ask about this step…"
+        onChat={(text) => report(api.askReview(id, text, Math.min(usePlayerStore.getState().position, steps)))}
+        onStop={() => report(api.stopReview(id))}
+        onSettings={(s) => report(api.reviewSettings(id, { model: s.model }))}
+        onClear={() => report(api.clearReview(id))}
+        onEnd={{ label: game?.claude ? "Back to the game's chat" : 'Close the review', run: () => report(api.closeReview(id)) }}
+      />
+    ),
+  }
+  const talking = review ?? game?.claude
+
   if (result?.ok)
     return (
       <Table
         scenario={result.scenario}
         nav={liveNav}
         chat={
-          game?.claude && {
+          reviewChat ||
+          (game?.claude && {
             log: <ClaudeChat claude={game.claude} />,
             input: (
               <ClaudeInput
@@ -203,14 +231,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                 onSettings={(s) => report(api.claudeSettings(id, s))}
               />
             ),
-          }
+          })
         }
         activity={
           game && {
-            typing: game.claude?.status === 'thinking',
-            messages: game.claude?.chat.filter((e) => e.from === 'claude').length ?? 0,
-            latest: game.claude?.chat.findLast((e) => e.from === 'claude')?.text,
+            typing: talking?.status === 'thinking',
+            messages: talking?.chat.filter((e) => e.from === 'claude').length ?? 0,
+            latest: talking?.chat.findLast((e) => e.from === 'claude')?.text,
             action: !!game.prompt,
+            ...(review && { who: 'Claude' }),
           }
         }
         dock={
@@ -219,7 +248,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             <>
               <LessonPanel
                 lesson={lesson}
-                away={away}
+                away={away && !review}
                 onBackToLive={backToLive}
                 onNext={() => {
                   backToLive()

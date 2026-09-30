@@ -5,6 +5,7 @@ import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
 import type { Answer, LessonView } from './lesson'
+import type { ReviewView } from './review'
 import type { TutorView } from './tutor'
 
 export type SessionSummary = {
@@ -17,8 +18,9 @@ export type SessionSummary = {
   turn: number
   kind: 'game' | 'board'
   winner?: Player
+  claudeLesson?: true // a lesson Claude ran on the rules engine
 }
-export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView }
+export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
 
 export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[] }
 export type DeckEntry = { name: string; count: number }
@@ -84,6 +86,13 @@ export const api = {
   stopTutor: (id: string) => call<TutorView>('POST', `/scenarios/${id}/tutor/stop`),
   tutorSettings: (id: string, s: { model?: ModelChoice }) => call<TutorView>('POST', `/scenarios/${id}/tutor/settings`, s),
   clearTutor: (id: string) => call<TutorView>('DELETE', `/scenarios/${id}/tutor`),
+  // Reviewing a finished game with Claude; the review arrives over the session's SSE.
+  startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
+  closeReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/close`),
+  askReview: (id: string, text: string, position: number) => call<ReviewView>('POST', `/sessions/${id}/review/chat`, { text, position }),
+  stopReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/stop`),
+  reviewSettings: (id: string, s: { model?: ModelChoice }) => call<ReviewView>('POST', `/sessions/${id}/review/settings`, s),
+  clearReview: (id: string) => call<ReviewView>('DELETE', `/sessions/${id}/review`),
 }
 
 export type ClaudeStatus = { available: boolean; email?: string; plan?: string }

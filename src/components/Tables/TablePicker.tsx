@@ -2,10 +2,12 @@
 // local API, which you can rename and delete) and the lessons and scenarios
 // in the repo (view-only; "New table from here" plays on from one). It's a
 // dialog, opened from the header, and it's also the home screen: with
-// nothing open it shows on its own and can't be closed until you pick.
-import { Pencil, Trash2, X } from 'lucide-react'
+// nothing open it shows on its own and can't be closed until you pick. With a
+// Claude login, a finished game can be opened to review with Claude.
+import { MessageSquareText, Pencil, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react'
 import { api, type SessionSummary } from '../../api/client'
+import { reviewable } from '../../api/review'
 import type { ResolveResult } from '../../scenarios/resolve'
 import { MenuLabel } from '../Menu/Menu'
 
@@ -25,6 +27,7 @@ type DialogProps = Props & {
   onOpenScenario: (id: string) => void
   onNewGame: () => void
   onChanged: () => void // a table was renamed or deleted
+  onReview?: (id: string) => Promise<unknown> // with a Claude login
 }
 
 const key = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id)
@@ -57,7 +60,21 @@ export function TablePickerButton({ onClick, ...props }: Props & { onClick: () =
   )
 }
 
-export function TablePicker({ open, required, onClose, tables, scenarios, branches, tableId, scenarioId, onOpenTable, onOpenScenario, onNewGame, onChanged }: DialogProps) {
+export function TablePicker({
+  open,
+  required,
+  onClose,
+  tables,
+  scenarios,
+  branches,
+  tableId,
+  scenarioId,
+  onOpenTable,
+  onOpenScenario,
+  onNewGame,
+  onChanged,
+  onReview,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current
@@ -106,6 +123,7 @@ export function TablePicker({ open, required, onClose, tables, scenarios, branch
                     table={t}
                     current={t.id === tableId}
                     onOpen={pick(() => onOpenTable(t.id))}
+                    onReview={onReview && reviewable(t) ? () => onReview(t.id).then(onClose) : undefined}
                     onChanged={onChanged}
                     onDeleted={() => t.id === tableId && onOpenTable(undefined)}
                   />
@@ -147,12 +165,14 @@ function TableRow({
   table,
   current,
   onOpen,
+  onReview,
   onChanged,
   onDeleted,
 }: {
   table: SessionSummary
   current: boolean
   onOpen: () => void
+  onReview?: () => Promise<unknown>
   onChanged: () => void
   onDeleted: () => void
 }) {
@@ -214,7 +234,14 @@ function TableRow({
           </button>
         </span>
       ) : (
-        <span className="flex shrink-0 self-center opacity-60 group-hover:opacity-100">
+        <span className="flex shrink-0 items-center self-center">
+          {onReview && (
+            <button type="button" className="btn mr-1" title="Go back over it with Claude" onClick={() => void run(onReview())}>
+              <MessageSquareText size={13} aria-hidden />
+              Review
+            </button>
+          )}
+          <span className="flex opacity-60 group-hover:opacity-100">
           <button
             type="button"
             className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink"
@@ -234,6 +261,7 @@ function TableRow({
           >
             <Trash2 size={13} />
           </button>
+          </span>
         </span>
       )}
       {error && <p className="px-2.5 text-xs text-danger">{error}</p>}
