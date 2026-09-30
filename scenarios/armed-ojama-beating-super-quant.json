@@ -1,0 +1,435 @@
+{
+  "id": "armed-ojama-beating-super-quant",
+  "title": "Armed Ojama vs Super Quant: how to win",
+  "description": "You're on **Armed Ojama**, going second against **Super Quant**. This is a whole game you win, built around the spots where your real games against Claude went wrong: which hand trap goes on which Quant effect, how to make their hand trap work for you, how to beat their Mech Beasts before **Great Magnus** exists, and how to count damage (and summons) for lethal.\n\nPress **→** to step through.",
+  "seed": 7,
+  "players": {
+    "p1": { "name": "You", "deck": "chazz-armed-ojama" },
+    "p2": { "name": "Friend", "deck": "super-quant" }
+  },
+  "setup": {
+    "p1": {
+      "hand": ["Ash Blossom & Joyous Spring", "Infinite Impermanence", "Ojamatch", "Ojama Black", "Called by the Grave"],
+      "deck": ["Triple Tactics Talent", "Ojamassimilation", "Ojama Green", "Ojamassimilation"]
+    },
+    "p2": {
+      "hand": [
+        "Super Quantum Green Layer",
+        "Super Quantal Fairy Alphan",
+        "Super Quantal Mech Ship Magnacarrier",
+        "Super Quantal Alphan Spike",
+        "Effect Veiler"
+      ],
+      "deck": ["Emergency Teleport"]
+    }
+  },
+  "start": { "activePlayer": "p2" },
+  "steps": [
+    {
+      "label": "Turn 1: Friend goes first",
+      "narration": "This time **Friend goes first** and you go second. Your hand: **Ash Blossom**, **Infinite Impermanence**, **Ojamatch**, **Ojama Black** and **Called by the Grave**.\n\nThat's three interrupts. Looking back at your games against Claude's Quant, the problem was never a lack of interrupts. It was **where they went**: Called by the Grave on a detached Speedroid Terrortop, three Impermanences in one turn (one on Grampulse just attaching a card), Forbidden Droplet on turn 1 costing your last cards. This lesson is about spending each one where it actually hurts.",
+      "actions": [{ "type": "phase", "phase": "main1" }]
+    },
+    {
+      "label": "Normal Summon Green Layer",
+      "narration": "Friend Normal Summons **Super Quantum Green Layer**. Its trigger Special Summons 1 \"Super Quant\" monster **from the hand**.\n\n**Don't Ash this.** Ash only stops effects that touch the **Deck** (search, Special Summon from the Deck, send from the Deck). Summoning from the hand isn't one of them.\n\nYou *could* Impermanence Green Layer here. It would work, but hold on: the card it's bringing out is a better target for Ash, and Impermanence is worth more on **your** turn (you'll see why at the start of turn 2).",
+      "intent": { "type": "normalSummon", "card": "p2-super-quantum-green-layer-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantum-green-layer-1", "to": { "player": "p2", "zone": "monster", "slot": 2 }, "summon": "normal" },
+        { "type": "chainPush", "card": "p2-super-quantum-green-layer-1", "label": "Green Layer: Special Summon from the hand" },
+        { "type": "highlight", "cards": ["p2-super-quantum-green-layer-1"] }
+      ]
+    },
+    {
+      "label": "Alphan comes out",
+      "narration": "Green Layer brings out **Super Quantal Fairy Alphan**, the engine of the deck. Alphan has two effects, and both were in your games:\n\n- **Make all their monsters the same Level.** That's how Claude turned Alphan + Black Layer into a Rank 7 **Lusterrex** and beat your Thunder LV5.\n- **Tribute itself** to reveal 3 Super Quant monsters from the Deck, Special Summon 1 (you pick at random) and send the other 2 to the GY. That's how Claude got **White Layer** out and fetched Alphan back.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantal-fairy-alphan-1", "to": { "player": "p2", "zone": "monster", "slot": 3 }, "summon": "special", "cause": { "card": "p2-super-quantum-green-layer-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-fairy-alphan-1"] }
+      ]
+    },
+    {
+      "label": "Alphan tributes itself",
+      "narration": "Friend Tributes Alphan (that's the **cost**, so it's already in the GY) to reveal 3 monsters from the Deck.\n\nThis is the effect to Ash. It **Special Summons from the Deck** *and* **sends from the Deck to the GY**, so it's worth three cards to them: a free body, plus two Layers in the GY whose \"sent to the GY\" effects (Red Layer revives, White Layer fetches Alphan back) keep the combo going.",
+      "intent": { "type": "activate", "card": "p2-super-quantal-fairy-alphan-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantal-fairy-alphan-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-super-quantal-fairy-alphan-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-super-quantal-fairy-alphan-1", "label": "Alphan: reveal 3, summon 1, send 2" },
+        { "type": "highlight", "cards": ["p2-super-quantal-fairy-alphan-1"] }
+      ]
+    },
+    {
+      "label": "You chain Ash Blossom",
+      "narration": "Discard **Ash Blossom** to negate it.\n\n**Why Ash and not Impermanence?** Impermanence targets a face-up monster on the field. Alphan left the field as the cost, so there's nothing to target. Ash doesn't care where the card is.\n\n**The Black Layer check.** Ash is a *monster* effect, and Super Quantum Black Layer can Special Summon itself from the hand whenever you activate one (the turns 1–3 lesson shows this). Your Thunder LV3 let Black Layer in on turn 1 of one of your games too. The risk is worth it here, because Alphan is the best thing Friend can do this turn. When you have a choice, though, a **Spell or Trap** answer never lets Black Layer in.",
+      "intent": { "type": "activate", "card": "p1-ash-blossom-joyous-spring-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ash-blossom-joyous-spring-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-ash-blossom-joyous-spring-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ash-blossom-joyous-spring-1", "player": "p1", "label": "Ash Blossom: negate Alphan" },
+        { "type": "arrow", "from": "p1-ash-blossom-joyous-spring-1", "to": "p2-super-quantal-fairy-alphan-1" }
+      ]
+    },
+    {
+      "label": "Alphan is negated",
+      "narration": "Ash resolves, then Alphan's effect resolves as a negated effect and does nothing. No Deck summon, no Layers in the GY, and Alphan is spent.\n\nFriend doesn't have Black Layer, so it's a clean hit.",
+      "actions": [{ "type": "chainResolve" }, { "type": "chainResolve" }]
+    },
+    {
+      "label": "Magnacarrier: Green Layer becomes Aeroboros",
+      "narration": "Friend activates the Field Spell **Super Quantal Mech Ship Magnacarrier**, then uses its effect, discarding **Super Quantal Alphan Spike** as the cost. It turns **Green Layer** (WIND) into the WIND Mech Beast, **Super Quantal Mech Beast Aeroboros** (2200 ATK).\n\nAlphan Spike is a scary card in general: if they ever control **3 \"Super Quantum\" monsters with different names** (the Layers, not the Mech Beasts), it shuffles your whole field into the Deck. With Alphan gone they can't get there, so it's discard fodder today.\n\nNo point Impermanencing Green Layer in response: being Xyz material doesn't need its effects.",
+      "intent": { "type": "activate", "card": "p2-super-quantal-mech-ship-magnacarrier-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantal-mech-ship-magnacarrier-1", "to": { "player": "p2", "zone": "fieldSpell", "slot": 0 } },
+        { "type": "move", "card": "p2-super-quantal-alphan-spike-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-super-quantal-mech-ship-magnacarrier-1", "label": "Magnacarrier: Xyz Summon a Mech Beast" },
+        { "type": "chainResolve" },
+        { "type": "attach", "card": "p2-super-quantum-green-layer-1", "to": "p2-super-quantal-mech-beast-aeroboros-1" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-aeroboros-1", "to": { "player": "p2", "zone": "monster", "slot": 2 }, "summon": "xyz", "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-aeroboros-1"] }
+      ]
+    },
+    {
+      "label": "End turn 1: hold Impermanence",
+      "narration": "Friend ends with **Aeroboros** (Green Layer attached) and 1 card in hand.\n\nWith Green Layer as material, Aeroboros can **flip a face-up monster face-down as a Quick Effect**, on either turn. On *this* turn that does nothing to you (you have no monsters), and Impermanence only lasts until the end of the turn. So **don't Impermanence it now**. That was the pattern in your game where all three went on one turn: negating things that weren't going to hurt you, then having nothing left for the effect that did.",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    },
+    {
+      "label": "Turn 2: you draw",
+      "narration": "Your turn. You draw **Triple Tactics Talent**. Remember it: it only works if Friend has activated a monster effect during your Main Phase this turn.",
+      "actions": [
+        { "type": "nextTurn" },
+        { "type": "draw", "player": "p1" },
+        { "type": "phase", "phase": "main1" },
+        { "type": "highlight", "cards": ["p1-triple-tactics-talent-1"] }
+      ]
+    },
+    {
+      "label": "Impermanence Aeroboros first",
+      "narration": "**Before you play anything else**, activate **Infinite Impermanence** from your hand on **Aeroboros**.\n\nTwo reasons for the timing:\n\n- Impermanence can only be activated from the hand **while you control no cards**. The moment you summon or activate anything, that window closes.\n- This is the turn Aeroboros's flip matters. Left alone, it would flip your Thunder LV3 or Thunder LV5 face-down mid-combo and the whole Armed Dragon climb stops.\n\nIt's a Trap, so it can't let Black Layer in either.",
+      "intent": { "type": "activate", "card": "p1-infinite-impermanence-1" },
+      "actions": [
+        { "type": "move", "card": "p1-infinite-impermanence-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "chainPush", "card": "p1-infinite-impermanence-1", "label": "Impermanence: negate Aeroboros" },
+        { "type": "arrow", "from": "p1-infinite-impermanence-1", "to": "p2-super-quantal-mech-beast-aeroboros-1" },
+        { "type": "chainResolve" },
+        { "type": "modify", "modifier": { "id": "impermanence-negate", "target": "p2-super-quantal-mech-beast-aeroboros-1", "kind": "negated", "until": "endOfTurn", "source": "p1-infinite-impermanence-1", "label": "Effects negated (Infinite Impermanence)" } },
+        { "type": "move", "card": "p1-infinite-impermanence-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } }
+      ]
+    },
+    {
+      "label": "Ojamatch",
+      "narration": "**Ojamatch**, sending **Ojama Black** as the cost. It adds **Ojama Yellow** and **Armed Dragon Thunder LV3**, and you Normal Summon Thunder LV3 straight away.\n\nIt's a Spell, so Black Layer can't come out off it, and the search is only an Ash/Droll target. Friend's only card is Effect Veiler, so it resolves.",
+      "intent": { "type": "activate", "card": "p1-ojamatch-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamatch-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-ojamatch-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamatch-1", "label": "Ojamatch: add an Ojama + an Armed Dragon" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamatch-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamatch-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojamatch-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "normal" },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv3-1"] }
+      ]
+    },
+    {
+      "label": "Thunder LV3 draws out Effect Veiler",
+      "narration": "Activate **Thunder LV3**, sending **Ojama Yellow** as the cost.\n\nFriend answers with **Effect Veiler**: send it from the hand, target Thunder LV3, negate its effects. It's the first monster effect you've activated, so it's the obvious place for their hand trap.\n\nThat's fine. You led with LV3 *because* you're holding the answer.",
+      "intent": { "type": "activate", "card": "p1-armed-dragon-thunder-lv3-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-armed-dragon-thunder-lv3-1", "label": "Thunder LV3: level up" },
+        { "type": "move", "card": "p2-effect-veiler-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-effect-veiler-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-effect-veiler-1", "player": "p2", "label": "Effect Veiler: negate Thunder LV3" },
+        { "type": "arrow", "from": "p2-effect-veiler-1", "to": "p1-armed-dragon-thunder-lv3-1" }
+      ]
+    },
+    {
+      "label": "Called by the Grave on Veiler",
+      "narration": "Chain **Called by the Grave**, targeting **Effect Veiler** in Friend's GY. It banishes Veiler and negates the effects of monsters named Effect Veiler, **including the one on the chain right now**.\n\n**This is what Called by the Grave is for**: stopping their hand trap on your big turn. In your game you spent it on a Speedroid Terrortop that had just been detached from Grampulse. Terrortop was doing nothing in the GY (its search has nothing to find, since this deck plays no other Speedroids), and Called by the Grave was the set card Grampulse was trying to destroy anyway.",
+      "intent": { "type": "activate", "card": "p1-called-by-the-grave-1" },
+      "actions": [
+        { "type": "move", "card": "p1-called-by-the-grave-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "chainPush", "card": "p1-called-by-the-grave-1", "label": "Called by the Grave: banish Veiler, negate it" },
+        { "type": "arrow", "from": "p1-called-by-the-grave-1", "to": "p2-effect-veiler-1" }
+      ]
+    },
+    {
+      "label": "The chain resolves",
+      "narration": "**Chain Link 3**: Veiler is banished and negated. **Chain Link 2**: Veiler's effect does nothing. **Chain Link 1**: Thunder LV3 sends itself to the GY and Special Summons **Armed Dragon Thunder LV5** from the Deck (its name becomes \"Armed Dragon LV5\" on the field).\n\nFriend's hand is now **empty**. Keep that in mind for the Nibiru check in a moment.",
+      "actions": [
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-effect-veiler-1", "to": { "player": "p2", "zone": "banished" }, "cause": { "card": "p1-called-by-the-grave-1", "reason": "effect" } },
+        { "type": "chainResolve" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv3-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv5-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "special", "cause": { "card": "p1-armed-dragon-thunder-lv3-1", "reason": "effect" } },
+        { "type": "modify", "modifier": { "id": "thunder-lv5-name", "target": "p1-armed-dragon-thunder-lv5-1", "kind": "name", "value": "Armed Dragon LV5", "until": "leavesField", "label": "Its name becomes \"Armed Dragon LV5\" on the field" } },
+        { "type": "move", "card": "p1-called-by-the-grave-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-armed-dragon-thunder-lv5-1"] }
+      ]
+    },
+    {
+      "label": "Triple Tactics Talent",
+      "narration": "Friend activated a monster effect (Veiler) during your Main Phase, so **Triple Tactics Talent** is live. It doesn't matter that Veiler was negated: it was still *activated*.\n\nTheir hand is empty, so the hand-peek option is useless. Stealing Aeroboros is tempting, but you need fuel more: **draw 2**. You draw **Ojamassimilation** and **Ojama Green**.\n\nThat's the full trade: their Veiler cost you Called by the Grave, and TTT paid you back with a card on top.",
+      "intent": { "type": "activate", "card": "p1-triple-tactics-talent-1" },
+      "actions": [
+        { "type": "move", "card": "p1-triple-tactics-talent-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "chainPush", "card": "p1-triple-tactics-talent-1", "label": "Triple Tactics Talent: draw 2" },
+        { "type": "chainResolve" },
+        { "type": "draw", "player": "p1", "count": 2 },
+        { "type": "move", "card": "p1-triple-tactics-talent-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-ojamassimilation-1", "p1-ojama-green-1"] }
+      ]
+    },
+    {
+      "label": "Thunder LV5 into Armed Dragon LV7",
+      "narration": "**Thunder LV5**: send **Ojama Green** from your hand, and it sends itself to the GY to Special Summon **Armed Dragon LV7** (2800) from the Deck. LV7 has to be summoned by \"Armed Dragon LV5\", and Thunder LV5 has that name on the field.\n\nAll three Ojamas are now in your GY. Every cost so far has been loading **Ojamassimilation**.",
+      "intent": { "type": "activate", "card": "p1-armed-dragon-thunder-lv5-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-armed-dragon-thunder-lv5-1", "label": "Thunder LV5: level up" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-armed-dragon-thunder-lv5-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-armed-dragon-lv7-1", "to": { "player": "p1", "zone": "monster", "slot": 2 }, "summon": "special", "cause": { "card": "p1-armed-dragon-thunder-lv5-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-armed-dragon-lv7-1"] }
+      ]
+    },
+    {
+      "label": "Ojamassimilation: X, Y and Z",
+      "narration": "**Ojamassimilation**: reveal **XYZ-Dragon Cannon**, banish **Green, Yellow and Black** from the GY, and Special Summon **X-Head Cannon**, **Y-Dragon Head** and **Z-Metal Tank** from the Deck.\n\n**Count your summons.** Thunder LV3, Thunder LV5, LV7, X, Y, Z: that's 6, and XYZ will be 7. Quant plays 2 **Nibiru**, which can be dropped once you've summoned **5**, Tributing everything you have. Here it's safe because Friend's hand is empty (Veiler was their last card). If they still had cards, you'd want your 5th summon to be one you don't mind losing, or stop at 4.",
+      "intent": { "type": "activate", "card": "p1-ojamassimilation-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "reveal", "cards": ["p1-xyz-dragon-cannon-1"] },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamassimilation-1", "label": "Ojamassimilation: summon 3 materials" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-x-head-cannon-1", "to": { "player": "p1", "zone": "monster", "slot": 0 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-y-dragon-head-1", "to": { "player": "p1", "zone": "monster", "slot": 1 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-z-metal-tank-1", "to": { "player": "p1", "zone": "monster", "slot": 3 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-x-head-cannon-1", "p1-y-dragon-head-1", "p1-z-metal-tank-1"] }
+      ]
+    },
+    {
+      "label": "XYZ-Dragon Cannon",
+      "narration": "Banish X, Y and Z from the field for **XYZ-Dragon Cannon** (2800).\n\nYou now have two 2800s against a negated 2200 Aeroboros. This is the other lesson from your games: Claude kept winning because one Mech Beast (2600 Magnaliger, 2700 Lusterrex) was bigger than the one monster you had. Two big bodies at once is what Quant struggles to climb over.",
+      "intent": { "type": "specialSummon", "card": "p1-xyz-dragon-cannon-1", "method": "special" },
+      "actions": [
+        { "type": "move", "card": "p1-x-head-cannon-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-y-dragon-head-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-z-metal-tank-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-xyz-dragon-cannon-1", "to": { "player": "p1", "zone": "monster", "slot": 1 }, "summon": "special" },
+        { "type": "highlight", "cards": ["p1-xyz-dragon-cannon-1", "p1-armed-dragon-lv7-1"] }
+      ]
+    },
+    {
+      "label": "LV7 attacks Aeroboros",
+      "narration": "Battle Phase. **Armed Dragon LV7** (2800) attacks **Aeroboros** (2200). Normally it could flip LV7 face-down before damage, but Impermanence has it switched off.\n\nAeroboros is destroyed and Friend takes **600**. Its material, Green Layer, goes to the GY. Green Layer's GY effect needs a Super Quant card to discard, and Friend's hand is empty, so nothing happens.",
+      "intent": { "type": "attack", "attacker": "p1-armed-dragon-lv7-1", "target": "p2-super-quantal-mech-beast-aeroboros-1" },
+      "actions": [
+        { "type": "phase", "phase": "battle" },
+        { "type": "arrow", "from": "p1-armed-dragon-lv7-1", "to": "p2-super-quantal-mech-beast-aeroboros-1" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-aeroboros-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p1-armed-dragon-lv7-1", "reason": "battle" } },
+        { "type": "lp", "player": "p2", "delta": -600, "cause": { "card": "p1-armed-dragon-lv7-1", "reason": "battle" } }
+      ]
+    },
+    {
+      "label": "XYZ attacks directly",
+      "narration": "Friend's field is empty, so **XYZ-Dragon Cannon** attacks directly for **2800**. Friend is on **4600**.",
+      "intent": { "type": "attack", "attacker": "p1-xyz-dragon-cannon-1" },
+      "actions": [
+        { "type": "lp", "player": "p2", "delta": -2800, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "battle" } },
+        { "type": "highlight", "cards": ["p1-xyz-dragon-cannon-1"] }
+      ]
+    },
+    {
+      "label": "End turn 2",
+      "narration": "Your hand is empty, which is the price of an all-in turn. Against Quant that's OK **only** when your board is bigger than what they can build from one draw, and two 2800s are.\n\n**Don't bother setting cards into a Quant board when you can avoid it.** Grampulse (with Blue Layer attached) destroys a Spell/Trap as a Quick Effect, which is how your set cards kept getting picked off.",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    },
+    {
+      "label": "Turn 3: Friend draws",
+      "narration": "Friend draws **Emergency Teleport** and activates it: Special Summon a Level 3 or lower Psychic from the Deck, **Super Quantum Blue Layer**.\n\nIf you had an Ash left, Teleport would be a good target (it's a Special Summon from the Deck). You don't, so watch what they do with one card.",
+      "intent": { "type": "activate", "card": "p2-emergency-teleport-1" },
+      "actions": [
+        { "type": "nextTurn" },
+        { "type": "draw", "player": "p2" },
+        { "type": "phase", "phase": "main1" },
+        { "type": "move", "card": "p2-emergency-teleport-1", "to": { "player": "p2", "zone": "spellTrap", "slot": 2 } },
+        { "type": "chainPush", "card": "p2-emergency-teleport-1", "label": "Emergency Teleport: Blue Layer from the Deck" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantum-blue-layer-1", "to": { "player": "p2", "zone": "monster", "slot": 1 }, "summon": "special", "cause": { "card": "p2-emergency-teleport-1", "reason": "effect" } },
+        { "type": "move", "card": "p2-emergency-teleport-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p2-super-quantum-blue-layer-1"] }
+      ]
+    },
+    {
+      "label": "Blue Layer searches Red Layer",
+      "narration": "Blue Layer's trigger adds a Super Quant card from the Deck: **Super Quantum Red Layer**.",
+      "intent": { "type": "activate", "card": "p2-super-quantum-blue-layer-1" },
+      "actions": [
+        { "type": "chainPush", "card": "p2-super-quantum-blue-layer-1", "label": "Blue Layer: search the Deck" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantum-red-layer-1", "to": { "player": "p2", "zone": "hand" }, "cause": { "card": "p2-super-quantum-blue-layer-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantum-red-layer-1"] }
+      ]
+    },
+    {
+      "label": "Blue Layer becomes Grampulse",
+      "narration": "**Magnacarrier** again (its first effect has no once-per-turn limit): discard **Red Layer**, turn WATER **Blue Layer** into **Super Quantal Mech Beast Grampulse** (1800).\n\nNote Emergency Teleport's \"banish it in the End Phase\" no longer applies: Blue Layer is Xyz material now, not a monster on the field.",
+      "intent": { "type": "activate", "card": "p2-super-quantal-mech-ship-magnacarrier-1" },
+      "actions": [
+        { "type": "move", "card": "p2-super-quantum-red-layer-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p2-super-quantal-mech-ship-magnacarrier-1", "label": "Magnacarrier: Xyz Summon a Mech Beast" },
+        { "type": "chainResolve" },
+        { "type": "attach", "card": "p2-super-quantum-blue-layer-1", "to": "p2-super-quantal-mech-beast-grampulse-1" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-grampulse-1", "to": { "player": "p2", "zone": "monster", "slot": 1 }, "summon": "xyz", "cause": { "card": "p2-super-quantal-mech-ship-magnacarrier-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-grampulse-1"] }
+      ]
+    },
+    {
+      "label": "Red Layer revives Aeroboros",
+      "narration": "Red Layer was sent to the GY, so its effect revives a Super Quant monster from the GY. Mech Beasts count, so Friend brings back **Aeroboros** in Defense Position. It **can't activate its effects**, and with no materials it can't attack.\n\nThis is how Quant stays alive on one card: every Layer that hits the GY does something.",
+      "intent": { "type": "activate", "card": "p2-super-quantum-red-layer-1" },
+      "actions": [
+        { "type": "chainPush", "card": "p2-super-quantum-red-layer-1", "label": "Red Layer: revive a Super Quant monster" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-aeroboros-1", "to": { "player": "p2", "zone": "monster", "slot": 2 }, "position": "def", "summon": "special", "cause": { "card": "p2-super-quantum-red-layer-1", "reason": "effect" } },
+        { "type": "modify", "modifier": { "id": "red-layer-no-effects", "target": "p2-super-quantal-mech-beast-aeroboros-1", "kind": "cannotActivate", "until": "leavesField", "source": "p2-super-quantum-red-layer-1", "label": "Can't activate its effects (Red Layer)" } },
+        { "type": "highlight", "cards": ["p2-super-quantal-mech-beast-aeroboros-1"] }
+      ]
+    },
+    {
+      "label": "Why Great Magnus is the real threat",
+      "narration": "Pause and count Friend's **Mech Beasts**: Grampulse and Aeroboros. One more with a different name, and Magnacarrier's second effect sends itself to the GY to summon **Super Quantal Mech King Great Magnus** (3600), attaching all three Mech Beasts *and their materials*.\n\nGreat Magnus gets stronger with the number of **different names** among its materials:\n\n- **2+**: once per turn in the Main Phase, shuffle 1 card on the field into the Deck (Quick Effect).\n- **4+**: **unaffected by card effects except Super Quant cards**. Droplet, Impermanence, XYZ's destroy, VWXYZ's banish: none of them touch it.\n- **6+**: you can't add cards from the Deck to your hand (goodbye Ojamatch).\n\nThree Mech Beasts plus even one Layer underneath is already 4. So you **can't answer Magnus once it's out**. You answer the Mech Beasts before it. Kill them in battle, or better, **banish** them so they can't come back or be counted from the GY (VWXYZ, Called by the Grave).",
+      "actions": [{ "type": "highlight", "cards": ["p2-super-quantal-mech-beast-grampulse-1", "p2-super-quantal-mech-beast-aeroboros-1", "p2-super-quantal-mech-ship-magnacarrier-1"] }]
+    },
+    {
+      "label": "No attack, end turn 3",
+      "narration": "Grampulse (1800) can't get past two 2800s, so Friend ends. They're on 4600 with Grampulse, a Defense Position Aeroboros and Magnacarrier, and no cards in hand.\n\n*About Forbidden Droplet*, since it came up in your games: it's great on **their** turn when you can pay with cards you don't need. Pay with a **Monster** card and they can't respond with any monster effect (Black Layer, Mech Beasts, Veiler, Nibiru). It's bad when it costs your last card or a live Ojama Pajama, and it does nothing to Great Magnus with 4+ names.",
+      "actions": [{ "type": "phase", "phase": "end" }]
+    },
+    {
+      "label": "Turn 4: you draw",
+      "narration": "Your turn. You draw your second **Ojamassimilation**.\n\n**Do the maths first.** Friend has 4600 LP. LV7 (2800) + XYZ (2800) would be 5600 if their field were empty, but they have two monsters. You need to clear both *and* keep enough attack on the field.",
+      "actions": [
+        { "type": "nextTurn" },
+        { "type": "draw", "player": "p1" },
+        { "type": "phase", "phase": "main1" },
+        { "type": "highlight", "cards": ["p1-ojamassimilation-2"] }
+      ]
+    },
+    {
+      "label": "Ojamassimilation from the GY",
+      "narration": "First, the copy of **Ojamassimilation in your GY**: banish it, shuffle the three banished Ojamas back into the Deck, and draw 1. A real draw is random. In this replay it's **Ojamagic**.\n\nOrder matters. The Ojamas have to be *in the Deck* before Ojamagic goes to the GY, or it adds nothing.",
+      "intent": { "type": "activate", "card": "p1-ojamassimilation-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamassimilation-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamassimilation-1", "label": "Ojamassimilation (GY): recycle 3 Ojamas, draw 1" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "deck" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "shuffle", "player": "p1", "zone": "deck" },
+        { "type": "move", "card": "p1-ojamagic-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamassimilation-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-ojamagic-1"] }
+      ]
+    },
+    {
+      "label": "XYZ destroys Aeroboros, discarding Ojamagic",
+      "narration": "**XYZ-Dragon Cannon**: discard 1 card, destroy 1 card Friend controls. Discard **Ojamagic** and destroy **Aeroboros**.\n\nOjamagic can't be activated from the hand, but being **discarded** counts as \"sent from the hand to the GY\", so its effect triggers once XYZ resolves: add **Ojama Green, Yellow and Black** from the Deck. One card became a removal *and* three Ojamas.\n\nWhy Aeroboros and not Grampulse? Save your **banish** for Grampulse, the one that still has a material and could come back into a Magnus.",
+      "intent": { "type": "activate", "card": "p1-xyz-dragon-cannon-1" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamagic-1", "to": { "player": "p1", "zone": "gy" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-xyz-dragon-cannon-1", "label": "XYZ-Dragon Cannon: destroy a card" },
+        { "type": "arrow", "from": "p1-xyz-dragon-cannon-1", "to": "p2-super-quantal-mech-beast-aeroboros-1" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-aeroboros-1", "to": { "player": "p2", "zone": "gy" }, "cause": { "card": "p1-xyz-dragon-cannon-1", "reason": "effect" } },
+        { "type": "chainPush", "card": "p1-ojamagic-1", "label": "Ojamagic: add Green, Yellow and Black" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojama-black-1", "to": { "player": "p1", "zone": "hand" }, "cause": { "card": "p1-ojamagic-1", "reason": "effect" } },
+        { "type": "highlight", "cards": ["p1-ojama-green-1", "p1-ojama-yellow-1", "p1-ojama-black-1"] }
+      ]
+    },
+    {
+      "label": "Ojamassimilation: V and W",
+      "narration": "Second **Ojamassimilation**: reveal **VW-Tiger Catapult** this time, banish **Green and Yellow** from your hand, and Special Summon **V-Tiger Jet** and **W-Wing Catapult** from the Deck.\n\nGrampulse could destroy Ojamassimilation in response, but a Spell that's already been activated still resolves when it's destroyed on the chain, so it wouldn't help them.",
+      "intent": { "type": "activate", "card": "p1-ojamassimilation-2" },
+      "actions": [
+        { "type": "move", "card": "p1-ojamassimilation-2", "to": { "player": "p1", "zone": "spellTrap", "slot": 2 } },
+        { "type": "reveal", "cards": ["p1-vw-tiger-catapult-1"] },
+        { "type": "move", "card": "p1-ojama-green-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-2", "reason": "cost" } },
+        { "type": "move", "card": "p1-ojama-yellow-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-ojamassimilation-2", "reason": "cost" } },
+        { "type": "chainPush", "card": "p1-ojamassimilation-2", "label": "Ojamassimilation: summon 2 materials" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p1-v-tiger-jet-1", "to": { "player": "p1", "zone": "monster", "slot": 0 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-2", "reason": "effect" } },
+        { "type": "move", "card": "p1-w-wing-catapult-1", "to": { "player": "p1", "zone": "monster", "slot": 3 }, "summon": "special", "cause": { "card": "p1-ojamassimilation-2", "reason": "effect" } },
+        { "type": "move", "card": "p1-ojamassimilation-2", "to": { "player": "p1", "zone": "gy" }, "cause": { "reason": "rule" } },
+        { "type": "highlight", "cards": ["p1-v-tiger-jet-1", "p1-w-wing-catapult-1"] }
+      ]
+    },
+    {
+      "label": "VW-Tiger Catapult",
+      "narration": "Banish V and W from the field for **VW-Tiger Catapult**. That's summon number 3 this turn.",
+      "intent": { "type": "specialSummon", "card": "p1-vw-tiger-catapult-1", "method": "special" },
+      "actions": [
+        { "type": "move", "card": "p1-v-tiger-jet-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-vw-tiger-catapult-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-w-wing-catapult-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-vw-tiger-catapult-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-vw-tiger-catapult-1", "to": { "player": "p1", "zone": "monster", "slot": 0 }, "summon": "special" },
+        { "type": "highlight", "cards": ["p1-vw-tiger-catapult-1"] }
+      ]
+    },
+    {
+      "label": "VWXYZ-Dragon Catapult Cannon",
+      "narration": "Banish **VW-Tiger Catapult** and **XYZ-Dragon Cannon** for **VWXYZ-Dragon Catapult Cannon** (3000). Summon number 4.\n\nNone of these Machines are *Fusion Summoned*. They're Special Summoned by banishing the listed cards you control. That's why **Fusion Tag can't stand in for a missing piece** (it only helps a Fusion Summon), which is what happened in your game where you tried it on Thunder LV3 and Magnaliger destroyed the target anyway.",
+      "intent": { "type": "specialSummon", "card": "p1-vwxyz-dragon-catapult-cannon-1", "method": "special" },
+      "actions": [
+        { "type": "move", "card": "p1-vw-tiger-catapult-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-vwxyz-dragon-catapult-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-xyz-dragon-cannon-1", "to": { "player": "p1", "zone": "banished" }, "cause": { "card": "p1-vwxyz-dragon-catapult-cannon-1", "reason": "cost" } },
+        { "type": "move", "card": "p1-vwxyz-dragon-catapult-cannon-1", "to": { "player": "p1", "zone": "monster", "slot": 0 }, "summon": "special" },
+        { "type": "highlight", "cards": ["p1-vwxyz-dragon-catapult-cannon-1"] }
+      ]
+    },
+    {
+      "label": "VWXYZ banishes Grampulse",
+      "narration": "**VWXYZ**'s once-per-turn effect: target 1 card Friend controls and **banish** it. Take **Grampulse**.\n\nBanished, it can't be revived by Red Layer or counted toward Great Magnus from the GY. Its material, Blue Layer, drops to the GY. Blue Layer can shuffle up to 3 Quant cards from the GY back into the Deck, but that only matters if the game goes on.",
+      "intent": { "type": "activate", "card": "p1-vwxyz-dragon-catapult-cannon-1" },
+      "actions": [
+        { "type": "chainPush", "card": "p1-vwxyz-dragon-catapult-cannon-1", "label": "VWXYZ: banish a card" },
+        { "type": "arrow", "from": "p1-vwxyz-dragon-catapult-cannon-1", "to": "p2-super-quantal-mech-beast-grampulse-1" },
+        { "type": "chainResolve" },
+        { "type": "move", "card": "p2-super-quantal-mech-beast-grampulse-1", "to": { "player": "p2", "zone": "banished" }, "cause": { "card": "p1-vwxyz-dragon-catapult-cannon-1", "reason": "effect" } }
+      ]
+    },
+    {
+      "label": "Why not Armed Dragon Catapult Cannon?",
+      "narration": "You *could* banish VWXYZ and LV7 now for the boss, **Armed Dragon Catapult Cannon**. Don't, and here's why:\n\n- **Damage.** It's one 3500 attacker. VWXYZ (3000) + LV7 (2800) is **5800**, and Friend is on 4600.\n- **Nibiru.** It would be your **5th summon** this turn. Friend's hand is empty today, but that's exactly the count to watch.\n\nThe boss is for when you **can't** win this turn. Its Quick Effect on Friend's turn banishes everything they control *and* their GY, which is the best possible answer to Magnacarrier. And the cost (banish 1 card from your Deck face-up) can be **Ash Blossom**: Friend can't activate cards with the same name as a banished card, so their Ashes are switched off too.",
+      "actions": [{ "type": "highlight", "cards": ["p1-vwxyz-dragon-catapult-cannon-1", "p1-armed-dragon-lv7-1"] }]
+    },
+    {
+      "label": "VWXYZ attacks directly",
+      "narration": "Friend's monster zones are empty. **VWXYZ** attacks directly for **3000**. Friend: 4600 → **1600**.",
+      "intent": { "type": "attack", "attacker": "p1-vwxyz-dragon-catapult-cannon-1" },
+      "actions": [
+        { "type": "phase", "phase": "battle" },
+        { "type": "lp", "player": "p2", "delta": -3000, "cause": { "card": "p1-vwxyz-dragon-catapult-cannon-1", "reason": "battle" } },
+        { "type": "highlight", "cards": ["p1-vwxyz-dragon-catapult-cannon-1"] }
+      ]
+    },
+    {
+      "label": "LV7 attacks for the win",
+      "narration": "**Armed Dragon LV7** attacks directly for **2800**. Friend: 1600 → **0**. You win.\n\n**What won it:**\n\n- **Ash** went on **Alphan**, the effect worth three cards, not the first thing that moved.\n- **Impermanence** waited for **your** turn and went off before you played anything.\n- **Called by the Grave** answered their **hand trap**, and **Triple Tactics Talent** cashed in the Veiler.\n- **Two big monsters** at once, so one Mech Beast couldn't trade with your only threat.\n- Mech Beasts removed **before** three of them could become Great Magnus, with the one that mattered **banished**.\n- You **counted damage and summons** before reaching for the boss.",
+      "intent": { "type": "attack", "attacker": "p1-armed-dragon-lv7-1" },
+      "actions": [
+        { "type": "lp", "player": "p2", "delta": -2800, "cause": { "card": "p1-armed-dragon-lv7-1", "reason": "battle" } },
+        { "type": "highlight", "cards": ["p1-armed-dragon-lv7-1"] }
+      ]
+    }
+  ]
+}
