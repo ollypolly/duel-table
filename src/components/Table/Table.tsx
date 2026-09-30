@@ -101,7 +101,7 @@ export function Table({
   // screen is phone-sized, where it would cover the board.
   const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
   const phone = useMediaQuery('(max-width: 639px)')
-  const { ref: sheetRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
+  const { ref: sheetRef, headerRef: sheetHeaderRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
   const messages = activity?.messages ?? 0
   const [seen, setSeen] = useState(messages)
@@ -211,38 +211,68 @@ export function Table({
         <motion.div
           ref={sheetRef}
           {...sheetProps}
-          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
+          className={`pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-10 flex flex-col *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
             chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
           } ${panelOpen ? '' : 'sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
           data-open={panelOpen}
         >
-          <button
-            type="button"
-            className="panel absolute bottom-full left-1/2 mb-1.5 grid h-9 w-20 -translate-x-1/2 touch-none place-items-center text-muted hover:text-ink sm:bottom-auto sm:left-full sm:top-0 sm:mb-0 sm:ml-1.5 sm:w-9 sm:translate-x-0"
-            onClick={togglePanel}
-            onPointerDown={startDrag}
-            data-sheet-handle
-            aria-expanded={panelOpen}
-            title={panelOpen ? 'Hide panel' : `Show panel${typing ? ' (Claude is typing)' : ''}${alert ? ' (something new)' : ''}`}
-          >
-            <span className="h-1 w-10 rounded-full bg-muted sm:hidden" />
-            <span className="hidden sm:block">{panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>
-            {typing && (
-              <span className="panel absolute -top-3 left-full -ml-3 flex gap-0.5 rounded-full px-1.5 py-1" data-testid="typing">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="size-1 animate-bounce rounded-full bg-ink" style={{ animationDelay: `${i * 150}ms` }} />
-                ))}
-              </span>
-            )}
-            {alert && !typing && (
-              <span className="absolute -right-1 -top-1 flex size-2.5" data-testid="alert">
-                <span className="absolute size-full animate-ping rounded-full bg-gold opacity-75" />
-                <span className="relative size-2.5 rounded-full bg-gold" />
-              </span>
-            )}
-          </button>
+          {!phone && (
+            <button
+              type="button"
+              className="panel absolute left-full top-0 ml-1.5 grid size-9 place-items-center text-muted hover:text-ink"
+              onClick={togglePanel}
+              aria-expanded={panelOpen}
+              title={panelOpen ? 'Hide panel' : `Show panel${typing ? ' (Claude is typing)' : ''}${alert ? ' (something new)' : ''}`}
+            >
+              {panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+              {typing && (
+                <span className="panel absolute -top-3 left-full -ml-3 rounded-full px-1.5 py-1">
+                  <TypingDots />
+                </span>
+              )}
+              {alert && !typing && <AlertDot className="absolute -right-1 -top-1" />}
+            </button>
+          )}
           <div className={`panel flex min-h-0 flex-col ${chat ? 'flex-1' : ''}`}>
+            {/* On a phone, the sheet's header: the handle, and the one thing
+                most worth knowing, which is all that shows when it's closed. */}
+            {phone && (
+              <button
+                ref={sheetHeaderRef}
+                type="button"
+                className="flex w-full shrink-0 touch-none flex-col items-center gap-1.5 border-b border-line px-3 pb-2.5 pt-2"
+                onClick={togglePanel}
+                onPointerDown={startDrag}
+                data-sheet-handle
+                aria-expanded={panelOpen}
+                aria-label={panelOpen ? 'Hide panel' : 'Show panel'}
+              >
+                <span className="h-1 w-10 rounded-full bg-muted" />
+                <span className="flex w-full min-w-0 items-center gap-2 text-left text-sm">
+                  {activity?.action ? (
+                    <span className="font-semibold text-gold">Your move</span>
+                  ) : activity?.typing ? (
+                    <>
+                      <span className="text-muted">{view.players.p2.name} is typing</span>
+                      <TypingDots />
+                    </>
+                  ) : messages > seen && activity?.latest ? (
+                    <span className="truncate">
+                      <span className="font-semibold">{view.players.p2.name}:</span> {activity.latest.replace(/[*_`#>]/g, '')}
+                    </span>
+                  ) : (
+                    <span className="truncate text-muted">
+                      <span className="font-display">
+                        {position}/{last}
+                      </span>{' '}
+                      {step?.label ?? 'Setup'}
+                    </span>
+                  )}
+                  {alert && <AlertDot className="relative ml-auto shrink-0" />}
+                </span>
+              </button>
+            )}
             <div className="shrink-0 touch-none border-b border-line px-2 py-2 sm:touch-auto" onPointerDown={startDrag}>
               <StepControls
                 position={position}
@@ -334,5 +364,24 @@ export function Table({
         />
       )}
     </SeatDecks.Provider>
+  )
+}
+
+function TypingDots() {
+  return (
+    <span className="flex gap-0.5" data-testid="typing">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="size-1 animate-bounce rounded-full bg-ink" style={{ animationDelay: `${i * 150}ms` }} />
+      ))}
+    </span>
+  )
+}
+
+function AlertDot({ className }: { className: string }) {
+  return (
+    <span className={`flex size-2.5 ${className}`} data-testid="alert">
+      <span className="absolute size-2.5 animate-ping rounded-full bg-gold opacity-75" />
+      <span className="relative size-2.5 rounded-full bg-gold" />
+    </span>
   )
 }
