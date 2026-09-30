@@ -87,29 +87,6 @@
   }
 }
 
-/* Your move, on the phone sheet's header: a light gold wash with a sheen
-   that sweeps across now and then. Still, for reduced motion. */
-@utility your-move {
-  background:
-    linear-gradient(105deg, transparent 35%, color-mix(in oklab, var(--color-gold-soft) 40%, transparent) 50%, transparent 65%) no-repeat,
-    linear-gradient(90deg, color-mix(in oklab, var(--color-gold) 30%, var(--color-surface)), color-mix(in oklab, var(--color-gold) 12%, var(--color-surface)));
-  background-size: 250% 100%, 100% 100%;
-  animation: your-move-sheen 3.2s ease-in-out infinite;
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-    background-position: 150% 0, 0 0;
-  }
-}
-@keyframes your-move-sheen {
-  0% {
-    background-position: 150% 0, 0 0;
-  }
-  45%,
-  100% {
-    background-position: -50% 0, 0 0;
-  }
-}
-
 /* A glass panel with a gold hairline along the top edge. */
 @utility panel {
   position: relative;
