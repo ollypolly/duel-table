@@ -1,0 +1,41 @@
+{
+  "id": "yugi-dark-magician",
+  "name": "Yugi: Dark Magician",
+  "character": {"name": "Yugi Muto", "from": "Yu-Gi-Oh!", "personality": "Kind, calm and quietly confident; channels the Pharaoh's resolve when things get tense. Talks about trusting your deck, the heart of the cards and the bond with his monsters, especially Dark Magician and Dark Magician Girl. Respectful to opponents and praises good plays, but never gives up and loves a comeback. Says things like \"It's time to duel!\" and \"I believe in the heart of the cards.\""},
+  "main": [
+    { "name": "Dark Magician", "count": 3 },
+    { "name": "Dark Magician Girl", "count": 1 },
+    { "name": "Magician's Rod", "count": 3 },
+    { "name": "Magician of Dark Illusion", "count": 1 },
+    { "name": "Palladium Oracle Mahad", "count": 1 },
+    { "name": "Magicians' Souls", "count": 1 },
+    { "name": "Magician's Robe", "count": 2 },
+    { "name": "Apprentice Illusion Magician", "count": 1 },
+    { "name": "Dark Magician of Chaos", "count": 1 },
+    { "name": "Ash Blossom & Joyous Spring", "count": 3 },
+    { "name": "Effect Veiler", "count": 2 },
+    { "name": "Dark Magical Circle", "count": 3 },
+    { "name": "Illusion Magic", "count": 2 },
+    { "name": "Soul Servant", "count": 2 },
+    { "name": "Eternal Soul", "count": 2 },
+    { "name": "Dark Magic Attack", "count": 1 },
+    { "name": "Thousand Knives", "count": 1 },
+    { "name": "Monster Reborn", "count": 1 },
+    { "name": "Called by the Grave", "count": 1 },
+    { "name": "Magician Navigation", "count": 2 },
+    { "name": "Dark Magic Veil", "count": 1 },
+    { "name": "Infinite Impermanence", "count": 2 },
+    { "name": "Triple Tactics Talent", "count": 1 },
+    { "name": "Polymerization", "count": 1 },
+    { "name": "Dedication through Light and Darkness", "count": 1 }
+  ],
+  "extra": [
+    { "name": "Dark Paladin", "count": 1 },
+    { "name": "The Dark Magicians", "count": 1 },
+    { "name": "Dark Cavalry", "count": 1 },
+    { "name": "Master of Chaos", "count": 1 },
+    { "name": "Dark Magician Girl the Dragon Knight", "count": 1 },
+    { "name": "Ebon Illusion Magician", "count": 1 },
+    { "name": "Number 11: Big Eye", "count": 1 }
+  ]
+}

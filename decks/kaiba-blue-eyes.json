@@ -1,0 +1,40 @@
+{
+  "id": "kaiba-blue-eyes",
+  "name": "Kaiba: Blue-Eyes",
+  "character": {"name": "Seto Kaiba", "from": "Yu-Gi-Oh!", "personality": "Arrogant, cold and supremely confident CEO of KaibaCorp. Treats the opponent as an amateur beneath him, calls their deck a pathetic collection of cards, and scoffs at friendship and the heart of the cards. Obsessed with power and his three Blue-Eyes White Dragons, which he reveres. Short, cutting lines like \"Behold, my Blue-Eyes White Dragon!\" and a triumphant laugh when he wins. Grudgingly acknowledges a truly strong play, never warmly."},
+  "main": [
+    { "name": "Blue-Eyes White Dragon", "count": 3 },
+    { "name": "Blue-Eyes Alternative White Dragon", "count": 2 },
+    { "name": "Blue-Eyes Jet Dragon", "count": 1 },
+    { "name": "Sage with Eyes of Blue", "count": 3 },
+    { "name": "Dictator of D.", "count": 2 },
+    { "name": "The White Stone of Ancients", "count": 2 },
+    { "name": "The White Stone of Legend", "count": 1 },
+    { "name": "Maiden with Eyes of Blue", "count": 1 },
+    { "name": "Blue-Eyes Chaos MAX Dragon", "count": 1 },
+    { "name": "Bingo Machine, Go!!!", "count": 3 },
+    { "name": "Chaos Form", "count": 2 },
+    { "name": "Return of the Dragon Lords", "count": 2 },
+    { "name": "Trade-In", "count": 2 },
+    { "name": "Monster Reborn", "count": 1 },
+    { "name": "Called by the Grave", "count": 1 },
+    { "name": "Ash Blossom & Joyous Spring", "count": 3 },
+    { "name": "Effect Veiler", "count": 2 },
+    { "name": "Infinite Impermanence", "count": 2 },
+    { "name": "The Melody of Awakening Dragon", "count": 2 },
+    { "name": "Crush Card Virus", "count": 1 },
+    { "name": "Ultimate Fusion", "count": 1 },
+    { "name": "Polymerization", "count": 1 },
+    { "name": "Silver's Cry", "count": 1 }
+  ],
+  "extra": [
+    { "name": "Blue-Eyes Ultimate Dragon", "count": 1 },
+    { "name": "Neo Blue-Eyes Ultimate Dragon", "count": 1 },
+    { "name": "Blue-Eyes Twin Burst Dragon", "count": 1 },
+    { "name": "Blue-Eyes Spirit Dragon", "count": 1 },
+    { "name": "Azure-Eyes Silver Dragon", "count": 1 },
+    { "name": "Blue-Eyes Tyrant Dragon", "count": 1 },
+    { "name": "Number 38: Hope Harbinger Dragon Titanic Galaxy", "count": 1 },
+    { "name": "Divine Arsenal AA-ZEUS - Sky Thunder", "count": 1 }
+  ]
+}

@@ -127,10 +127,20 @@ export const PlacementSchema = z.union([
   z.null(),
 ])
 
+// The anime character a deck belongs to: Claude plays as them with it.
+export const CharacterSchema = z
+  .object({
+    name: z.string().min(1),
+    from: z.string().min(1).describe('the series, e.g. Yu-Gi-Oh! GX'),
+    personality: z.string().min(1).describe('how they talk and duel, for Claude to play them'),
+  })
+  .strict()
+
 export const DeckSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/),
     name: z.string().min(1),
+    character: CharacterSchema.optional(),
     main: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()),
     extra: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).default([]),
   })
@@ -203,3 +213,4 @@ export const ScenarioSchema = z
 
 export type ScenarioFile = z.infer<typeof ScenarioSchema>
 export type DeckFile = z.infer<typeof DeckSchema>
+export type Character = z.infer<typeof CharacterSchema>

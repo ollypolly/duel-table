@@ -53,7 +53,7 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
 const setup = (agent: Agent) => {
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: (coach) => (coach ? 'coach' : 'play'), store: memoryClaudeStore() })
+  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: (coach, character) => [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as '), store: memoryClaudeStore() })
   return { sessions, games, claude }
 }
 
@@ -149,6 +149,17 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     // Each card's text is given once.
     expect(fake.requests[0].message).toContain('Card texts')
     expect(shared.match(/Card texts/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  }, 60_000)
+
+  it("plays as its deck's character", async () => {
+    const fake = fakeAgent(1)
+    const { sessions, games, claude } = setup(fake.agent)
+    const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'kaiba-blue-eyes', seed: 1, claude: 'p2', coach: false })
+    await claude.idle(v.id)
+    claude.chat(v.id, 'hi')
+    await claude.idle(v.id)
+    expect(sessions.get(v.id).players.p2.name).toBe('Seto Kaiba')
+    expect(fake.requests.at(-1)!.system).toBe('play as Seto Kaiba')
   }, 60_000)
 
   it('stops mid-run, and a question left unanswered gets a default pick', async () => {

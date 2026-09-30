@@ -2,7 +2,7 @@
 // (resolving names and splitting Main/Extra by card type), and expand a deck
 // with full card data for reading.
 import { isExtraDeckCard, normalise, type CardData, type CardDb } from '../src/data/cardDb'
-import type { DeckFile } from '../src/scenarios/schema'
+import type { Character, DeckFile } from '../src/scenarios/schema'
 
 export type DeckEntry = { name: string; count: number }
 
@@ -40,7 +40,7 @@ export function parseDeckList(text: string): { entries: DeckEntry[]; skipped: st
 // Resolve names against the card DB and split Main/Extra. Names come out as
 // the DB spells them. Deck-size problems are warnings, not errors: this is a
 // practice table, not a tournament.
-export function buildDeck(id: string, name: string, entries: DeckEntry[], db: CardDb) {
+export function buildDeck(id: string, name: string, entries: DeckEntry[], db: CardDb, character?: Character) {
   const merged = new Map<number, { card: CardData; count: number }>()
   const unknown: string[] = []
   for (const e of entries) {
@@ -50,7 +50,7 @@ export function buildDeck(id: string, name: string, entries: DeckEntry[], db: Ca
   }
   const all = [...merged.values()]
   const pick = (extra: boolean) => all.filter((x) => isExtraDeckCard(x.card) === extra).map((x) => ({ name: x.card.name, count: x.count }))
-  const file: DeckFile = { id, name, main: pick(false), extra: pick(true) }
+  const file: DeckFile = { id, name, ...(character && { character }), main: pick(false), extra: pick(true) }
   return { file, unknown, warnings: deckWarnings(file) }
 }
 

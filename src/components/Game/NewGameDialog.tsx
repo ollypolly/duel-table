@@ -1,16 +1,20 @@
 // Start a game on the rules engine: your deck against the bot's, or
-// against Claude's when the server has a Claude login.
+// against Claude's when the server has a Claude login. Claude plays as the
+// anime character its deck belongs to, picked at random by default.
 import { useEffect, useRef, useState } from 'react'
 import { api, type ClaudeStatus } from '../../api/client'
 import type { ModelChoice } from '../../api/game'
 import { rawDecks } from '../../scenarios/load'
+import type { DeckFile } from '../../scenarios/schema'
 
-const decks = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id }))
+const decks = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id, character: (raw as DeckFile).character?.name }))
+const characterDecks = decks.filter((d) => d.character)
+const RANDOM = 'random-character'
 
 export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: { open: boolean; deck?: string; onClose: () => void; onStarted: (id: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [deck, setDeck] = useState(initialDeck ?? decks[0]?.id ?? '')
-  const [opponentDeck, setOpponentDeck] = useState(decks[1]?.id ?? decks[0]?.id ?? '')
+  const [opponentDeck, setOpponentDeck] = useState(characterDecks.length ? RANDOM : (decks[1]?.id ?? decks[0]?.id ?? ''))
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
   const [status, setStatus] = useState<ClaudeStatus>()
@@ -36,7 +40,8 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
     setStarting(true)
     setError('')
     try {
-      const s = await api.createGame({ deck, opponentDeck, ...(claude && { claude: 'p2' as const, model, coach }) })
+      const theirs = opponentDeck === RANDOM ? characterDecks[Math.floor(Math.random() * characterDecks.length)].id : opponentDeck
+      const s = await api.createGame({ deck, opponentDeck: theirs, ...(claude && { claude: 'p2' as const, model, coach }) })
       ref.current?.close()
       onStarted(s.id)
     } catch (e) {
@@ -46,10 +51,11 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
     }
   }
 
-  const pick = (label: string, value: string, set: (v: string) => void) => (
+  const pick = (label: string, value: string, set: (v: string) => void, random = false) => (
     <label className="flex items-center justify-between gap-3 text-sm">
       {label}
       <select aria-label={label} className="px-2 py-1" value={value} onChange={(e) => set(e.target.value)}>
+        {random && characterDecks.length > 0 && <option value={RANDOM}>Random character</option>}
         {decks.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
@@ -98,7 +104,7 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
             </label>
           </fieldset>
           {pick('Your deck', deck, setDeck)}
-          {pick(claude ? "Claude's deck" : "Bot's deck", opponentDeck, setOpponentDeck)}
+          {pick(claude ? "Claude's deck" : "Bot's deck", opponentDeck, setOpponentDeck, true)}
           {claude && (
             <>
               <label className="flex items-center justify-between gap-3 text-sm">

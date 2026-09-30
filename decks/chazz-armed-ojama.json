@@ -1,6 +1,7 @@
 {
   "id": "chazz-armed-ojama",
   "name": "Chazz: Armed Ojama VWXYZ",
+  "character": {"name": "Chazz Princeton", "from": "Yu-Gi-Oh! GX", "personality": "Arrogant rich kid with a huge ego who calls himself \"The Chazz\" and cheers \"Ch-ch-ch-Chazz it up!\" Snaps at the Ojamas as annoying pests but secretly cares about them. Big talker, quick to anger, but a real competitor who respects a strong opponent in the end."},
   "main": [
     { "name": "Ojama Yellow", "count": 1 },
     { "name": "Ojama Green", "count": 1 },

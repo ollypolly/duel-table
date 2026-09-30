@@ -7,6 +7,7 @@ import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
 import { ClaudeService, diskClaudeStore } from './claude/service'
 import { TutorService, type TutorRecord } from './claude/tutor'
+import type { Character } from '../src/scenarios/schema'
 import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
@@ -26,7 +27,10 @@ const service = new ClaudeService({
   sessions,
   db: () => ctx().db,
   agent: sdkAgent,
-  system: (coach) => [prompt('game'), coach && prompt('coach')].filter(Boolean).join('\n\n'),
+  system: (coach, character) =>
+    [prompt('game'), coach && prompt('coach'), character && prompt('persona').replace(/\{(\w+)\}/g, (_, k: keyof Character) => character[k])]
+      .filter(Boolean)
+      .join('\n\n'),
   store: diskClaudeStore(join(ROOT, 'sessions', 'claude')),
 })
 

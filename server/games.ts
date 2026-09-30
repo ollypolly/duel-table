@@ -5,7 +5,7 @@
 import type { BoardState, Player, Step } from '../src/engine'
 import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
-import type { ScenarioFile } from '../src/scenarios/schema'
+import type { DeckFile, ScenarioFile } from '../src/scenarios/schema'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
 import { decodeResponse, encodeResponse } from './ocg/duel'
 import { OcgGame, type Progress } from './ocg/game'
@@ -60,7 +60,8 @@ export class GameService {
       seed: opts.seed,
       title: opts.title ?? `Game: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
       ...(bots.includes('p2') && { opponentName: 'Bot' }),
-      ...(opts.claude === 'p2' && { opponentName: 'Claude' }),
+      // Claude plays as the character its deck belongs to, if it has one.
+      ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
     })
     const file = this.sessions.export(id)
     let game: OcgGame

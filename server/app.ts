@@ -7,7 +7,7 @@ import type { CardDb } from '../src/data/cardDb'
 import { imagePath } from '../src/data/cardDb'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
-import { DeckSchema, StepSchema } from '../src/scenarios/schema'
+import { DeckSchema, StepSchema, type DeckFile } from '../src/scenarios/schema'
 import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
 import { ClaudeSettingsSchema, GameAnswerSchema, GameViewSchema, ModelChoiceSchema } from '../src/api/game'
 import { PlayerSchema } from '../src/scenarios/schema'
@@ -288,7 +288,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
         suggestions = Object.fromEntries(r.unknown.map((u) => [u.name, u.suggestions]))
       }
       const db = ctx().db
-      const built = buildDeck(id, name, entries, db)
+      const built = buildDeck(id, name, entries, db, overwrite ? (ctx().decks[id] as DeckFile | undefined)?.character : undefined)
       missing = built.unknown
       if (missing.length) {
         const unknown = missing.map((n) => ({ name: n, suggestions: suggestions[n] ?? db.closeMatches(n, 5) }))
@@ -610,7 +610,13 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   const tutorResponses = { 200: json(TutorViewSchema, 'The chat'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
 
   app.openapi(
-    createRoute({ method: 'get', path: '/scenarios/{id}/tutor', summary: "The chat with Claude about a lesson", request: { params: IdParam }, responses: tutorResponses }),
+    createRoute({
+      method: 'get',
+      path: '/scenarios/{id}/tutor',
+      summary: 'The chat with Claude about a lesson',
+      request: { params: IdParam },
+      responses: tutorResponses,
+    }),
     async (c) => c.json((await needTutor()).view(c.req.valid('param').id), 200),
   )
 

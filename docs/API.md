@@ -67,7 +67,7 @@ Errors look like `{ "error": "...", "details": ["..."] }`. A malformed body is a
 
 ## Decks
 
-Decks live in `decks/<id>.json` as card names and counts. Before playing a deck, read it with `GET /decks/{id}`: it has the full text of every card, so you can plan from the real cards rather than from memory.
+Decks live in `decks/<id>.json` as card names and counts. Before playing a deck, read it with `GET /decks/{id}`: it has the full text of every card, so you can plan from the real cards rather than from memory. A deck can name the anime `character` it belongs to (`name`, `from`, `personality`): Claude playing it takes on that persona, and the new-game dialog can pick one at random.
 
 ```jsonc
 {

@@ -10,6 +10,7 @@ import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path'
 import type { ChatEntry, ClaudeSettings, ClaudeView, GamePrompt, ModelChoice } from '../../src/api/game'
 import type { CardDb } from '../../src/data/cardDb'
+import type { Character } from '../../src/scenarios/schema'
 import type { BoardState, Player } from '../../src/engine'
 import type { GameService } from '../games'
 import { SessionError, type SessionService } from '../sessions'
@@ -26,6 +27,7 @@ export type ClaudeRecord = {
   costUsd: number
   seen: number // steps Claude has been told about
   texts?: string[] // cards whose text Claude has been given
+  character?: Character // who Claude plays as, from its deck
 }
 
 // Where a chat's record is kept between restarts: a game's, or a lesson's.
@@ -59,7 +61,7 @@ export type ClaudeDeps = {
   sessions: SessionService
   db: () => CardDb
   agent: Agent
-  system: (coach: boolean) => string // the system prompt
+  system: (coach: boolean, character?: Character) => string // the system prompt
   store?: ClaudeStore
 }
 
@@ -69,7 +71,7 @@ export class ClaudeService {
   private sessions: SessionService
   private db: () => CardDb
   private agent: Agent
-  private system: (coach: boolean) => string
+  private system: (coach: boolean, character?: Character) => string
   private store: ClaudeStore
 
   constructor({ games, sessions, db, agent, system, store = memoryClaudeStore() }: ClaudeDeps) {
@@ -94,8 +96,10 @@ export class ClaudeService {
 
   // Seat Claude in a new game (before its first move).
   join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean } = {}) {
+    const character = this.sessions.export(id).players?.[player].list?.character
     const seat: Seat = {
       player,
+      ...(character && { character }),
       model: opts.model ?? 'opus',
       coach: opts.coach ?? true,
       share: false,
@@ -244,7 +248,7 @@ export class ClaudeService {
   private async run(id: string, seat: Seat, message: string) {
     seat.status = 'thinking'
     this.changed(id, seat)
-    const run = this.agent({ message, system: this.system(seat.coach), model: seat.model, sessionId: seat.sessionId, tools: this.tools(id, seat) })
+    const run = this.agent({ message, system: this.system(seat.coach, seat.character), model: seat.model, sessionId: seat.sessionId, tools: this.tools(id, seat) })
     seat.run = run
     try {
       for await (const e of run.events) {
