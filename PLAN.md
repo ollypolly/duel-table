@@ -316,7 +316,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 - **Games are sessions.** `POST /games` picks both decks; the session's steps are translated from the core, and `duel.responses` in the session file holds every answer given. A restart rebuilds the duel by replaying them (like `.yrp` replays). Games refuse posted steps and undo (409).
 - **Questions as options.** Each core prompt becomes a `GamePrompt` (`src/api/game.ts`): a message plus numbered options, each optionally tied to a card iid, with how many to pick. The answer is the list of picked indices (`POST /sessions/{id}/game/answer`). Claude's tools will use the same shape.
 - **Auto-answered:** zone placement (first free zone), a single legal position or option, sorting, and chances to chain when nothing just happened (no summon, attack or activation, and an empty chain), as most clients do. A "stop at every chance" toggle may be needed for traps in the End Phase.
-- **Hidden info in prompts:** labels never name the opponent's face-down or in-hand cards. The browser still receives full board state, as sessions always have; the board just doesn't show those faces. Fine locally, not for hosting.
+- **Hidden info in prompts:** labels never name the opponent's face-down or in-hand cards. The browser still receives full board state, as sessions always have; the board just doesn't show those faces. Fine for a personal tool, not for public hosting.
 - **Bots.** Any player can be a random bot (`bots`, default `["p2"]`), with its steps paced at 700ms. The free-tier opponent, and used in tests.
 - **Browser.** "New game against the bot…" in the Live menu. The scene panel lists the options (grouped by card, with a filter for long lists and checkboxes for multi-picks); the cards involved are lit on the board, and clicking one narrows to its options or picks it.
 
@@ -331,11 +331,12 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 
 ### Then
 
-1. **Lessons on the rules engine.** Ask Claude to teach you a deck, a combo or a matchup, freeform. Claude operates the game on OCG Core: it can play both sides to show a line, or hand you a turn and watch. Nothing it shows can be illegal, because the engine refuses it (the preset lessons are scripted on our own engine and only hand-checked).
-   - **Start from a position** (first, and useful alone): place cards straight into zones before the duel starts, as EDOPro puzzles do, beginning on your turn in Main Phase 1. Any preset lesson's starting board becomes a rules-enforced practice game.
-   - **Claude drives, or hands over.** It answers the engine's questions for whichever side it's playing, narrating as it goes, and can give you either side for a turn or a single decision. It asks choice and text questions (the lesson runtime's prompts, `server/lesson.ts`) and checks your move against its line.
-   - **Rewind** replays the duel minus your last answers, to show the right line. The coach's takeback uses the same thing.
-   - "Teach me this deck" in the deck hub starts one for that deck.
+1. **Claude-run lessons on the rules engine.** Ask Claude to teach you a deck, a combo or a matchup, freeform. A lesson is an OCG Core game that Claude operates, open-handed. Claude controls a set of seats that changes as it goes: it plays both sides to show a combo, hands you a side to make you do it, or sets up a board to test you on. Nothing it shows can be illegal, because Claude only ever picks from the core's legal options (the preset lessons are scripted on our own engine and only hand-checked). In build order:
+   1. **Claude sets up a position.** A `setup` tool: cards per zone for each side (hand, monsters, spells and traps, GY, banished, the rest of the Deck), LP and whose turn it is. `OcgDuel` takes an optional position: start hands of 0, each card placed with `newCard` at its location and sequence. The core's first question on turn 1 is already Main Phase 1, so no puzzle mode is needed. Preset lessons' starting boards can use it too.
+   2. **Claude drives, or hands over.** It answers the engine's questions for the seats it holds, narrating as it goes. A `handOver` tool gives you a side, a single decision or the rest of the turn. Your answers reach Claude as steps, so it can comment on them or take the seat back.
+   3. **Ask and check.** Choice and text questions from the lesson runtime (`server/lesson.ts`), like "what would you chain here?"
+   4. **Rewind and the step controls.** Rewind replays the duel minus the last answers, to try again or show the right line (the coach's takeback uses the same thing). Claude can also move your view to a step, to point back at a moment without changing the duel.
+   5. **Starting one:** "Teach me this deck" in the deck hub, and a box to ask for any lesson.
 2. **Claude everywhere in the app.** With a Claude login, the chat is always there, not only in a game against Claude, and Claude can act in the app: open a scenario or session, start a game, move your view to a step, fork, set up a lesson, look up cards and decks. It's the same agent and chat panel as in a game, with a wider tool set.
    - **One tool layer, two ways in.** The tools are defined once, over the services the HTTP routes use (sessions, games, lessons, decks), with the same Zod schemas. The in-app agent gets them in-process (`createSdkMcpServer`, as the duel tools are now). The server also exposes them as an MCP server over Streamable HTTP (`/mcp`, local only), so Claude Code or another MCP client can drive the same app, and the browser follows along as it does for curl today.
    - **What the chat is attached to.** A conversation belongs to the app, not one session, and it's told what you're looking at (screen, session, step). In a game against Claude it stays the opponent: fair-play limits apply to its game tools, whatever else it can do.
@@ -347,11 +348,13 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
    - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.
-5. **Hosting notes** (not hosting itself): config from env, then a README section on what hosting still needs:
-   - auth;
-   - spend limits;
-   - storage beyond files;
-   - card-image terms.
+5. **Hosting: my own server over Tailscale.** duel-table stays a personal tool, not public. On the server:
+   - run `npm run dev`, logged in to Claude Code, so Claude bills to that login;
+   - `tailscale serve 5180` gives HTTPS on the tailnet. The API is proxied through Vite, so that's the only port;
+   - Vite needs `server.allowedHosts: ['.ts.net']`;
+   - check the layout on a phone, since that's where lessons will happen.
+
+   Only my devices can reach it, so auth, spend limits and card-image terms don't come up. Public hosting would need all three, plus storage beyond files.
 
 ### Rules for games: OCG Core
 
@@ -391,7 +394,7 @@ EDOPro's `ygopro-core` has Lua scripts for almost every card and has been compil
 
   `npm run fetch-ocg` downloads the scripts, database and strings into `data/ocg/` (gitignored).
 
-  These need care before hosting; they're fine locally.
+  These need care before public hosting; they're fine for a personal tool.
 
 **Games run on OCG Core** (see "Play against Claude" above). Free play, scenarios and lessons stay on our engine.
 
