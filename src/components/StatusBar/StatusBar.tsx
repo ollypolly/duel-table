@@ -70,10 +70,10 @@ export function StatusBar({
 }
 
 // The current chain, newest link first.
-export function ChainList({ view }: { view: BoardView }) {
+export function ChainList({ view, className = 'panel px-3 py-2' }: { view: BoardView; className?: string }) {
   if (view.chain.length === 0) return null
   return (
-    <div className="panel px-3 py-2" data-testid="chain">
+    <div className={className} data-testid="chain">
       <p className="font-display text-xs font-bold uppercase tracking-widest text-chain">Chain</p>
       <ol className="mt-1 space-y-0.5 text-xs">
         {[...view.chain].reverse().map((l) => (

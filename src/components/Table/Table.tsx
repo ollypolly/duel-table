@@ -2,11 +2,13 @@
 // board filling everything else, and a floating scene panel with the
 // narration and playback controls. Clicking a card opens it with what you can
 // do with it; free play adds a header menu and drag-to-move.
-import { ChevronDown, ChevronUp, Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step, ZoneRef } from '../../engine'
 import { useFreePlay } from '../../hooks/useFreePlay'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { usePlayback, usePlaybackKeys } from '../../hooks/usePlayback'
 import type { ResolvedScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
@@ -21,6 +23,7 @@ import { CardInspector } from '../CardInspector/CardInspector'
 import { CardActions, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
 import { DamagePopups } from './DamagePopups'
 import { LiveFeed } from './LiveFeed'
+import { useSheet } from './useSheet'
 import { Menu, MenuItem } from '../Menu/Menu'
 import { NarrationPanel } from '../NarrationPanel/NarrationPanel'
 import { PileViewer } from '../PileViewer/PileViewer'
@@ -97,6 +100,8 @@ export function Table({
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board.
   const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
+  const phone = useMediaQuery('(max-width: 639px)')
+  const { ref: sheetRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
   const messages = activity?.messages ?? 0
   const [seen, setSeen] = useState(messages)
@@ -187,8 +192,8 @@ export function Table({
         {/* The scene panel: a slim playback bar on top, the narration (or a
             chat) in the middle taking what room there is, and the dock at the
             bottom. It floats top-left and slides off to the left; on a phone
-            it's a sheet that slides down off the bottom. Either way its
-            handle stays on screen. With a chat it's full height (on a phone, all
+            it's a sheet you drag up and down by its handle (useSheet). Either
+            way the handle stays on screen. With a chat it's full height (on a phone, all
             but a strip at the top for the handle and Focus). */}
         {activity && (
           <LiveFeed
@@ -203,21 +208,25 @@ export function Table({
           />
         )}
 
-        <div
-          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col transition-transform duration-300 ease-out *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 ${
+        <motion.div
+          ref={sheetRef}
+          {...sheetProps}
+          className={`pointer-events-none absolute inset-x-3 bottom-3 z-10 flex flex-col *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
             chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
-          } ${panelOpen ? '' : 'translate-y-[calc(100%+0.75rem)] sm:translate-y-0 sm:-translate-x-[calc(100%+0.75rem)]'}`}
+          } ${panelOpen ? '' : 'sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
           data-open={panelOpen}
         >
           <button
             type="button"
-            className="panel absolute bottom-full left-1/2 mb-1.5 grid h-9 w-14 -translate-x-1/2 place-items-center text-muted hover:text-ink sm:bottom-auto sm:left-full sm:top-0 sm:mb-0 sm:ml-1.5 sm:w-9 sm:translate-x-0"
-            onClick={() => setPanelOpen(!panelOpen)}
+            className="panel absolute bottom-full left-1/2 mb-1.5 grid h-9 w-20 -translate-x-1/2 touch-none place-items-center text-muted hover:text-ink sm:bottom-auto sm:left-full sm:top-0 sm:mb-0 sm:ml-1.5 sm:w-9 sm:translate-x-0"
+            onClick={togglePanel}
+            onPointerDown={startDrag}
+            data-sheet-handle
             aria-expanded={panelOpen}
             title={panelOpen ? 'Hide panel' : `Show panel${typing ? ' (Claude is typing)' : ''}${alert ? ' (something new)' : ''}`}
           >
-            <span className="sm:hidden">{panelOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}</span>
+            <span className="h-1 w-10 rounded-full bg-muted sm:hidden" />
             <span className="hidden sm:block">{panelOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</span>
             {typing && (
               <span className="panel absolute -top-3 left-full -ml-3 flex gap-0.5 rounded-full px-1.5 py-1" data-testid="typing">
@@ -234,7 +243,7 @@ export function Table({
             )}
           </button>
           <div className={`panel flex min-h-0 flex-col ${chat ? 'flex-1' : ''}`}>
-            <div className="shrink-0 border-b border-line px-2 py-2">
+            <div className="shrink-0 touch-none border-b border-line px-2 py-2 sm:touch-auto" onPointerDown={startDrag}>
               <StepControls
                 position={position}
                 labels={scenario.game.steps.map((s, i) => s.label ?? `Step ${i + 1}`)}
@@ -272,10 +281,11 @@ export function Table({
               )}
             </div>
             {chat?.withNarration && <div className="flex min-h-0 flex-1 flex-col border-t border-line">{chat.log}</div>}
+            {phone && panelOpen && <ChainList view={view} className="shrink-0 border-t border-line px-3 py-2" />}
             {dock && <div className="max-h-[35vh] shrink-0 space-y-2.5 overflow-y-auto border-t border-line px-3 py-2.5 sm:max-h-[45vh]">{dock}</div>}
             {chat && <div className="shrink-0 border-t border-line px-3 py-2">{chat.input}</div>}
           </div>
-        </div>
+        </motion.div>
 
         <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
@@ -294,9 +304,11 @@ export function Table({
           <Crosshair size={14} className="sm:hidden" aria-hidden />
         </label>
 
-        <div className="absolute right-3 top-14 z-10 max-h-[40%] w-56 overflow-y-auto sm:w-64">
-          <ChainList view={view} />
-        </div>
+        {!(phone && panelOpen) && (
+          <div className="absolute right-3 top-14 z-10 max-h-[40%] w-56 overflow-y-auto sm:w-64">
+            <ChainList view={view} />
+          </div>
+        )}
       </main>
 
       <CardInspector
