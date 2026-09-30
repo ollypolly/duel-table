@@ -48,7 +48,7 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 | `GET /decks` | | `[{ id, name, size: { main, extra } }]` |
 | `GET /decks/{id}` | | the deck with every card's text and stats (see [Decks](#decks)) |
 | `POST /decks` | `{ id, name, list? \| cards?, fetch?, overwrite? }` | `201` the saved deck; `422` unknown names with suggestions; `409` if it exists |
-| `POST /games` | `{ deck, opponentDeck?, seed?, bots?, claude?, model?, coach?, title? }` | `201` a game session (see [Games](#games-on-the-rules-engine)) |
+| `POST /games` | `{ deck \| scenario, opponentDeck?, seed?, bots?, claude?, lesson?, topic?, model?, coach?, title? }` | `201` a game session (see [Games](#games-on-the-rules-engine)) |
 | `POST /sessions/{id}/game/answer` | `{ id, choices }` | the game, after the viewer's answer |
 | `GET /claude` | | `{ available, email?, plan? }`: whether this machine has a Claude login |
 | `POST /sessions/{id}/claude/chat` | `{ text }` | the game; the viewer's message to Claude |
@@ -267,7 +267,7 @@ For a real game, start one on the rules engine (below): it enforces the rules an
 
 ## Games on the rules engine
 
-`POST /games` starts a session whose steps come from the YGOPro core (OCG Core), with the rules enforced. `bots` (default `["p2"]`) are answered by a random bot, with its steps paced so they can be watched. `claude` puts the in-app Claude on that side instead (`501` without a Claude login), with `model` (`opus` or `sonnet`) and `coach` (default `true`).
+`POST /games` starts a session whose steps come from the YGOPro core (OCG Core), with the rules enforced. `bots` (default `["p2"]`) are answered by a random bot, with its steps paced so they can be watched. `claude` puts the in-app Claude on that side instead (`501` without a Claude login), with `model` (`opus` or `sonnet`) and `coach` (default `true`). `lesson` has Claude run the game as a lesson on `topic` instead: it plays both sides, can start the duel over from a position it sets up, and hands you a side to try (`claude.holds` says which players it's answering for). Your answers to `POST /sessions/{id}/game/answer` go to whichever player the question is for. With `scenario` in place of `deck`, the duel starts from that scenario's setup instead: its hands, fields, GYs and LP, on p1's turn in Main Phase 1, and p1 can attack straight away.
 
 - **Questions.** When the core needs the viewer (`p1`) to decide, `game.prompt` in the session holds a numbered question: `{ id, player, kind, message, options: [{ label, card?, group? }], min, max }`. Answer with `POST /sessions/{id}/game/answer` and `{ "id": <prompt id>, "choices": [<option indices>] }`. Trivial questions (one legal option, zone placement, a chance to chain when nothing happened) are answered automatically.
 - **Other fields.** `game.bots`, `game.waitingFor` (who the core is waiting on), `game.winner` when it's over, and `game.claude` (chat, status, settings, cost) when Claude plays.

@@ -149,8 +149,10 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // The same decks and opponent again, with a fresh shuffle.
   const players = session?.file.players
   const claude = game?.claude
+  // A lesson Claude runs: no rematch, hints, coaching or sharing (it sees everything).
+  const claudeLesson = !!claude?.holds
   const rematch =
-    players?.p1.deck && players.p2.deck
+    players?.p1.deck && players.p2.deck && !claudeLesson
       ? () =>
           report(
             api
@@ -194,7 +196,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             log: <ClaudeChat claude={game.claude} />,
             input: (
               <ClaudeInput
-                claude={game.claude}
+                claude={claudeLesson ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
                 onChat={(text) => report(api.chat(id, text))}
                 onStop={() => report(api.stopClaude(id))}
                 onResume={() => report(api.resumeClaude(id))}
@@ -225,7 +227,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                 }}
                 onAnswer={(a) => report(api.answer(id, a))}
               />
-              {game && lesson.queued === 0 && (
+              {game && lesson.queued === 0 && (!lesson.prompt || game.prompt) && (
                 <GamePanel
                   game={game}
                   state={result.scenario.timeline.at(-1)!.state}
@@ -233,7 +235,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                   onChoice={setChoice}
                   onAnswer={answerGame}
                   onRematch={rematch}
-                  onHint={game.claude ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
+                  onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
                   busy={busy}
                 />
               )}

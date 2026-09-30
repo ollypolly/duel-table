@@ -12,7 +12,7 @@ import { resolveScenario, type ResolveContext, type ResolvedScenario } from '../
 import type { ScenarioFile } from '../src/scenarios/schema'
 import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
-import { Lesson } from './lesson'
+import { Lesson, type AnswerEvent } from './lesson'
 import type { GameView } from '../src/api/game'
 import type { Player } from '../src/engine'
 
@@ -64,6 +64,8 @@ export class SessionService {
   gameView?: (id: string) => GameView | undefined
   // Told when a session is deleted, to drop what else they hold for it.
   onRemove: ((id: string) => void)[] = []
+  // Told when the viewer answers a lesson prompt (Claude, running a lesson).
+  onAnswer: ((id: string, answer: AnswerEvent) => void)[] = []
 
   // ctx is a function so edits to scenarios/ and decks/ are picked up.
   constructor(ctx: () => ResolveContext, store: SessionStore = memoryStore()) {
@@ -179,6 +181,19 @@ export class SessionService {
     return this.notify(id)
   }
 
+  // A game started over from a new position (a lesson's setup): no steps or
+  // answers yet, and the viewer's place starts again too.
+  restartGame(id: string, from: Pick<ScenarioFile, 'players' | 'setup' | 'start'>): SessionView {
+    const s = this.live(id)
+    if (!s.file.duel) throw new SessionError(409, `session ${id} isn't a game on the rules engine`)
+    const file: ScenarioFile = { ...s.file, ...from, steps: [], duel: { ...s.file.duel, responses: [], winner: undefined } }
+    const r = this.resolve(file)
+    if (!r.ok) throw new SessionError(422, "that setup doesn't work", r.errors)
+    this.sessions.set(id, { file, resolved: r.scenario, lesson: this.newLesson(id, r.scenario), updatedAt: Date.now() })
+    this.store.save(file)
+    return this.notify(id)
+  }
+
   // Tell listeners something outside the file changed (a game's prompt).
   touch(id: string): SessionView {
     return this.notify(id)
@@ -214,8 +229,10 @@ export class SessionService {
   }
 
   answer(id: string, answer: Answer): SessionView {
-    this.live(id).lesson.answer(answer)
-    return this.notify(id)
+    const e = this.live(id).lesson.answer(answer)
+    const view = this.notify(id)
+    for (const fn of this.onAnswer) fn(id, e)
+    return view
   }
 
   wait(id: string, since: number | undefined, timeoutMs: number) {

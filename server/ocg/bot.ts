@@ -57,7 +57,7 @@ export function botResponse(m: PromptMsg, rng: Rng, attempt = 0, codes: number[]
     return m.prepareResponse(order.slice(0, Math.max(1, m.min + (attempt % Math.max(1, m.cards.length)))).map((i) => M.IndexResponse(i)))
   }
   if (m instanceof M.YGOProMsgAnnounceCard && codes.length) return m.prepareResponse(codes[(attempt + int(codes.length)) % codes.length])
-  if (m instanceof M.YGOProMsgAnnounceNumber) return m.prepareResponse(0)
+  if (m instanceof M.YGOProMsgAnnounceNumber) return m.prepareResponse(M.IndexResponse(int(m.numbers.length)))
   if (m instanceof M.YGOProMsgAnnounceRace) return m.prepareResponse(1)
   if (m instanceof M.YGOProMsgAnnounceAttrib) return m.prepareResponse(1)
   if (m instanceof M.YGOProMsgRockPaperScissors) return m.prepareResponse(1 as never)

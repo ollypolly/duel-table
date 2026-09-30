@@ -5,7 +5,7 @@
 import type { BoardState, Player, Step } from '../src/engine'
 import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
-import type { DeckFile, ScenarioFile } from '../src/scenarios/schema'
+import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
 import { decodeResponse, encodeResponse } from './ocg/duel'
 import { OcgGame, type Progress } from './ocg/game'
@@ -14,12 +14,19 @@ import { question, type Question } from './ocg/prompt'
 import { SessionError, type SessionService, type SessionView } from './sessions'
 
 // claude: the player Claude answers for, with its model and coach setting.
+// lesson: Claude runs the game as a lesson on topic, answering for whichever
+// players it holds (both, to begin with).
+// scenario: start from that scenario's setup (hands, fields, LP) instead of
+// two decks and opening hands.
 export type CreateGameOptions = {
-  deck: string
+  deck?: string
+  scenario?: string
   opponentDeck?: string
   seed?: number
   bots?: Player[]
   claude?: Player
+  lesson?: boolean
+  topic?: string
   model?: ModelChoice
   coach?: boolean
   title?: string
@@ -29,7 +36,8 @@ export type CreateGameOptions = {
 export const BOT_STEP_MS = 700
 
 type Asked = Extract<Question, { prompt: unknown }>
-type Live = { game: OcgGame; ocg: Ocg; bots: Player[]; claude?: Player; shuffled: boolean; rng: Rng; codes: number[]; asked?: Asked }
+type Seats = { bots: Player[]; claude?: Player; lesson?: boolean; shuffled: boolean }
+type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked }
 
 export class GameService {
   private games = new Map<string, Live>()
@@ -40,8 +48,13 @@ export class GameService {
   // moves on or asks something (Claude listens).
   onCreate?: (id: string, opts: CreateGameOptions) => void
   onChange?: (id: string) => void
-  // Claude's part of a game's view (set by ClaudeService).
+  // Claude's part of a game's view, and the players it answers for now (set
+  // by ClaudeService).
   claudeView?: (id: string) => GameView['claude']
+  claudeHolds?: (id: string) => Player[] | undefined
+  // A person answered for player (a lesson takes back a player handed over
+  // for one question).
+  onPersonAnswer?: (id: string, player: Player) => void
 
   constructor(sessions: SessionService, ctx: () => ResolveContext, ocg: () => Promise<Ocg> = () => loadOcg(ocgDataDir())) {
     this.sessions = sessions
@@ -53,15 +66,23 @@ export class GameService {
 
   async create(opts: CreateGameOptions): Promise<SessionView> {
     const ocg = await this.ocg()
-    const bots = opts.claude ? [] : (opts.bots ?? ['p2'])
+    const bots = opts.claude || opts.lesson ? [] : (opts.bots ?? ['p2'])
     const { id } = this.sessions.create({
-      deck: opts.deck,
-      opponentDeck: opts.opponentDeck,
-      seed: opts.seed,
-      title: opts.title ?? `Game: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
+      ...(opts.scenario
+        ? {
+            scenario: opts.scenario,
+            atStep: 0,
+            title: opts.title ?? `Practice: ${(this.ctx().scenarios[opts.scenario] as ScenarioFile | undefined)?.title ?? opts.scenario}`,
+          }
+        : {
+            deck: opts.deck,
+            opponentDeck: opts.opponentDeck,
+            seed: opts.seed,
+            title: opts.title ?? `${opts.lesson ? 'Lesson' : 'Game'}: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
+          }),
       ...(bots.includes('p2') && { opponentName: 'Bot' }),
       // Claude plays as the character its deck belongs to, if it has one.
-      ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
+      ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck ?? ''] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
     })
     const file = this.sessions.export(id)
     let game: OcgGame
@@ -70,15 +91,21 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, bots, file.seed!, opts.claude, true)
+    const live = this.track(id, game, ocg, file.seed!, { bots, claude: opts.claude, lesson: opts.lesson, shuffled: true })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
 
-  // A person's answer to the open question: the options they picked.
-  async answer(id: string, player: Player, a: GameAnswer): Promise<SessionView> {
+  // A person's answer to the open question: the options they picked. player
+  // defaults to whoever it's for, as long as Claude isn't answering for them.
+  async answer(id: string, player: Player | undefined, a: GameAnswer): Promise<SessionView> {
     const live = await this.live(id)
     const { asked } = live
+    const person = !player
+    if (!player) {
+      player = asked?.prompt.player
+      if (player && this.held(id, live).includes(player)) throw new SessionError(409, `Claude is answering for ${player}`)
+    }
     if (!asked || asked.prompt.player !== player) throw new SessionError(409, `nothing is being asked of ${player}`)
     const { prompt } = asked
     if (a.id !== prompt.id) throw new SessionError(409, `question ${a.id} isn't open (${prompt.id} is)`)
@@ -88,7 +115,42 @@ export class GameService {
       throw new SessionError(400, `choices must be distinct, 0-${options.length - 1}`)
     const p = live.game.respond(asked.answer(a.choices))
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
+    if (person) this.onPersonAnswer?.(id, player)
     return this.advance(id, live, p)
+  }
+
+  // Start a game over from a new position, on p1's turn in Main Phase 1 (a
+  // lesson's setup). A card placed more times than its player's deck has it
+  // is added to what they own, so any board can be set up.
+  async restart(id: string, setup: Setup, lp: Partial<Record<Player, number>> = {}): Promise<SessionView> {
+    const old = await this.live(id)
+    const file = this.sessions.export(id)
+    const { db, decks } = this.ctx()
+    const players = structuredClone(file.players!)
+    for (const p of ['p1', 'p2'] as const) {
+      const deck = players[p].list ?? (decks[players[p].deck ?? ''] as DeckFile | undefined)
+      const have = new Map<string, number>()
+      for (const e of [...(deck?.main ?? []), ...(deck?.extra ?? [])]) have.set(e.name, (have.get(e.name) ?? 0) + e.count)
+      const cards: string[] = []
+      for (const name of placedNames(setup, p)) {
+        const n = db.byName(name)?.name ?? name
+        if ((have.get(n) ?? 0) > 0) have.set(n, have.get(n)! - 1)
+        else cards.push(n)
+      }
+      players[p] = { ...players[p], cards, ...(lp[p] !== undefined && { lp: lp[p] }) }
+      if (!cards.length) delete players[p].cards
+    }
+    const from = { players, setup, start: { phase: 'main1' as const } }
+    let game: OcgGame
+    try {
+      game = new OcgGame(old.ocg, this.setup({ ...file, ...from }))
+    } catch (e) {
+      throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
+    }
+    this.sessions.restartGame(id, from)
+    const { bots, claude, lesson, shuffled } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, claude, lesson, shuffled })
+    return this.advance(id, live, game.start())
   }
 
   async get(id: string): Promise<OcgGame> {
@@ -118,7 +180,7 @@ export class GameService {
     const winner = game.duel.result
     const claude = this.claudeView?.(id)
     // Claude's questions stay on the server; the browser only needs yours.
-    const prompt = asked && asked.prompt.player !== live.claude ? asked.prompt : undefined
+    const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
     return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }) }
   }
 
@@ -135,7 +197,7 @@ export class GameService {
     for (;;) {
       for (const s of p.steps) {
         steps.push(s)
-        if (actor && (live.bots.includes(actor) || actor === live.claude)) paced.add(s)
+        if (actor && (live.bots.includes(actor) || this.held(id, live).includes(actor))) paced.add(s)
       }
       if (!p.prompt || !p.waitingFor) break
       if (attempt > 50) throw new Error(`stuck on ${p.prompt.constructor.name}`)
@@ -158,6 +220,7 @@ export class GameService {
       responses: live.game.duel.responses.map(encodeResponse),
       bots: live.bots,
       ...(live.claude && { claude: live.claude }),
+      ...(live.lesson && { lesson: true }),
       ...(live.shuffled && { shuffled: true }),
       ...(live.game.duel.result && { winner: live.game.duel.result.player }),
     }
@@ -200,7 +263,8 @@ export class GameService {
     const last = game.replay(file.duel.responses.map(decodeResponse))
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, file.duel.bots ?? [], (file.seed ?? 0) + file.duel.responses.length, file.duel.claude, !!file.duel.shuffled)
+    const { bots = [], claude, lesson, shuffled } = file.duel
+    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, claude, lesson, shuffled: !!shuffled })
     if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
       const q = this.ask(live, last)
       if ('prompt' in q) live.asked = q
@@ -209,9 +273,15 @@ export class GameService {
     return live
   }
 
-  private track(id: string, game: OcgGame, ocg: Ocg, bots: Player[], seed: number, claude: Player | undefined, shuffled: boolean): Live {
+  // The players Claude answers for: its side of a game, or the ones it holds
+  // in a lesson.
+  private held(id: string, live: Live): Player[] {
+    return this.claudeHolds?.(id) ?? (live.claude ? [live.claude] : [])
+  }
+
+  private track(id: string, game: OcgGame, ocg: Ocg, seed: number, seats: Seats): Live {
     const codes = [...new Set(Object.values(game.state.cards).flatMap((c) => (c.cardId === undefined ? [] : [c.cardId])))]
-    const live = { game, ocg, bots, claude, shuffled, rng: seededRng(seed), codes }
+    const live = { ...seats, game, ocg, rng: seededRng(seed), codes }
     this.games.set(id, live)
     return live
   }
@@ -232,4 +302,13 @@ function quietChance(p: Progress, state: BoardState): boolean {
   if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced) || state.chain.length) return false
   const loud = new Set(['activate', 'normalSummon', 'tributeSummon', 'specialSummon', 'attack'])
   return !p.steps.some((s) => s.intent && loud.has(s.intent.type))
+}
+
+// Every card a setup places for player, materials included.
+function placedNames(setup: Setup, player: Player): string[] {
+  const names = (e: string | { name: string; materials?: string[] } | null) => (!e ? [] : typeof e === 'string' ? [e] : [e.name, ...(e.materials ?? [])])
+  return [
+    ...Object.values(setup[player] ?? {}).flatMap((zone) => zone.flatMap(names)),
+    ...(setup.extraMonster ?? []).flatMap((e) => (e?.player === player ? names(e) : [])),
+  ]
 }

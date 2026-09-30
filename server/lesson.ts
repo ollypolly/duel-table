@@ -10,6 +10,7 @@ const LOG_LIMIT = 1000
 
 // Distributive, so each event type keeps its own fields.
 type NewEvent = LessonEvent extends infer E ? (E extends LessonEvent ? Omit<E, 'seq'> : never) : never
+export type AnswerEvent = Extract<NewEvent, { type: 'answer' }>
 
 export class Lesson {
   private queue: Reveal[] = [] // one per queued step, in order
@@ -93,21 +94,25 @@ export class Lesson {
     this.prompt = undefined
   }
 
-  answer(a: Answer) {
+  // The viewer's answer, as it's logged.
+  answer(a: Answer): AnswerEvent {
     const p = this.prompt
     if (!p || p.id !== a.id) throw new SessionError(409, `prompt ${a.id} isn't open`)
     if (this.queue.length) throw new SessionError(409, "the prompt isn't showing yet: steps are still queued")
     const base = { type: 'answer' as const, prompt: { id: p.id, type: p.type } }
+    let e: AnswerEvent
     if (p.type === 'choice') {
       if (a.choice === undefined || a.choice >= p.options.length) throw new SessionError(400, `choice must be 0-${p.options.length - 1}`)
-      this.emit({ ...base, choice: { index: a.choice, option: p.options[a.choice] } })
+      e = { ...base, choice: { index: a.choice, option: p.options[a.choice] } }
     } else if (p.type === 'text') {
       if (!a.text?.trim()) throw new SessionError(400, 'text is required')
-      this.emit({ ...base, text: a.text })
+      e = { ...base, text: a.text }
     } else if (p.type === 'move') {
-      this.emit({ ...base, steps: Array.from({ length: this.total - p.openedAt }, (_, i) => p.openedAt + i + 1) })
-    } else this.emit(base)
+      e = { ...base, steps: Array.from({ length: this.total - p.openedAt }, (_, i) => p.openedAt + i + 1) }
+    } else e = base
+    this.emit(e)
     this.prompt = undefined
+    return e
   }
 
   // Events after since (default: now), waiting up to timeoutMs for the first.

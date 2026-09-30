@@ -23,7 +23,7 @@ export type OcgWrapper = CoreModule.OcgcoreWrapper
 // Locations and positions as the core numbers them.
 export const LOC = { deck: 0x01, hand: 0x02, mzone: 0x04, szone: 0x08, grave: 0x10, removed: 0x20, extra: 0x40, overlay: 0x80 } as const
 export const POS = { faceUpAtk: 0x1, faceDownAtk: 0x2, faceUpDef: 0x4, faceDownDef: 0x8 } as const
-export const QUERY = { code: 0x1, position: 0x2, attack: 0x100, defense: 0x200, baseAttack: 0x400, baseDefense: 0x800 } as const
+export const QUERY = { code: 0x1, position: 0x2, attack: 0x100, defense: 0x200, baseAttack: 0x400, baseDefense: 0x800, overlay: 0x10000 } as const
 export const TYPE_TOKEN = 0x4000
 
 export type CardData = { code: number; alias: number; setcode: bigint; name: string; type: number; race: number; attribute: number; atk: number; def: number; strings: string[] }
@@ -37,6 +37,7 @@ export type Ocg = {
   describe(desc: number): string | undefined
   system(n: number): string | undefined
   scriptErrors: string[] // the most recent script errors, newest last
+  scripts: Map<string, string> // scripts we write, like a position's monsters, by path
 }
 
 export const ocgDataDir = () => process.env.OCG_DATA_DIR ?? 'data/ocg'
@@ -81,12 +82,14 @@ async function load(dir: string): Promise<Ocg> {
 
   const scriptErrors: string[] = []
   const wrapper = await Core.createOcgcoreWrapper()
+  const scripts = new Map<string, string>()
   wrapper.setScriptReader(Core.DirScriptReader(join(dir, 'scripts')))
+  wrapper.setScriptReader(Core.MapScriptReader(scripts))
   wrapper.setCardReader(Core.SqljsCardReader(db))
   wrapper.setMessageHandler((_duel, message, type) => {
     if (type !== Core.OcgcoreMessageType.ScriptError) return
     scriptErrors.push(String(message))
     if (scriptErrors.length > 50) scriptErrors.shift()
   })
-  return { wrapper, card: (code) => cards.get(code), cards: () => cards.values(), describe, system: (n) => system.get(n), scriptErrors }
+  return { wrapper, card: (code) => cards.get(code), cards: () => cards.values(), describe, system: (n) => system.get(n), scriptErrors, scripts }
 }

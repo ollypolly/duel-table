@@ -159,6 +159,25 @@ export const ScenarioPlayerSchema = z
   .strict()
   .refine((p) => p.deck || p.list || p.cards?.length, { message: 'give a deck, cards, or both' })
 
+// Where cards start, zone by zone; whatever isn't placed is shuffled into the
+// Deck. A Deck placement is its top cards, top first.
+export const SetupSchema = z
+  .object({
+    p1: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
+    p2: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
+    extraMonster: z
+      .array(
+        z.union([
+          z.null(),
+          z.object({ player: PlayerSchema, name: z.string(), position: PositionSchema.optional(), materials: z.array(z.string()).optional() }).strict(),
+        ]),
+      )
+      .max(2)
+      .optional(),
+  })
+  .strict()
+export type Setup = z.infer<typeof SetupSchema>
+
 export const ScenarioSchema = z
   .object({
     $schema: z.string().optional(),
@@ -171,22 +190,7 @@ export const ScenarioSchema = z
       .strict()
       .optional(),
     players: z.object({ p1: ScenarioPlayerSchema, p2: ScenarioPlayerSchema }).strict().optional(),
-    setup: z
-      .object({
-        p1: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
-        p2: z.partialRecord(PlayerZoneSchema, z.array(PlacementSchema)).optional(),
-        extraMonster: z
-          .array(
-            z.union([
-              z.null(),
-              z.object({ player: PlayerSchema, name: z.string(), position: PositionSchema.optional(), materials: z.array(z.string()).optional() }).strict(),
-            ]),
-          )
-          .max(2)
-          .optional(),
-      })
-      .strict()
-      .optional(),
+    setup: SetupSchema.optional(),
     start: z
       .object({ turn: z.int().min(1).optional(), activePlayer: PlayerSchema.optional(), phase: PhaseSchema.optional() })
       .strict()
@@ -197,6 +201,7 @@ export const ScenarioSchema = z
         responses: z.array(z.string()).describe('Answers given to the rules engine so far (base64); the steps are derived from them'),
         bots: z.array(PlayerSchema).optional().describe('Players the random bot answers for'),
         claude: PlayerSchema.optional().describe('The player Claude answers for'),
+        lesson: z.boolean().optional().describe('Claude runs the game as a lesson, answering for whichever players it holds'),
         shuffled: z.boolean().optional().describe('The Decks were shuffled from the seed (games saved before that replay unshuffled)'),
         winner: PlayerSchema.optional().describe('Who won, once the duel is over'),
       })

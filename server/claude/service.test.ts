@@ -53,7 +53,7 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
 const setup = (agent: Agent) => {
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: (coach, character) => [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as '), store: memoryClaudeStore() })
+  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: ({ coach, character, lesson }) => (lesson ? 'lesson' : [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as ')), store: memoryClaudeStore() })
   return { sessions, games, claude }
 }
 
@@ -197,5 +197,117 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     await claude.idle(v.id)
     expect(sessions.get(v.id).game!.claude!.chat.some((e) => e.from === 'note' && e.text.includes(`question ${asked}`))).toBe(true)
     expect((await games.asking(v.id, 'p1'))?.id).not.toBe(asked)
+  }, 60_000)
+
+  it('runs a lesson a move at a time: sets up, waits for Next, plays, hands you p1, then asks you something', async () => {
+    const results: string[] = []
+    const batched: string[] = []
+    const requests: AgentRequest[] = []
+    const lessonAgent: Agent = (req) => {
+      requests.push(req)
+      async function* run(): AsyncIterable<AgentEvent> {
+        if (requests.length === 1) {
+          results.push(
+            await req.tools.setup!(
+              {
+                p1: { hand: ['Goblindbergh', 'Gagaga Magician', 'Dark Magician'] },
+                p2: { monster: [null, null, { name: 'Dark Magician', position: 'def', faceUp: false }] },
+              },
+              { p2: 4000 },
+            ),
+          )
+          // Playing on straight after a setup waits.
+          results.push(await req.tools.answer!(0, [0]))
+          yield { type: 'text', text: 'Here is the position.' }
+        } else if (requests.length === 2) {
+          // Normal Summon Goblindbergh, then give p1 to the person.
+          const summon = /Question (\d+):[^]*?\n {2}(\d+)\. Goblindbergh: Normal Summon/.exec(req.message)!
+          results.push(await req.tools.answer!(+summon[1], [+summon[2]]))
+          results.push(await req.tools.handOver!('p1', 'answer'))
+          yield { type: 'text', text: 'Your go.' }
+        } else if (requests.length === 3) {
+          results.push(req.tools.ask!('What does Goblindbergh summon?', ['A Level 4 or lower monster', 'Anything']))
+          results.push(await req.tools.answer!(0, [0]))
+          yield { type: 'text', text: 'Nice.' }
+        } else if (requests.length === 6) {
+          // A few routine moves in a batch, without stopping.
+          let last = req.message
+          for (let i = 0; i < 3; i++) {
+            const q = /Question (\d+):/.exec(last)
+            if (!q) break
+            last = await req.tools.answer!(+q[1], [0], true)
+            batched.push(last)
+          }
+          yield { type: 'text', text: 'Those were routine.' }
+        } else yield { type: 'text', text: 'Right.' }
+        yield { type: 'done', sessionId: 'fake-lesson', costUsd: 0.01 }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const { sessions, games, claude } = setup(lessonAgent)
+    const v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Teach me Goblindbergh', seed: 1 })
+    // A lesson prompt is answered once the steps before it have shown.
+    const shown = async () => {
+      while (sessions.get(v.id).lesson.queued) await new Promise((r) => setTimeout(r, 20))
+    }
+    await claude.idle(v.id)
+    expect(requests[0].system).toBe('lesson')
+    expect(requests[0].message).toContain('The person says: Teach me Goblindbergh')
+    expect(results[0]).toMatch(/^Set up\./)
+    expect(results[0]).toContain('For p1')
+    expect(results[1]).toMatch(/^Wait:/)
+
+    // Started over from the position: a card the deck lacks was added for it.
+    let s = sessions.get(v.id)
+    expect(s.state.players.p1.zones.hand.map((i) => s.state.cards[i].cardId)).toContain(ctx().db.byName('Dark Magician')!.id)
+    expect(s.state.players.p2.lp).toBe(4000)
+    expect(s.file.players?.p1.cards).toEqual(['Dark Magician'])
+    // It stopped to explain. It's p1's move, so the person can let Claude play it or pick it themselves.
+    expect(requests.length).toBe(1)
+    expect(s.lesson.prompt).toMatchObject({ type: 'ack', button: 'Let Claude play it' })
+    expect(s.game?.prompt?.player).toBe('p1')
+
+    await shown()
+    sessions.answer(v.id, { id: s.lesson.prompt!.id })
+    await claude.idle(v.id)
+    expect(requests[1].message).toContain('The person pressed Next')
+    expect(results[2]).toContain('Wait:')
+    s = sessions.get(v.id)
+    // Goblindbergh's trigger may ask p1 more, but the person is asked now.
+    expect(s.game?.claude?.holds).toEqual(['p2'])
+    expect(s.game?.prompt?.player).toBe('p1')
+    expect(s.lesson.prompt).toBeUndefined()
+    expect(s.game?.claude?.chat.map((e) => e.text)).toContain("Your go: you're playing You for one question.")
+
+    await games.answer(v.id, undefined, { id: s.game!.prompt!.id, choices: [0] })
+    await claude.idle(v.id)
+    s = sessions.get(v.id)
+    expect(s.game?.claude?.holds).toEqual(['p2', 'p1'])
+    expect(requests.length).toBe(3)
+    expect(requests[2].message).toContain('Since you last looked')
+    // It asked something, so it waits for the answer rather than a Next.
+    expect(results.at(-1)).toMatch(/^Wait:/)
+    expect(s.lesson.prompt).toMatchObject({ type: 'choice', message: 'What does Goblindbergh summon?' })
+
+    await shown()
+    sessions.answer(v.id, { id: s.lesson.prompt!.id, choice: 0 })
+    await claude.idle(v.id)
+    expect(requests.length).toBe(4)
+    expect(requests[3].message).toContain('The person answered your question "What does Goblindbergh summon?": A Level 4 or lower monster')
+    // Its question is still open, so it gets a Next again, and chatting withdraws it.
+    s = sessions.get(v.id)
+    expect(s.lesson.prompt).toMatchObject({ type: 'ack' })
+    claude.chat(v.id, 'Why Goblindbergh?')
+    expect(sessions.get(v.id).lesson.prompt).toBeUndefined()
+    await claude.idle(v.id)
+    expect(requests.length).toBe(5)
+
+    // Making p1's move themselves wakes Claude too.
+    s = sessions.get(v.id)
+    await games.answer(v.id, undefined, { id: s.game!.prompt!.id, choices: [0] })
+    await claude.idle(v.id)
+    expect(requests[5].message).toContain("The person made p1's move themselves")
+    expect(batched).toHaveLength(3)
+    for (const r of batched) expect(r).not.toContain('Wait:')
   }, 60_000)
 })

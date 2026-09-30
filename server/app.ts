@@ -484,23 +484,28 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       request: body(
         z
           .object({
-            deck: z.string(),
+            deck: z.string().optional(),
+            scenario: z.string().optional().describe("Start from this scenario's setup (hands, fields, LP) instead of decks and opening hands"),
             opponentDeck: z.string().optional(),
             seed: z.int().optional(),
             bots: z.array(PlayerSchema).optional(),
             claude: PlayerSchema.optional().describe('Claude plays this side instead of the bot (needs a Claude login)'),
+            lesson: z.boolean().optional().describe('Claude runs the game as a lesson: it plays both sides, sets up positions and hands you a side to try (needs a Claude login)'),
+            topic: z.string().optional().describe('What you want the lesson to teach'),
             model: ModelChoiceSchema.optional().describe("Claude's model (default opus)"),
             coach: z.boolean().optional().describe('Claude also coaches you (default true)'),
             title: z.string().optional(),
           })
-          .strict(),
+          .strict()
+          .refine((o) => !o.deck !== !o.scenario, { message: 'give a deck or a scenario' }),
       ),
       responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, 'No rules engine, or no Claude login'), ...errors },
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       const opts = c.req.valid('json')
-      if (opts.claude && !(claude && (await claude.account()))) return c.json({ error: 'playing Claude needs a Claude login (run `claude` and log in)' }, 501)
+      if ((opts.claude || opts.lesson) && !(claude && (await claude.account())))
+        return c.json({ error: `${opts.lesson ? 'a lesson with' : 'playing'} Claude needs a Claude login (run \`claude\` and log in)` }, 501)
       return c.json(await games.create(opts), 201)
     },
   )
@@ -684,7 +689,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.answer(c.req.valid('param').id, 'p1', c.req.valid('json')), 200)
+      return c.json(await games.answer(c.req.valid('param').id, undefined, c.req.valid('json')), 200)
     },
   )
 
@@ -772,12 +777,14 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   // SSE: the full session after every change, starting with the current one.
   app.get('/sessions/:id/events', (c) => {
     const id = c.req.param('id')
-    const first = sessions.get(id)
+    sessions.export(id) // a 404 before the stream starts
     return streamSSE(c, async (stream) => {
       let n = 0
       const send = (v: unknown) => stream.writeSSE({ event: 'session', data: JSON.stringify(v), id: String(n++) })
-      await send(first)
+      // Listen before the first view: a game that isn't loaded yet starts
+      // loading when it's viewed, and says so when it's ready.
       const off = sessions.subscribe(id, (v) => void send(v))
+      await send(sessions.get(id))
       let open = true
       stream.onAbort(() => {
         open = false

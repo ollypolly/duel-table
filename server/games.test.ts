@@ -39,6 +39,20 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(() => sessions.undo(v.id)).toThrow(/can't be undone/)
   }, 60_000)
 
+  it("starts from a scenario's setup, and rebuilds after a restart", async () => {
+    const store = saving()
+    const games = new GameService(new SessionService(ctx, store), ctx)
+    const v = await games.create({ scenario: 'ojama-vs-super-quant-t1-t3' })
+    expect(v.file.title).toBe('Practice: Armed Ojama vs Super Quant: turns 1–3')
+    expect(v.game).toMatchObject({ waitingFor: 'p1', prompt: { kind: 'idle' } })
+    expect(v.state.phase).toBe('main1')
+    const hand = v.state.players.p1.zones.hand
+    expect(hand).toHaveLength(5)
+
+    const again = new GameService(new SessionService(ctx, store), ctx)
+    expect((await again.get(v.id)).state.players.p1.zones.hand).toEqual(hand)
+  }, 60_000)
+
   it.each([1, 2, 3])('seed %i: a person can play a whole game through the questions', async (seed) => {
     const sessions = new SessionService(ctx)
     const games = new GameService(sessions, ctx)

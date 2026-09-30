@@ -45,6 +45,7 @@ export const ClaudeViewSchema = z.object({
   status: z.enum(['idle', 'thinking', 'stopped']),
   chat: z.array(ChatEntrySchema),
   costUsd: z.number().describe('What the runs so far would cost on the API (a subscription login is not charged per call)'),
+  holds: z.array(PlayerSchema).optional().describe('In a lesson: the players Claude is answering for now'),
 })
 export type ClaudeView = z.infer<typeof ClaudeViewSchema>
 

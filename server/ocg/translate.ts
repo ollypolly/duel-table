@@ -31,6 +31,7 @@ const PHASES: [number, Phase][] = [
   [0x100, 'main2'],
   [0x200, 'end'],
 ]
+const PHASE_ORDER = PHASES.map(([, p]) => p)
 const phaseOf = (bits: number) => PHASES.find(([mask]) => bits & mask)?.[1]
 
 const TYPE = { fusion: 0x40, ritual: 0x80, synchro: 0x2000, xyz: 0x800000, link: 0x4000000 }
@@ -127,6 +128,8 @@ export class Translator {
     } else if (m instanceof M.YGOProMsgNewPhase) {
       const phase = phaseOf(m.phase)
       if (!phase || phase === this.state.phase) return
+      // A position that starts in Main Phase 1 has no Draw or Standby Phase to show.
+      if (this.turns === 1 && PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf(this.state.phase)) return
       this.begin({ label: PHASE_LABEL[phase] }, author)
       this.act({ type: 'phase', phase })
     } else if (m instanceof M.YGOProMsgDraw) {
@@ -400,7 +403,7 @@ export function diffWithCore(state: BoardState, duel: OcgDuel): string[] {
       if (theirs.join() !== ours.join()) out.push(`${player} ${zone}: core [${theirs}] vs ours [${ours}]`)
     }
     for (const location of [LOC.mzone, LOC.szone]) {
-      const theirs = duel.fieldCards(player, location, QUERY.code | QUERY.position)
+      const theirs = duel.fieldCards(player, location, QUERY.code | QUERY.position | QUERY.overlay)
       theirs.forEach((c, i) => {
         const sequence = c?.sequence ?? i
         if (location === LOC.szone && sequence > 5) return // pendulum zones share S/T slots under MR2020
@@ -415,6 +418,11 @@ export function diffWithCore(state: BoardState, duel: OcgDuel): string[] {
         const want = c && !c.empty ? (c.code ?? 0) : 0
         const got = iid ? (state.cards[iid].cardId ?? state.cards[iid].custom?.name) : 0
         if (want !== got && !(want && iid && state.cards[iid].custom)) out.push(`${player} ${ref.zone} ${ref.slot}: core ${want} vs ours ${got}`)
+        if (want && iid && location === LOC.mzone) {
+          const materials = (c?.overlayCards ?? []).toSorted().join()
+          const ours = state.cards[iid].materials.map(code).toSorted().join()
+          if (materials !== ours) out.push(`${player} ${ref.zone} ${ref.slot}: materials core [${materials}] vs ours [${ours}]`)
+        }
         if (want && iid && c?.position !== undefined) {
           const f = face(c.position)
           const card = state.cards[iid]

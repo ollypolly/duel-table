@@ -332,9 +332,10 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 ### Then
 
 1. **Claude-run lessons on the rules engine.** Ask Claude to teach you a deck, a combo or a matchup, freeform. A lesson is an OCG Core game that Claude operates, open-handed. Claude controls a set of seats that changes as it goes: it plays both sides to show a combo, hands you a side to make you do it, or sets up a board to test you on. Nothing it shows can be illegal, because Claude only ever picks from the core's legal options (the preset lessons are scripted on our own engine and only hand-checked). In build order:
-   1. **Claude sets up a position.** A `setup` tool: cards per zone for each side (hand, monsters, spells and traps, GY, banished, the rest of the Deck), LP and whose turn it is. `OcgDuel` takes an optional position: start hands of 0, each card placed with `newCard` at its location and sequence. The core's first question on turn 1 is already Main Phase 1, so no puzzle mode is needed. Preset lessons' starting boards can use it too.
-   2. **Claude drives, or hands over.** It answers the engine's questions for the seats it holds, narrating as it goes. A `handOver` tool gives you a side, a single decision or the rest of the turn. Your answers reach Claude as steps, so it can comment on them or take the seat back.
-   3. **Ask and check.** Choice and text questions from the lesson runtime (`server/lesson.ts`), like "what would you chain here?"
+   1. **Claude sets up a position.** Built, not yet committed: the `setup` tool, and `POST /games` with `scenario` (New game → Start from). Monsters go in by a generated Lua script, as EDOPro puzzles do, so Xyz Monsters keep their materials and Extra Deck monsters count as properly summoned.
+   2. **Claude drives, or hands over.** Built, not yet committed: New game → Lesson with Claude, with the `handOver` and `takeBack` tools and `prompts/lesson.md`.
+      - **Paced for the person.** Built, not yet committed: Claude makes one move per run (a move that adds a step, or a setup), then its tools refuse more until it has explained and stopped. It can batch routine moves (`batch` on `answer`, up to 12) and sum them up after. While it waits on a p1 decision, the person sees the options and can play it themselves or let Claude. The person gets a Next prompt, and Claude carries on when they press it or write.
+   3. **Ask and check.** Built, not yet committed: the `ask` tool opens a choice or text prompt, and the answer comes back to Claude as a message.
    4. **Rewind and the step controls.** Rewind replays the duel minus the last answers, to try again or show the right line (the coach's takeback uses the same thing). Claude can also move your view to a step, to point back at a moment without changing the duel.
    5. **Starting one:** "Teach me this deck" in the deck hub, and a box to ask for any lesson.
 2. **Claude everywhere in the app.** With a Claude login, the chat is always there, not only in a game against Claude, and Claude can act in the app: open a scenario or session, start a game, move your view to a step, fork, set up a lesson, look up cards and decks. It's the same agent and chat panel as in a game, with a wider tool set.
@@ -351,8 +352,9 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 5. **Hosting: my own server over Tailscale.** duel-table stays a personal tool, not public. On the server:
    - run `npm run dev`, logged in to Claude Code, so Claude bills to that login;
    - `tailscale serve 5180` gives HTTPS on the tailnet. The API is proxied through Vite, so that's the only port;
-   - Vite needs `server.allowedHosts: ['.ts.net']`;
+   - Vite already allows `.ts.net` hosts;
    - check the layout on a phone, since that's where lessons will happen.
+   - **Installable, the cheap way.** A web app manifest (name, icons, `display: standalone`, theme colour), an `apple-touch-icon`, and theme-color and safe-area meta tags. Then Add to Home Screen opens it full screen without browser chrome, like an app. `tailscale serve` gives the HTTPS this needs. No service worker: everything needs the live server anyway, and a cached build could go stale. If one's wanted later, `vite-plugin-pwa` generates it.
 
    Only my devices can reach it, so auth, spend limits and card-image terms don't come up. Public hosting would need all three, plus storage beyond files.
 

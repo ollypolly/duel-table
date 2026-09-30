@@ -69,7 +69,8 @@ export const api = {
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
-  createGame: (opts: { deck: string; opponentDeck: string; claude?: 'p2'; model?: ModelChoice; coach?: boolean }) => call<SessionSummary>('POST', '/games', opts),
+  createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean }) =>
+    call<SessionSummary>('POST', '/games', opts),
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
   // Whether this server has a Claude login to play with.
   claude: () => call<ClaudeStatus>('GET', '/claude').catch((): ClaudeStatus => ({ available: false })),

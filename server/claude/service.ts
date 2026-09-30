@@ -4,6 +4,13 @@
 // question; it answers with its tools. One run at a time per game: chat sent
 // meanwhile waits for the next run.
 //
+// Or Claude running a lesson: it sees the whole table, answers for the
+// players it holds (both, to begin with), sets up positions, and hands you a
+// player to try something. It pauses whenever it stops to talk, and carries
+// on when you reply or when the duel comes back to a player it holds. It
+// shows one move at a time: after each, you press Next when you've taken it
+// in. It can also ask you a question to check you've followed.
+//
 // Each game's record (settings, chat, cost, the SDK session to resume) is
 // saved by a ClaudeStore, so a game carries on after a restart.
 import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
@@ -28,6 +35,22 @@ export type ClaudeRecord = {
   seen: number // steps Claude has been told about
   texts?: string[] // cards whose text Claude has been given
   character?: Character // who Claude plays as, from its deck
+  lesson?: LessonSeats
+}
+
+// A player Claude has handed to the person, until they've answered one
+// question, until the turn ends (at is the turn it was handed over on), or
+// until Claude takes it back.
+export type Handover = { player: Player; until: 'answer' | 'turn' | 'takeBack'; at: number }
+// waitingOn: the question Claude left open when it last stopped, so it isn't
+// woken again for it. asking: the lesson prompt open for the person, Next or
+// a question from Claude.
+export type LessonSeats = { holds: Player[]; handed: Handover[]; waitingOn?: number; asking?: { id: string; question?: string } }
+
+const HANDOVER_NOTE: Record<Handover['until'], string> = {
+  answer: 'for one question',
+  turn: 'until the end of this turn',
+  takeBack: 'until Claude takes over again',
 }
 
 // Where a chat's record is kept between restarts: a game's, or a lesson's.
@@ -51,7 +74,11 @@ export const diskClaudeStore = <R = ClaudeRecord>(dir: string): RecordStore<R> =
 const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
 
 // showOnce: the person asked for a hint, so the next message shows their side.
-type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; showOnce?: boolean; run?: AgentRun; busy: boolean }
+// notes: what else to tell Claude in a lesson (Next pressed, an answer).
+type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; notes?: string[]; showOnce?: boolean; run?: AgentRun; busy: boolean }
+
+// Moves Claude can play in a row in a lesson before it has to stop.
+const MAX_BATCH = 12
 
 // Times Claude is reminded of a question it left open before a default pick.
 const NUDGES = 2
@@ -61,7 +88,7 @@ export type ClaudeDeps = {
   sessions: SessionService
   db: () => CardDb
   agent: Agent
-  system: (coach: boolean, character?: Character) => string // the system prompt
+  system: (seat: Pick<ClaudeRecord, 'coach' | 'character' | 'lesson'>) => string // the system prompt
   store?: ClaudeStore
 }
 
@@ -71,7 +98,7 @@ export class ClaudeService {
   private sessions: SessionService
   private db: () => CardDb
   private agent: Agent
-  private system: (coach: boolean, character?: Character) => string
+  private system: ClaudeDeps['system']
   private store: ClaudeStore
 
   constructor({ games, sessions, db, agent, system, store = memoryClaudeStore() }: ClaudeDeps) {
@@ -81,8 +108,37 @@ export class ClaudeService {
     this.agent = agent
     this.system = system
     this.store = store
-    games.onCreate = (id, opts) => opts.claude && this.join(id, opts.claude, opts)
+    games.onCreate = (id, opts) => (opts.lesson ? this.join(id, 'p1', opts) : opts.claude && this.join(id, opts.claude, opts))
     games.onChange = (id) => void this.poke(id)
+    games.onPersonAnswer = (id, player) => {
+      const seat = this.seat(id)
+      if (!seat?.lesson) return
+      if (seat.lesson.holds.includes(player)) {
+        this.withdraw(id, seat)
+        seat.notes = [...(seat.notes ?? []), `The person made ${player}'s move themselves instead of pressing Next.`]
+      }
+      if (seat.lesson.handed.some((h) => h.player === player && h.until === 'answer')) this.takeBack(id, seat, player)
+    }
+    // While Claude waits in a lesson, the person can make p1's move themselves.
+    games.claudeHolds = (id) => {
+      const s = this.seat(id)
+      return s && (s.lesson && !s.busy ? s.lesson.holds.filter((p) => p !== 'p1') : this.holds(s))
+    }
+    sessions.onAnswer.push((id, e) => {
+      const seat = this.seat(id)
+      const asking = seat?.lesson?.asking
+      if (!seat || asking?.id !== e.prompt.id) return
+      seat.lesson!.asking = undefined
+      if (asking.question === undefined) seat.notes = [...(seat.notes ?? []), 'The person pressed Next: carry on.']
+      else {
+        const said = e.choice?.option ?? e.text ?? ''
+        seat.chat.push({ from: 'you', text: said })
+        seat.notes = [...(seat.notes ?? []), `The person answered your question "${asking.question}": ${said}`]
+      }
+      if (seat.status === 'stopped') seat.status = 'idle'
+      this.changed(id, seat)
+      void this.poke(id)
+    })
     sessions.onRemove.push((id) => {
       void this.seats.get(id)?.run?.interrupt()
       this.seats.delete(id)
@@ -90,12 +146,24 @@ export class ClaudeService {
     })
     games.claudeView = (id) => {
       const s = this.seat(id)
-      return s && { player: s.player, model: s.model, coach: s.coach, share: s.share, status: s.status, chat: s.chat, costUsd: s.costUsd }
+      return (
+        s && {
+          player: s.player,
+          model: s.model,
+          coach: s.coach,
+          share: s.share,
+          status: s.status,
+          chat: s.chat,
+          costUsd: s.costUsd,
+          ...(s.lesson && { holds: s.lesson.holds }),
+        }
+      )
     }
   }
 
-  // Seat Claude in a new game (before its first move).
-  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean } = {}) {
+  // Seat Claude in a new game (before its first move). A lesson starts with
+  // what you asked to learn.
+  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean; lesson?: boolean; topic?: string } = {}) {
     const character = this.sessions.export(id).players?.[player].list?.character
     const seat: Seat = {
       player,
@@ -109,6 +177,12 @@ export class ClaudeService {
       status: 'idle',
       queue: [],
       busy: false,
+      ...(opts.lesson && { lesson: { holds: ['p1', 'p2'], handed: [] } }),
+    }
+    const topic = opts.topic?.trim()
+    if (opts.lesson) {
+      seat.chat.push({ from: 'you', text: topic || 'Teach me this deck.' })
+      seat.queue.push(topic || 'Teach me this deck.')
     }
     this.seats.set(id, seat)
     this.save(id, seat)
@@ -120,6 +194,7 @@ export class ClaudeService {
     seat.chat.push({ from: 'you', text })
     seat.queue.push(text)
     if (show) seat.showOnce = true
+    this.withdraw(id, seat)
     if (seat.status === 'stopped') seat.status = 'idle'
     this.changed(id, seat)
     void this.poke(id)
@@ -160,14 +235,24 @@ export class ClaudeService {
   private seat(id: string): Seat | undefined {
     const found = this.seats.get(id)
     if (found) return found
-    let player: Player | undefined
+    let duel: ReturnType<SessionService['export']>['duel']
     try {
-      player = this.sessions.export(id).duel?.claude
+      duel = this.sessions.export(id).duel
     } catch {
       return undefined
     }
+    const player = duel?.claude ?? (duel?.lesson ? 'p1' : undefined)
     if (!player) return undefined
-    const rec = this.store.load(id) ?? { player, model: 'opus', coach: true, share: false, chat: [], costUsd: 0, seen: 0 }
+    const rec: ClaudeRecord = this.store.load(id) ?? {
+      player,
+      model: 'opus',
+      coach: true,
+      share: false,
+      chat: [],
+      costUsd: 0,
+      seen: 0,
+      ...(duel?.lesson && { lesson: { holds: ['p1', 'p2'], handed: [] } }),
+    }
     const seat: Seat = { ...rec, share: rec.share ?? false, status: 'idle', queue: [], busy: false }
     this.seats.set(id, seat)
     return seat
@@ -189,6 +274,16 @@ export class ClaudeService {
       let lastAsked: number | undefined
       for (;;) {
         if (this.stopped(seat)) break
+        if (seat.lesson) {
+          await this.turnOver(id, seat)
+          const prompt = await this.question(id, seat)
+          if (!seat.queue.length && !seat.notes?.length && (!prompt || prompt.id === seat.lesson.waitingOn)) break
+          await this.run(id, seat, await this.lessonMessage(id, seat, prompt))
+          seat.lesson.waitingOn = (await this.question(id, seat))?.id
+          const waiting = await this.question(id, seat)
+          if (waiting && !seat.lesson.asking && !seat.queue.length && !this.stopped(seat)) this.askNext(id, seat, waiting.player)
+          continue
+        }
         const prompt = await this.games.asking(id, seat.player)
         if (!prompt && !seat.queue.length) break
         nudges = prompt && prompt.id === lastAsked ? nudges + 1 : 0
@@ -240,7 +335,9 @@ export class ClaudeService {
   private catchUp(id: string, seat: Seat): string[] {
     const { steps } = this.sessions.export(id)
     const state = this.sessions.get(id).state
-    const fresh = steps.slice(seat.seen).flatMap((s) => (s.label ? [publicLabel(s.label, state, seat.player, this.db())] : []))
+    // A lesson shows Claude everything.
+    const label = (l: string) => (seat.lesson ? l : publicLabel(l, state, seat.player, this.db()))
+    const fresh = steps.slice(seat.seen).flatMap((s) => (s.label ? [label(s.label)] : []))
     seat.seen = steps.length
     return fresh
   }
@@ -248,7 +345,8 @@ export class ClaudeService {
   private async run(id: string, seat: Seat, message: string) {
     seat.status = 'thinking'
     this.changed(id, seat)
-    const run = this.agent({ message, system: this.system(seat.coach, seat.character), model: seat.model, sessionId: seat.sessionId, tools: this.tools(id, seat) })
+    const tools = seat.lesson ? this.lessonTools(id, seat) : this.tools(id, seat)
+    const run = this.agent({ message, system: this.system(seat), model: seat.model, sessionId: seat.sessionId, tools })
     seat.run = run
     try {
       for await (const e of run.events) {
@@ -300,6 +398,194 @@ export class ClaudeService {
     return parts.join('\n\n')
   }
 
+  // Lessons ---------------------------------------------------------------------
+
+  private holds(seat: Seat): Player[] {
+    return seat.lesson ? seat.lesson.holds : [seat.player]
+  }
+
+  // The open question, if it's for a player Claude holds.
+  private async question(id: string, seat: Seat) {
+    for (const p of this.holds(seat)) {
+      const q = await this.games.asking(id, p)
+      if (q) return q
+    }
+  }
+
+  // Take back the players handed over until the end of a turn that's over.
+  private async turnOver(id: string, seat: Seat) {
+    const { turn } = (await this.games.get(id)).state
+    for (const h of seat.lesson!.handed) if (h.until === 'turn' && turn > h.at) this.takeBack(id, seat, h.player)
+  }
+
+  private takeBack(id: string, seat: Seat, player: Player) {
+    const lesson = seat.lesson!
+    if (!lesson.handed.some((h) => h.player === player)) return
+    lesson.handed = lesson.handed.filter((h) => h.player !== player)
+    lesson.holds = [...lesson.holds, player]
+    const name = this.sessions.get(id).state.players[player].name
+    seat.chat.push({ from: 'note', text: `Claude is playing ${name} again.` })
+    this.changed(id, seat)
+    void this.poke(id)
+  }
+
+  private async lessonMessage(id: string, seat: Seat, prompt: GamePrompt | undefined): Promise<string> {
+    const { state } = await this.games.get(id)
+    const parts: string[] = []
+    parts.push(...(seat.notes?.splice(0) ?? []))
+    for (const text of seat.queue.splice(0)) parts.push(`The person says: ${text}`)
+    const events = this.catchUp(id, seat)
+    if (events.length) parts.push(`Since you last looked:\n${events.map((e) => `- ${e}`).join('\n')}`)
+    parts.push(this.texts(state, seat, true), describeTable(state, 'p1', this.db(), true), this.seatsNote(id, seat))
+    if (prompt) parts.push(this.lessonQuestion(prompt, state))
+    else parts.push('Nothing is being asked of a player you hold right now.')
+    return parts.filter(Boolean).join('\n\n')
+  }
+
+  private lessonQuestion(prompt: GamePrompt, state: BoardState) {
+    return `For ${prompt.player} (${state.players[prompt.player].name}): ${describeQuestion(prompt, state, prompt.player, this.db())}`
+  }
+
+  private seatsNote(id: string, seat: Seat) {
+    const { players } = this.sessions.get(id).state
+    const who = (p: Player) => `${p} (${players[p].name})`
+    const { holds, handed } = seat.lesson!
+    return [
+      holds.length ? `You're playing ${holds.map(who).join(' and ')}.` : "You aren't playing either side right now.",
+      ...handed.map(
+        (h) =>
+          `The person is playing ${who(h.player)} ${h.until === 'answer' ? 'for one question' : h.until === 'turn' ? 'until the end of this turn' : 'until you take it back'}.`,
+      ),
+    ].join(' ')
+  }
+
+  // The person's Next, for when they've taken in Claude's last move. On p1's
+  // turn to decide, they can pick the move themselves instead.
+  private askNext(id: string, seat: Seat, player: Player) {
+    const prompt =
+      player === 'p1'
+        ? { type: 'ack' as const, message: 'Your side to move: pick a move yourself, or let Claude play it.', button: 'Let Claude play it' }
+        : { type: 'ack' as const, message: 'Take your time. Ready for the next move?', button: 'Next' }
+    try {
+      const open = this.sessions.ask(id, prompt)
+      seat.lesson!.asking = { id: open.id }
+    } catch {
+      // Something else is open for the person.
+    }
+  }
+
+  // Withdraw the lesson prompt Claude opened, when the person writes or moves instead.
+  private withdraw(id: string, seat: Seat) {
+    if (!seat.lesson?.asking) return
+    seat.lesson.asking = undefined
+    try {
+      this.sessions.withdraw(id)
+    } catch {
+      // Already gone (the game was restarted).
+    }
+  }
+
+  // One move a run, unless Claude batches routine moves (up to MAX_BATCH):
+  // after a move, a new position or a question, Claude explains and stops,
+  // and carries on when the person presses Next.
+  private lessonTools(id: string, seat: Seat): DuelTools {
+    const lesson = seat.lesson!
+    let paused: 'moved' | 'asked' | undefined
+    let batched = 0
+    const wait = () =>
+      paused === 'asked'
+        ? "Wait: you've asked the person something. Stop here; their answer comes as a message."
+        : "Wait: give the person a chance to take that in. Explain what just happened and why, then stop. They press Next when they're ready, and you get a message."
+    return {
+      table: () => [describeTable(this.sessions.get(id).state, 'p1', this.db(), true), this.seatsNote(id, seat)].join('\n\n'),
+      card: (name) => cardText(this.db(), name),
+      answer: async (question, choices, batch) => {
+        if (paused) return wait()
+        const prompt = await this.question(id, seat)
+        if (!prompt || prompt.id !== question)
+          return prompt ? `Question ${question} isn't open; question ${prompt.id} is.` : "There's no open question for a player you hold."
+        const before = this.sessions.export(id).steps.length
+        const state = (await this.games.get(id)).state
+        const picked = choices.map((c) => (c < prompt.options.length ? optionLabel(prompt, c, state, prompt.player, this.db()) : `#${c}`))
+        try {
+          await this.games.answer(id, prompt.player, { id: question, choices })
+        } catch (e) {
+          return `Not accepted: ${(e as Error).message}`
+        }
+        seat.chat.push({ from: 'move', text: `${state.players[prompt.player].name}: ${picked.join(', ')}` })
+        this.changed(id, seat)
+        const { steps } = this.sessions.export(id)
+        if (steps.slice(before).some((s) => s.label) && (!batch || ++batched >= MAX_BATCH)) paused = 'moved'
+        const result = await this.afterLessonAnswer(id, seat)
+        return paused ? `${result}\n\n${wait()}` : result
+      },
+      setup: async (setup, lp) => {
+        if (paused) return wait()
+        try {
+          seat.seen = 0
+          lesson.handed = []
+          lesson.holds = ['p1', 'p2']
+          lesson.waitingOn = undefined
+          lesson.asking = undefined
+          await this.games.restart(id, setup, lp)
+        } catch (e) {
+          const err = e as SessionError
+          return `That setup didn't work: ${err.message}${err.details?.length ? `\n${err.details.join('\n')}` : ''}`
+        }
+        seat.chat.push({ from: 'note', text: 'Claude set up a new position.' })
+        this.changed(id, seat)
+        paused = 'moved'
+        return [
+          "Set up. The duel starts over from here, on p1's turn in Main Phase 1.",
+          await this.afterLessonAnswer(id, seat),
+          "Wait: before playing from here, tell the person what they're looking at and stop. They press Next when they're ready.",
+        ].join('\n\n')
+      },
+      ask: (question, options) => {
+        if (paused === 'asked') return wait()
+        const prompt = options?.length ? { type: 'choice' as const, message: question, options } : { type: 'text' as const, message: question }
+        this.withdraw(id, seat)
+        try {
+          lesson.asking = { id: this.sessions.ask(id, prompt).id, question }
+        } catch (e) {
+          return `Couldn't ask: ${(e as Error).message}`
+        }
+        paused = 'asked'
+        return 'Asked. Stop here; their answer comes as a message.'
+      },
+      handOver: async (player, until) => {
+        if (!lesson.holds.includes(player)) return `You aren't playing ${player} right now.`
+        const { state } = await this.games.get(id)
+        lesson.holds = lesson.holds.filter((p) => p !== player)
+        lesson.handed = [...lesson.handed, { player, until, at: state.turn }]
+        seat.chat.push({ from: 'note', text: `Your go: you're playing ${state.players[player].name} ${HANDOVER_NOTE[until]}.` })
+        this.changed(id, seat)
+        const next = await this.question(id, seat)
+        return next
+          ? `Handed over. You're still asked this:\n\n${this.lessonQuestion(next, state)}`
+          : 'Handed over. Stop here: you will get a message when the duel comes back to a player you hold, or when the person writes.'
+      },
+      takeBack: (player) => {
+        if (!lesson.handed.some((h) => h.player === player)) return `The person isn't playing ${player}.`
+        this.takeBack(id, seat, player)
+        return `You're playing ${player} again.`
+      },
+    }
+  }
+
+  // What an answer led to, and the next question for a player Claude holds.
+  private async afterLessonAnswer(id: string, seat: Seat): Promise<string> {
+    const events = this.catchUp(id, seat)
+    const game = await this.games.get(id)
+    const parts = [events.length ? `Then:\n${events.map((e) => `- ${e}`).join('\n')}` : '', this.texts(game.state, seat, true)].filter(Boolean)
+    const winner = game.duel.result
+    const next = await this.question(id, seat)
+    if (winner) parts.push(`The duel is over: ${winner.player} (${game.state.players[winner.player].name}) won.`)
+    else if (next) parts.push(this.lessonQuestion(next, game.state))
+    else if (game.waitingFor) parts.push('The person is deciding now. Stop here; you will get a message when the duel comes back to a player you hold.')
+    return parts.join('\n\n') || 'Done.'
+  }
+
   // Claude left a question open too long: take the first legal pick.
   private async defaultAnswer(id: string, seat: Seat, prompt: GamePrompt) {
     const choices = Array.from({ length: Math.max(1, prompt.min) }, (_, i) => i)
@@ -319,7 +605,19 @@ export class ClaudeService {
 
   private save(id: string, seat: Seat) {
     if (this.seats.get(id) !== seat) return // deleted while a run was finishing
-    const { player, model, coach, share, sessionId, chat, costUsd, seen, texts } = seat
-    this.store.save(id, { player, model, coach, share, ...(sessionId && { sessionId }), chat, costUsd, seen, ...(texts && { texts }) })
+    const { player, model, coach, share, sessionId, chat, costUsd, seen, texts, character, lesson } = seat
+    this.store.save(id, {
+      player,
+      model,
+      coach,
+      share,
+      ...(sessionId && { sessionId }),
+      chat,
+      costUsd,
+      seen,
+      ...(texts && { texts }),
+      ...(character && { character }),
+      ...(lesson && { lesson }),
+    })
   }
 }
