@@ -80,7 +80,7 @@ export default function App() {
         onNewGame={() => setNewGameOpen(true)}
         onChanged={refreshTables}
       />
-      <Menu label="☰" title="More">
+      <Menu label="☰" title="More" align="right">
         <ImportBranch takenIds={all.map(resultId)} />
         {liveSessions && <MenuItem onClick={() => setDeckHubOpen(true)}>Decks…</MenuItem>}
       </Menu>
