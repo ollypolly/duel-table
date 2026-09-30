@@ -22,13 +22,13 @@ npm run fetch-ocg     # the rules engine's scripts and card database (once, for 
 npm run dev
 ```
 
-Then open http://localhost:5173.
+Then open http://localhost:5180. In tmux, the devserver popup (prefix+d) runs it for you through `mise.toml`.
 
 Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither is committed. YGOPRODeck asks that images are self-hosted rather than hotlinked.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Vite on :5173 plus the API on :5181 (proxied at `/api`). Scenario files and prompts reload as you edit them. |
+| `npm run dev` | Vite on :5180 plus the API on :5181 (proxied at `/api`). Scenario files and prompts reload as you edit them. |
 | `npm run web` / `npm run api` | Just one of the two |
 | `npm test` | Vitest, once |
 | `npm run typecheck` | `tsc -b` |
@@ -71,7 +71,7 @@ API=http://127.0.0.1:5181/api
 # Start a session from the free table after its opening hands (step 1)
 curl -s -X POST $API/sessions -H 'content-type: application/json' \
   -d '{"scenario":"free-table","atStep":1}'
-# → {"id":"s-1a2b3c", ...}. Open http://localhost:5173/?session=s-1a2b3c to watch it.
+# → {"id":"s-1a2b3c", ...}. Open http://localhost:5180/?session=s-1a2b3c to watch it.
 
 # See the hand (iids are owner-slug-copy, e.g. p1-armed-dragon-lv5-1)
 curl -s $API/sessions/s-1a2b3c | jq '.state.players.p1.zones.hand'

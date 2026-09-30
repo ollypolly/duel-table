@@ -1,0 +1,3 @@
+[tasks.dev]
+description = "Vite on :5180 plus the API on :5181"
+run = "npm run dev"

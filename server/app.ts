@@ -418,12 +418,23 @@ export function createApp({ sessions, ctx, writeFile, addCards, games, claude }:
       path: '/sessions/{id}/claude/chat',
       summary: 'Say something to Claude',
       description: "It replies (and plays, if it's asked something) on its next run. Sent while it's thinking, it waits for that run to end.",
-      request: { params: IdParam, ...body(z.object({ text: z.string().min(1) }).strict()) },
+      request: {
+        params: IdParam,
+        ...body(
+          z
+            .object({
+              text: z.string().min(1),
+              show: z.boolean().optional().openapi({ description: 'Show Claude your hidden cards and question with this message only, e.g. to ask for a hint' }),
+            })
+            .strict(),
+        ),
+      },
       responses: claudeResponses,
     }),
     (c) => {
       const { id } = c.req.valid('param')
-      needClaude().chat(id, c.req.valid('json').text)
+      const { text, show } = c.req.valid('json')
+      needClaude().chat(id, text, show)
       return c.json(sessions.get(id), 200)
     },
   )

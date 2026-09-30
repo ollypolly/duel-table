@@ -45,7 +45,8 @@ export const diskClaudeStore = (dir: string): ClaudeStore => ({
 
 const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
 
-type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; run?: AgentRun; busy: boolean }
+// showOnce: the person asked for a hint, so the next message shows their side.
+type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; showOnce?: boolean; run?: AgentRun; busy: boolean }
 
 // Times Claude is reminded of a question it left open before a default pick.
 const NUDGES = 2
@@ -101,10 +102,12 @@ export class ClaudeService {
     this.save(id, seat)
   }
 
-  chat(id: string, text: string) {
+  // show: send your hidden cards with this message only (a hint).
+  chat(id: string, text: string, show = false) {
     const seat = this.need(id)
     seat.chat.push({ from: 'you', text })
     seat.queue.push(text)
+    if (show) seat.showOnce = true
     if (seat.status === 'stopped') seat.status = 'idle'
     this.changed(id, seat)
     void this.poke(id)
@@ -196,8 +199,10 @@ export class ClaudeService {
     for (const text of seat.queue.splice(0)) parts.push(`Your opponent says: ${text}`)
     const events = this.catchUp(id, seat)
     if (events.length) parts.push(`Since you last looked:\n${events.map((e) => `- ${e}`).join('\n')}`)
-    parts.push(this.texts(state, seat), describeTable(state, seat.player, this.db(), seat.share))
-    if (seat.share) {
+    const shown = seat.share || !!seat.showOnce
+    seat.showOnce = false
+    parts.push(this.texts(state, seat, shown), describeTable(state, seat.player, this.db(), shown))
+    if (shown) {
       parts.push('Your opponent is showing you their hidden cards (named above) so you can advise them: when they ask, explain the best play for them and why.')
       const theirs = await this.games.asking(id, other(seat.player))
       if (theirs) parts.push(describeQuestion(theirs, state, other(seat.player), this.db(), true))
@@ -211,9 +216,9 @@ export class ClaudeService {
 
   // The text of each card Claude knows of and hasn't been given yet, so it
   // plays from the real text rather than memory.
-  private texts(state: BoardState, seat: Seat): string {
+  private texts(state: BoardState, seat: Seat, shown: boolean): string {
     const given = new Set(seat.texts)
-    const fresh = knownCards(state, seat.player, this.db(), seat.share).filter((n) => !given.has(n))
+    const fresh = knownCards(state, seat.player, this.db(), shown).filter((n) => !given.has(n))
     if (!fresh.length) return ''
     seat.texts = [...given, ...fresh]
     return `Card texts (new to you):\n${fresh.map((n) => cardText(this.db(), n)).join('\n\n')}`
@@ -274,7 +279,7 @@ export class ClaudeService {
   private async afterAnswer(id: string, seat: Seat): Promise<string> {
     const events = this.catchUp(id, seat)
     const game = await this.games.get(id)
-    const parts = [events.length ? `Done. Then:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Done.', this.texts(game.state, seat)].filter(Boolean)
+    const parts = [events.length ? `Done. Then:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Done.', this.texts(game.state, seat, seat.share)].filter(Boolean)
     const winner = game.duel.result
     const next = await this.games.asking(id, seat.player)
     if (winner) parts.push(`The duel is over: ${winner.player === seat.player ? 'you won' : 'your opponent won'}.`)

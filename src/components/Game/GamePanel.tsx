@@ -1,6 +1,7 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
+import { Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
@@ -19,10 +20,11 @@ type Props = {
   onChoice: (c: GameChoice) => void
   onAnswer: (choices: number[]) => void
   onRematch?: () => void // once it's over
+  onHint?: () => void // ask Claude, showing it your cards
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onHint, busy }: Props) {
   const name = (iid: Iid) => {
     const f = cardFace(state, iid, cardDb)
     return f.visible ? f.name : 'Face-down card'
@@ -74,6 +76,12 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
         </div>
       ) : (
         <SingleChoice prompt={prompt} withCard={withCard} general={general} name={name} onFocus={(focused) => onChoice({ ...choice, focused })} onAnswer={onAnswer} busy={busy} />
+      )}
+      {onHint && (
+        <button type="button" className="btn flex items-center gap-1.5 text-xs" onClick={onHint} title="Claude sees your hidden cards for this question only">
+          <Lightbulb size={14} className="text-gold" aria-hidden />
+          Ask Claude for a hint
+        </button>
       )}
     </div>
   )

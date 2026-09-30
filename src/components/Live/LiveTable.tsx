@@ -225,6 +225,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
                   onChoice={setChoice}
                   onAnswer={answerGame}
                   onRematch={rematch}
+                  onHint={game.claude ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
                   busy={busy}
                 />
               )}

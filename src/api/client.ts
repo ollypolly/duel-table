@@ -42,7 +42,7 @@ export const api = {
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
   // Whether this server has a Claude login to play with.
   claude: () => call<ClaudeStatus>('GET', '/claude').catch((): ClaudeStatus => ({ available: false })),
-  chat: (id: string, text: string) => call<unknown>('POST', `/sessions/${id}/claude/chat`, { text }),
+  chat: (id: string, text: string, show?: boolean) => call<unknown>('POST', `/sessions/${id}/claude/chat`, { text, ...(show && { show }) }),
   stopClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/stop`),
   resumeClaude: (id: string) => call<unknown>('POST', `/sessions/${id}/claude/resume`),
   claudeSettings: (id: string, s: ClaudeSettings) => call<unknown>('POST', `/sessions/${id}/claude/settings`, s),

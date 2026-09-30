@@ -349,6 +349,9 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - storage beyond files;
    - card-image terms.
 
+### Known issues
+
+- **A flipped Set monster stays sideways.** In a game, changing a Set monster's position (Flip Summon to attack) flipped it face-up but left it drawn in defense. Trace the core's position message through `server/ocg/` into our actions and on to the board's rotation.
 
 ### Rules for games: OCG Core
 
