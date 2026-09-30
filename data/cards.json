@@ -50,6 +50,15 @@
       "archetype": "Dark Magician"
     },
     {
+      "id": 61606250,
+      "name": "Armed Dragon Blitz",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Target 1 \"Armed Dragon\" monster you control; take 1 monster with the same name from your Deck or GY, and either add it to your hand or Special Summon it, ignoring its Summoning conditions, but it cannot attack directly. You can only activate 1 \"Armed Dragon Blitz\" per turn. You cannot Special Summon monsters the turn you activate this card, except Dragon monsters.",
+      "race": "Normal",
+      "archetype": "Armed Dragon"
+    },
+    {
       "id": 75906310,
       "name": "Armed Dragon Catapult Cannon",
       "type": "Fusion Monster",
@@ -60,6 +69,63 @@
       "level": 10,
       "attribute": "LIGHT",
       "race": "Machine",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 34611551,
+      "name": "Armed Dragon Flash",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Special Summon 1 Level 3 \"Armed Dragon\" monster from your Deck in Defense Position. You can only activate 1 \"Armed Dragon Flash\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 97091969,
+      "name": "Armed Dragon Lightning",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "If an \"Armed Dragon\" monster(s) you control would be destroyed by card effect, you can send this card to the GY instead. You can target 1 \"Armed Dragon\" monster you control, then activate 1 of these effects;\n● It gains ATK equal to its Level x 100 (even if this card leaves the field).\n● Add 1 \"Armed Dragon\" monster with an equal or lower Level than it from your GY to your hand.\nYou can only use this effect of \"Armed Dragon Lightning\" once per turn.",
+      "race": "Continuous",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 59464593,
+      "name": "Armed Dragon LV10",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must be Special Summoned (from your hand) by Tributing 1 \"Armed Dragon LV7\". You can send 1 card from your hand to the GY; destroy all face-up monsters your opponent controls.",
+      "atk": 3000,
+      "def": 2000,
+      "level": 10,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 84425220,
+      "name": "Armed Dragon LV10 White",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must be Special Summoned by its own effect. You can banish \"Armed Dragon\" monsters from your field and/or GY whose total Levels equal 10; Special Summon this card from your hand, then you can add 1 \"White Veil\" from your Deck to your hand. You can only use this effect of \"Armed Dragon LV10 White\" once per turn. You take no effect damage. At the start of the Damage Step, if this card attacks: You can destroy 1 card on the field.",
+      "atk": 3000,
+      "def": 2000,
+      "level": 10,
+      "attribute": "LIGHT",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 980973,
+      "name": "Armed Dragon LV3",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "During your Standby Phase: You can send this card to the GY; Special Summon 1 \"Armed Dragon LV5\" from your hand or Deck.",
+      "atk": 1200,
+      "def": 900,
+      "level": 3,
+      "attribute": "WIND",
+      "race": "Dragon",
       "archetype": "Armed Dragon"
     },
     {
@@ -89,6 +155,19 @@
       "archetype": "Armed Dragon"
     },
     {
+      "id": 58153103,
+      "name": "Armed Dragon Thunder LV10",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If this card was Special Summoned by the effect of an \"Armed Dragon\" monster, it gains the following effects based on its ATK.\n● 1+: Its name becomes \"Armed Dragon LV10\". ● 10+: Control of it cannot switch. ● 100+: Cannot be destroyed by battle. ● 1000+: Once per opponent's turn (Quick Effect): You can send 1 card from your hand to the GY, then target 1 other card on the field; destroy it, and if you do, this card gains 1000 ATK. ● 10000+: Once per turn: You can destroy all other cards on the field.",
+      "atk": 3000,
+      "def": 2000,
+      "level": 10,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
       "id": 57030525,
       "name": "Armed Dragon Thunder LV3",
       "type": "Effect Monster",
@@ -110,6 +189,41 @@
       "atk": 2400,
       "def": 1700,
       "level": 5,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 94141712,
+      "name": "Armed Dragon Thunder LV7",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "This card's name becomes \"Armed Dragon LV7\" while on the field or in the GY. You can only use each of the following effects of \"Armed Dragon Thunder LV7\" once per turn. You can send 1 monster from your hand to the GY; send this card from the field to the GY, and if you do, Special Summon 1 Level 10 or lower \"Armed Dragon\" monster from your hand or Deck. If this card is sent to the GY to activate a Dragon monster's effect: You can add 1 \"Armed Dragon\" card from your Deck to your hand.",
+      "atk": 2800,
+      "def": 1000,
+      "level": 7,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 57605303,
+      "name": "Armed Dragon Thunderbolt",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "Target 1 \"Armed Dragon\" monster you control; it gains 1000 ATK for each \"Armed Dragon\" monster in your GY with an equal or lower Level than it and with different names from each other, also for the rest of this turn, your opponent takes no battle damage from its attacks. You can banish this card from your GY, then target 1 \"Armed Dragon\" Spell in your GY; add it to your hand. You can only use 1 \"Armed Dragon Thunderbolt\" effect per turn, and only once that turn.",
+      "race": "Normal",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 75220074,
+      "name": "Armed Dragon, the Armored Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "When this card destroys an opponent's monster by battle: You can Special Summon 1 Level 5 or lower WIND Dragon monster from your hand or Deck, except \"Armed Dragon, the Armored Dragon\", but it cannot attack directly this turn.",
+      "atk": 1900,
+      "def": 1400,
+      "level": 4,
       "attribute": "WIND",
       "race": "Dragon",
       "archetype": "Armed Dragon"
@@ -693,6 +807,32 @@
       "archetype": "Gusto"
     },
     {
+      "id": 65192027,
+      "name": "Dark Armed Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must be Special Summoned (from your hand) by having exactly 3 DARK monsters in your GY. You can banish 1 DARK monster from your GY, then target 1 card on the field; destroy that target.",
+      "atk": 2800,
+      "def": 1000,
+      "level": 7,
+      "attribute": "DARK",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
+      "id": 39030883,
+      "name": "Dark Armed Dragon Punisher",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must be Special Summoned (from your hand) by having exactly 3 DARK monsters in your GY. You can reveal this card in your hand; Special Summon 1 Level 6 or lower DARK monster from your hand, also you cannot Special Summon for the rest of this turn, except DARK monsters. During the Main Phase (Quick Effect): You can banish up to 3 DARK monsters from your GY, then target that many cards on the field; destroy them. You can only use each effect of \"Dark Armed Dragon Punisher\" once per turn.",
+      "atk": 2800,
+      "def": 1000,
+      "level": 7,
+      "attribute": "DARK",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
       "id": 73452089,
       "name": "Dark Cavalry",
       "type": "Fusion Monster",
@@ -899,6 +1039,19 @@
       "frameType": "spell",
       "desc": "Send 1 Dragon monster from your Deck to the GY, then, if that monster in your GY is a Dragon Normal Monster, you can send 1 more Dragon monster from your Deck to the GY. You can only activate 1 \"Dragon Shrine\" per turn.",
       "race": "Normal"
+    },
+    {
+      "id": 46221535,
+      "name": "Drill Armed Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "You can send this card and 1 other WIND monster from your hand to the GY; for the rest of this turn, all WIND Dragon monsters you control gain 300 ATK. You can banish any number of Dragon monsters that are Level 7 or higher and/or WIND from your GY; add 1 Dragon monster from your Deck to your hand with a Level equal to the number banished, except \"Drill Armed Dragon\". You can only use each effect of \"Drill Armed Dragon\" once per turn.",
+      "atk": 1100,
+      "def": 400,
+      "level": 3,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
     },
     {
       "id": 94145022,
@@ -1258,6 +1411,19 @@
       "archetype": "Cyber Dragon"
     },
     {
+      "id": 49181828,
+      "name": "Fist Armed Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If this card is in your GY: You can target 1 Dragon monster you control; destroy it, and if you do, Special Summon this card. You can discard 1 card, then target 1 monster on the field with 2400 or less ATK; destroy it, then if you destroyed a monster you control, you can Special Summon 1 Dragon monster from your hand or Deck, whose original Level is 2 higher than that monster's. You can only use each effect of \"Fist Armed Dragon\" once per turn.",
+      "atk": 2400,
+      "def": 1700,
+      "level": 5,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
+    },
+    {
       "id": 45231177,
       "name": "Flame Swordsman",
       "type": "Fusion Monster",
@@ -1458,6 +1624,18 @@
       "frameType": "spell",
       "desc": "Roll a six-sided die. All monsters you currently control gain ATK/DEF equal to the result x 100, until the end of this turn.",
       "race": "Quick-Play"
+    },
+    {
+      "id": 68473226,
+      "name": "Hardened Armed Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "(This card is not treated as an \"Armed Dragon\" card.)\nYou can Special Summon this card (from your hand) by sending 1 Level 8 or higher monster from your hand to the Graveyard. If you Tribute this card for the Tribute Summon of a Level 7 or higher monster, that monster cannot be destroyed by card effects.",
+      "atk": 1500,
+      "def": 800,
+      "level": 4,
+      "attribute": "EARTH",
+      "race": "Dragon"
     },
     {
       "id": 18144507,
@@ -1672,6 +1850,19 @@
       "level": 4,
       "attribute": "DARK",
       "race": "Reptile"
+    },
+    {
+      "id": 98007437,
+      "name": "Knight Armed Dragon, the Armored Knight Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If you Special Summon a Level 5 or higher Dragon monster(s): You can Special Summon this card from your hand. If this card is Special Summoned: You can make this card's Attribute and Level become the same as 1 of your banished Dragon monsters'. If this card is sent to the GY: You can target 1 Dragon monster you control; it gains 1000 ATK. Neither player can activate cards or effects in response to this effect's activation. You can only use each effect of \"Knight Armed Dragon, the Armored Knight Dragon\" once per turn.",
+      "atk": 1400,
+      "def": 1900,
+      "level": 3,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Light and Darkness Dragon"
     },
     {
       "id": 2857636,
@@ -1900,6 +2091,19 @@
       "attribute": "LIGHT",
       "race": "Cyberse",
       "archetype": "Mekk-Knight"
+    },
+    {
+      "id": 89189982,
+      "name": "Metaphys Armed Dragon",
+      "type": "Normal Monster",
+      "frameType": "normal",
+      "desc": "Usually visible despite its phantom existence.",
+      "atk": 2800,
+      "def": 1000,
+      "level": 7,
+      "attribute": "LIGHT",
+      "race": "Wyrm",
+      "archetype": "Armed Dragon"
     },
     {
       "id": 90660762,
@@ -2188,6 +2392,59 @@
       "archetype": "Ojama"
     },
     {
+      "id": 64627453,
+      "name": "Ojama Blue",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "When this card is destroyed by battle and sent to the GY: You can add 2 \"Ojama\" cards from your Deck to your hand.",
+      "atk": 0,
+      "def": 1000,
+      "level": 2,
+      "attribute": "LIGHT",
+      "race": "Beast",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 90011152,
+      "name": "Ojama Country",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Once per turn, you can send 1 \"Ojama\" card from your hand to the Graveyard to Special Summon 1 \"Ojama\" monster from your Graveyard. While you control a face-up \"Ojama\" monster, switch the original ATK and DEF of all monsters on the field. (\"Ojama\" can include \"Ojamuscle\".)",
+      "race": "Field",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 8251996,
+      "name": "Ojama Delta Hurricane!!",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "You can only activate this card while \"Ojama Green\", \"Ojama Yellow\" and \"Ojama Black\" are face-up on your side of the field. Destroy all cards on your opponent's side of the field.",
+      "race": "Normal",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 14470845,
+      "name": "Ojama Duo",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "Special Summon 2 \"Ojama Tokens\" (Beast/LIGHT/Level 2/ATK 0/DEF 1000) to your opponent's field in Defense Position. These Tokens cannot be Tributed for a Tribute Summon, and each time 1 is destroyed, its controller takes 300 damage. During either player's turn, except the turn this card was sent to the GY: You can banish this card from your GY; Special Summon 2 \"Ojama\" monsters with different names from your Deck.",
+      "race": "Normal",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 34031284,
+      "name": "Ojama Emperor",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "3 Beast monsters, including an \"Ojama\" monster\nWhile \"Ojama Country\" is in a Field Zone, this card gains 3000 ATK, also it cannot be destroyed by card effects. Your opponent takes any battle damage you would have taken from attacks on this card, instead. You can target 1 non-Link \"Ojama\" monster in your GY; Special Summon it, also for the rest of this turn, you cannot Special Summon monsters from the Extra Deck, except Fusion Monsters. You can only use this effect of \"Ojama Emperor\" once per turn.",
+      "atk": 0,
+      "level": null,
+      "linkval": 3,
+      "attribute": "LIGHT",
+      "race": "Beast",
+      "archetype": "Ojama"
+    },
+    {
       "id": 12482652,
       "name": "Ojama Green",
       "type": "Normal Monster",
@@ -2236,6 +2493,50 @@
       "archetype": "Armed Dragon"
     },
     {
+      "id": 42517468,
+      "name": "Ojama Pink",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If this card is sent from the hand or field to the GY: You can activate this effect; each player draws 1 card, then each player discards 1 card, then, if you discarded an \"Ojama\" card, you can choose 1 opponent's unused Monster Zone, and it cannot be used until the end of your opponent's turn. You can only use this effect of \"Ojama Pink\" once per turn.",
+      "atk": 0,
+      "def": 1000,
+      "level": 2,
+      "attribute": "LIGHT",
+      "race": "Beast",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 37132349,
+      "name": "Ojama Red",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "When this card is Normal Summoned: You can Special Summon up to 4 \"Ojama\" monsters from your hand in Attack Position.",
+      "atk": 0,
+      "def": 1000,
+      "level": 2,
+      "attribute": "LIGHT",
+      "race": "Beast",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 14470846,
+      "name": "Ojama Token",
+      "type": "Token",
+      "frameType": "token",
+      "desc": "This card can be used as an \"Ojama Token\".\n\n*If used for another Token, apply that Token's Type/Attribute/Level/ATK/DEF.",
+      "race": "Beast",
+      "archetype": "Ojama"
+    },
+    {
+      "id": 29843091,
+      "name": "Ojama Trio",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "Special Summon 3 \"Ojama Tokens\" (Beast-Type/LIGHT/Level 2/ATK 0/DEF 1000) to your opponent's field in Defense Position. They cannot be Tributed for a Tribute Summon, and each time 1 is destroyed, its controller takes 300 damage.",
+      "race": "Normal",
+      "archetype": "Ojama"
+    },
+    {
       "id": 42941100,
       "name": "Ojama Yellow",
       "type": "Normal Monster",
@@ -2258,6 +2559,15 @@
       "archetype": "Ojama"
     },
     {
+      "id": 100000101,
+      "name": "Ojamandala",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Pay 1000 Life Points. Special Summon 1 \"Ojama Green\", \"Ojama Yellow\" and \"Ojama Black\" from your Graveyard.",
+      "race": "Normal",
+      "archetype": "Ojama"
+    },
+    {
       "id": 2390019,
       "name": "Ojamassimilation",
       "type": "Spell Card",
@@ -2274,6 +2584,15 @@
       "desc": "Send 1 \"Ojama\" card from your hand or face-up from your field to the GY; add to your hand, 1 \"Ojama\" monster with a different name and 1 \"Armed Dragon\" monster from your Deck and/or GY, then, immediately after this effect resolves, you can Normal Summon 1 of those monsters. During your Main Phase: You can banish this card from your GY, then target 3 of your banished \"Ojama\" monsters; shuffle them into the Deck, then draw 1 card.",
       "race": "Quick-Play",
       "archetype": "Armed Dragon"
+    },
+    {
+      "id": 98259197,
+      "name": "Ojamuscle",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "(This card is always treated as a \"Ojama\" card.)\nSelect 1 face-up \"Ojama King\". Destroy all \"Ojama\" monsters on the field, except the selected \"Ojama King\". It gains 1000 ATK for each monster destroyed this way.",
+      "race": "Normal",
+      "archetype": "Ojama"
     },
     {
       "id": 2295440,
@@ -2321,6 +2640,19 @@
       "desc": "Tribute 2 \"Cyber Dragons\". Special Summon 1 \"Cyber Laser Dragon\" from your hand, Deck, or Graveyard.",
       "race": "Quick-Play",
       "archetype": "Cyber Dragon"
+    },
+    {
+      "id": 19153590,
+      "name": "Pile Armed Dragon",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "You can send 1 other WIND Dragon monster or 1 other Level 7 or higher Dragon monster from your hand to the GY; Special Summon this card from your hand. You can send 1 \"Armed Dragon\" monster from your hand or Deck to the GY, except \"Pile Armed Dragon\", then target 1 face-up monster you control; that targeted monster gains ATK equal to the Level of the monster sent to the GY x 300, until the end of this turn, also you can only attack with 1 monster this turn. You can only use each effect of \"Pile Armed Dragon\" once per turn.",
+      "atk": 2800,
+      "def": 1000,
+      "level": 7,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "Armed Dragon"
     },
     {
       "id": 24094653,
