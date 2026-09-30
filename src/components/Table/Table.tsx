@@ -101,7 +101,7 @@ export function Table({
   // screen is phone-sized, where it would cover the board.
   const [panelOpen, setPanelOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches)
   const phone = useMediaQuery('(max-width: 639px)')
-  const { ref: sheetRef, headerRef: sheetHeaderRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
+  const { ref: sheetRef, peekRef: sheetPeekRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
   const messages = activity?.messages ?? 0
   const [seen, setSeen] = useState(messages)
@@ -211,7 +211,7 @@ export function Table({
         <motion.div
           ref={sheetRef}
           {...sheetProps}
-          className={`pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-10 flex flex-col *:pointer-events-auto sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
+          className={`pointer-events-none absolute inset-x-0 bottom-[env(safe-area-inset-bottom)] z-10 flex flex-col *:pointer-events-auto sm:bottom-auto sm:left-3 sm:right-auto sm:top-3 sm:w-96 sm:transition-transform sm:duration-300 sm:ease-out ${
             chat ? 'h-[calc(100%-6rem)] sm:h-[calc(100%-1.5rem)]' : 'max-h-[55%] sm:max-h-[calc(100%-1.5rem)]'
           } ${panelOpen ? '' : 'sm:-translate-x-[calc(100%+0.75rem)]'}`}
           data-testid="scene-panel"
@@ -234,12 +234,13 @@ export function Table({
               {alert && !typing && <AlertDot className="absolute -right-1 -top-1" />}
             </button>
           )}
-          <div className={`panel flex min-h-0 flex-col ${chat ? 'flex-1' : ''}`}>
+          <div
+            className={`panel flex min-h-0 flex-col max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${chat ? 'flex-1' : ''}`}
+          >
             {/* On a phone, the sheet's header: the handle, and the one thing
-                most worth knowing, which is all that shows when it's closed. */}
+                most worth knowing. Closed, it and the playback bar under it show. */}
             {phone && (
               <button
-                ref={sheetHeaderRef}
                 type="button"
                 className="flex w-full shrink-0 touch-none flex-col items-center gap-1.5 border-b border-line px-3 pb-2.5 pt-2"
                 onClick={togglePanel}
@@ -273,7 +274,7 @@ export function Table({
                 </span>
               </button>
             )}
-            <div className="shrink-0 touch-none border-b border-line px-2 py-2 sm:touch-auto" onPointerDown={startDrag}>
+            <div ref={sheetPeekRef} className="shrink-0 touch-none border-b border-line px-2 py-2 sm:touch-auto" onPointerDown={startDrag}>
               <StepControls
                 position={position}
                 labels={scenario.game.steps.map((s, i) => s.label ?? `Step ${i + 1}`)}
@@ -317,6 +318,9 @@ export function Table({
           </div>
         </motion.div>
 
+        {/* Under the phone sheet: the home bar's safe area, in the sheet's colour. */}
+        {phone && <div className="absolute inset-x-0 bottom-0 z-10 h-[env(safe-area-inset-bottom)] bg-surface" />}
+
         <DamagePopups changes={lpChanges} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
         {freePlay && (
@@ -325,17 +329,10 @@ export function Table({
           </div>
         )}
 
-        <label
-          className="panel absolute right-3 top-3 z-10 flex h-9 cursor-pointer items-center gap-1.5 px-2.5 text-xs text-muted hover:text-ink"
-          title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
-        >
-          <input type="checkbox" className="accent-gold" checked={followFocus} onChange={(e) => setFollowFocus(e.target.checked)} aria-label="Focus" />
-          <span className="hidden sm:inline">Focus</span>
-          <Crosshair size={14} className="sm:hidden" aria-hidden />
-        </label>
+        <FocusToggle checked={followFocus} onChange={setFollowFocus} />
 
         {!(phone && panelOpen) && (
-          <div className="absolute right-3 top-14 z-10 max-h-[40%] w-56 overflow-y-auto sm:w-64">
+          <div className="absolute right-3 top-16 z-10 max-h-[40%] w-56 overflow-y-auto sm:top-14 sm:w-64">
             <ChainList view={view} />
           </div>
         )}
@@ -364,6 +361,19 @@ export function Table({
         />
       )}
     </SeatDecks.Provider>
+  )
+}
+
+function FocusToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label
+      className="panel absolute right-3 top-3 z-10 flex h-11 cursor-pointer items-center gap-2 px-3.5 text-sm text-muted hover:text-ink sm:h-9 sm:gap-1.5 sm:px-2.5 sm:text-xs"
+      title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
+    >
+      <input type="checkbox" className="accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label="Focus" />
+      <span className="hidden sm:inline">Focus</span>
+      <Crosshair size={18} className="sm:hidden" aria-hidden />
+    </label>
   )
 }
 

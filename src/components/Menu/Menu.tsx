@@ -40,9 +40,8 @@ export function Menu({
       <div
         role="menu"
         hidden={!open}
-        // Solid, not glass: the table's status showed through blurred. On a
-        // phone a menu below spans the screen rather than running off its edge.
-        className={`panel absolute z-40 flex max-h-[calc(100dvh-4rem)] min-w-44 flex-col overflow-y-auto bg-surface p-1 backdrop-blur-none ${align === 'left' ? 'left-0' : 'right-0'} ${side === 'bottom' ? 'top-full mt-1 max-sm:fixed max-sm:inset-x-3 max-sm:top-11' : 'bottom-full mb-1'}`}
+        // Solid, not glass: the table's status showed through blurred.
+        className={`panel absolute z-40 flex max-h-[calc(100dvh-4rem)] max-w-[calc(100vw-1.5rem)] min-w-44 flex-col overflow-y-auto bg-surface p-1 backdrop-blur-none ${align === 'left' ? 'left-0' : 'right-0'} ${side === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'}`}
         onClick={(e) => {
           const el = e.target as HTMLElement
           if (el.closest('button') && !el.closest('[data-keep-open]')) setOpen(false)

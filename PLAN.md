@@ -345,7 +345,8 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
    - Subsumes "Claude drives the review" below, and reuses the lesson tools.
 3. **Tables, then a home screen.** The Tables picker replaced the scenario dropdown and the Live menu: games (in progress and past, with who played whom and the Claude chat kept), boards, then lessons and scenarios, with rename and delete.
    - **A home screen to open on**, instead of dropping you into the last table or the free-table scenario. A chat-style opener with buttons: Play the bot, Play Claude, Start a lesson, Add a deck, Browse scenarios, and a box to ask Claude anything. Without a Claude login, the buttons still work and the Claude parts show how to log in. Asking a question needs Claude everywhere (2).
-4. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot.
+4. **Review a game with Claude.** Afterwards (or mid-game), go back and ask Claude what you should have done at any spot. This covers any finished table: a game against Claude or the bot, and a lesson, which you step back through with Claude to learn from it.
+   - **Starting one.** A "Review with Claude" option on a finished table (in the Tables picker and the More menu). It opens the table with the chat, Claude primed with the whole game and its chat log, and your view at the start or at the step you pick.
    - **Review what you're looking at.** Chat sent while scrubbed back gives Claude the table at that step; once the game is over it sees everything.
    - **Replay from a decision.** Fork a game at one of your questions and play on against Claude from there. Needs each saved answer tied to the step it produced. Forking a game is off until then: `fork` cuts the steps but keeps every answer, so the replay wouldn't match.
    - **Claude drives the review.** Tools to point your view at a step and fork at a decision, alongside the lesson tools.

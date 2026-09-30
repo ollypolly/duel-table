@@ -1,7 +1,7 @@
 // The scene panel as a bottom sheet on a phone, after workout-app's live
 // workout drawer: drag it by its header and it follows your finger, then snaps
-// open or closed by where you let go and how hard you flicked. Closed, only
-// the header shows. Only the header starts a drag, so the chat still scrolls.
+// open or closed by where you let go and how hard you flicked. Closed, it
+// shows down to the bottom of the peek element (the header and playback bar). Only the header starts a drag, so the chat still scrolls.
 import { animate, useDragControls, useMotionValue, type PanInfo } from 'motion/react'
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react'
 
@@ -14,21 +14,21 @@ export const sheetOpens = (velocity: number, y: number, closedY: number) =>
 
 export function useSheet(open: boolean, setOpen: (open: boolean) => void, enabled: boolean) {
   const ref = useRef<HTMLDivElement>(null)
-  const headerRef = useRef<HTMLButtonElement>(null)
+  const peekRef = useRef<HTMLDivElement>(null)
   const y = useMotionValue(0)
   const controls = useDragControls()
-  const [height, setHeight] = useState(0) // hidden when closed: all but the header
+  const [height, setHeight] = useState(0) // hidden when closed: everything under the peek
   const dragging = useRef(false)
   const placed = useRef(false)
   const closedY = enabled ? height : 0
 
   useLayoutEffect(() => {
     const el = ref.current
-    const header = headerRef.current
-    if (!el || !header || typeof ResizeObserver !== 'function') return
-    const observer = new ResizeObserver(() => setHeight(el.offsetHeight - header.offsetHeight))
+    const peek = peekRef.current
+    if (!el || !peek || typeof ResizeObserver !== 'function') return
+    const observer = new ResizeObserver(() => setHeight(el.getBoundingClientRect().bottom - peek.getBoundingClientRect().bottom))
     observer.observe(el)
-    observer.observe(header)
+    observer.observe(peek)
     return () => observer.disconnect()
   }, [enabled])
 
@@ -59,7 +59,7 @@ export function useSheet(open: boolean, setOpen: (open: boolean) => void, enable
 
   return {
     ref,
-    headerRef,
+    peekRef,
     motionProps: enabled
       ? {
           style: { y },
