@@ -80,7 +80,44 @@ Doesn't depend on the bots beyond step 2, so it can ship with Rules bot and Clau
 - Decks: import its lists from `assets/deck` as decks of ours, marked as the trained bot's. Blue-Eyes, Hero and Cyber Dragon first, then the rest of the 30.
 - Check before building the rest: a bot-vs-bot game with its Blue-Eyes list finishes, falling back on only a small share of questions; then one game against it with the Pink Chazz deck to judge how it copes with cards it can't see.
 
-### 5. Real WindBot, only if its decks are wanted
+### 5. In-game Claude improvements
+
+Claude is worth having at the table even when it isn't the opponent, and its advice is only as good as what it can look up. Today it has three tools in a game (`table`, `card`, and `answer` when it's playing), and it only sees your hidden cards and your open question when you talk to it or turn sharing on.
+
+**Claude as coach in a bot game.** A game against the rules bot or the trained bot can have Claude beside you: the same chat panel, with no seat. It answers when you ask and costs nothing while you don't. It's on your side, so it sees what you see (your hand, your face-downs, your Extra Deck, your open question) and never the bot's hidden cards. Against Claude as the opponent nothing changes: it sees your side only when you show it.
+
+**Context it should always have when you ask.** Mostly there today for the table; the rest is new.
+- Your open question as you see it: what it's for, which effect is asking, whether it costs you, and every option.
+- What has been used up this turn: the Normal Summon, each once-per-turn effect already activated, attacks declared.
+- The chain as it stands and what just resolved.
+- The last few moves by both sides, not only those since it last looked.
+- Your decklist and what's left in the Deck, so it stops guessing what you can still search.
+- Who the opponent is (rules bot, trained bot, itself) and, for a bot, what its deck is known for.
+- What you're trying to learn: your notes on this deck (`docs/DECK-NOTES.md` is the start of this) and the misplays past reviews marked with it.
+
+**Tools to add.** Roughly in order of how much better they'd make the advice.
+- `deck`: your decklist with counts, and what's still in the Deck, hand, GY and banished by card. "Is there an Ojama Black left to search" should be a lookup, not a memory test. Its own list too when it's playing.
+- `options`: your open question and its legal options, on demand, without you having to speak first.
+- `tryLine`: play a line on a copy of the duel and report what happens (what resolves, what the opponent could respond with from open information, the table after). The game is a list of answers replayed through the engine, so a copy is cheap. This turns "I think that works" into "I checked it works", and catches the wrong-ruling advice it gives today. The copy mustn't leak hidden cards: the opponent's hidden cards and both Decks' order are reshuffled in it.
+- `history`: the moves so far, by turn, and `tableAt(step)` for the table at any of them (the review already has this).
+- `lethal`: whether there is lethal on board this turn and the attacks that get there, from the engine's own damage numbers.
+- `odds`: the chance of drawing or opening a card or combination, from the deck counts (hypergeometric), for deck-building questions.
+- `searchCards`: find cards in the full card database by name, archetype or text, for "what else could this deck run". `card` already gives one card's text.
+- `rules`: look up a rules topic (missing the timing, damage step, chain order, once per turn against once per chain) in a short reference we write, so it quotes the rule rather than recalling it.
+- `ruling`: for a card interaction it's unsure of, ask the engine through `tryLine` rather than assert it.
+- `point`: highlight a card or an option on your screen while it explains, as the lesson's prompts already can.
+- `offerTakeBack`: offer to rewind to a moment so you can try the better play, using the same rewind as take-back.
+- `mark`: note a moment for the review afterwards, so the review starts from what came up in the game.
+- `note`: save something to your notes on this deck (a rule of thumb, a card to cut) and read them back next game.
+- `suggestDeck`: propose a changed list as a new deck beside the old one, for you to accept or not.
+- `botMove`: why the bot did what it just did (the rule that fired, or the trained bot's probabilities and win rate), so Claude can explain the opponent's play instead of guessing.
+- `evaluate`: the trained bot's win-rate estimate for the position and its preferred move from your side, where your cards are within its 864. A second opinion Claude can weigh, not an answer.
+
+**Prompt.** `prompts/coach.md` should tell it to look things up before advising: check the deck before saying what can be searched, try the line before promising it works, and say so when it couldn't check. A tip should name the play, the reason, and what to watch for next.
+
+**Order.** Coach seat in bot games and the always-there context first, with `deck`, `options` and `history`. Then `tryLine`, which `lethal`, `ruling` and `offerTakeBack` build on. The rest as they come up.
+
+### 6. Real WindBot, only if its decks are wanted
 
 A minimal room copied from srvpro2, with WindBot in a container, and each executor's list (`Decks/*.ydk`) imported as a deck of ours marked as WindBot's. One to two weeks. Unknown: Mono's memory use, whether its card database and protocol version match ours, and take-back with a connected player.
 
@@ -89,3 +126,4 @@ A minimal room copied from srvpro2, with WindBot in a container, and each execut
 - Order: this plan goes rules bot, picker, screen, trained bot. The screen could go first with today's two opponents.
 - What the opponents are called in the picker.
 - Whether a fallback is silent or leaves a line in the feed.
+- Whether the coach in a bot game may know the bot's decklist (it's what a player who knows the matchup would know) or only what has been played.
