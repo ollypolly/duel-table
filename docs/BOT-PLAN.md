@@ -61,11 +61,13 @@ The one that plays the decks we have, and everyone's fallback.
 - `GameService` asks a bot through one interface: given the question and the state, return a response, or nothing to fall through to the next bot.
 - An opponents endpoint (alongside the Claude status) says which are available and which decks each can play.
 
+**Decks say who can play them.** The rules bot and Claude play any deck. A bot with its own lists plays only those, so each of its lists is added to `decks/` as a deck of ours, marked with the bot it belongs to (a field on the deck file, say `bot: "agent"`). A marked deck is still an ordinary deck: you, the rules bot and Claude can play it too. Adding one means its cards go into `data/cards.json` and its images are fetched, so a script imports a list from the bot's own format (`.ydk`) rather than typing it out.
+
 ### 3. New game screen
 
 - **Opponent dropdown** in place of the radios, with a line under it that changes with the choice: Rules bot (free, plays sensibly), Trained bot (free, plays to win with its own decks), Claude (plays to win, chats and coaches, uses your plan). An unavailable one stays listed but disabled, with the reason.
 - **Three groups:** Opponent, Decks, Options. Claude's model and coach toggle show only for Claude; Start from moves into Options.
-- **Deck pickers:** the opponent's list narrows to what that opponent can play.
+- **Deck pickers:** the opponent's list narrows to what that opponent can play: every deck for the rules bot and Claude, only its own for the trained bot.
 - Lessons keep the same dialog and layout, without the opponent picker.
 
 Doesn't depend on the bots beyond step 2, so it can ship with Rules bot and Claude and gain Trained bot later.
@@ -75,12 +77,12 @@ Doesn't depend on the bots beyond step 2, so it can ship with Rules bot and Clau
 - `server/ocg/agentBot.ts`: translate the question and the table from its side to the agent's JSON, post it, play the most probable option. Cards outside its list go as code 0. Start with idle command, battle command, chain and select card, then the rest.
 - A duel on the agent per game, dropped when the game ends; rebuilt by replaying its answers after a take-back or a server restart.
 - `YGO_AGENT_URL` in the environment; unset or unreachable means the option is unavailable, and a failure mid-game falls back to the rules bot.
-- Decks: add its lists as decks of ours, marked as playable by the trained bot (cards into `data/cards.json`, images fetched). Start with Blue-Eyes, Hero and Cyber Dragon.
+- Decks: import its lists from `assets/deck` as decks of ours, marked as the trained bot's. Blue-Eyes, Hero and Cyber Dragon first, then the rest of the 30.
 - Check before building the rest: a bot-vs-bot game with its Blue-Eyes list finishes, falling back on only a small share of questions; then one game against it with the Pink Chazz deck to judge how it copes with cards it can't see.
 
 ### 5. Real WindBot, only if its decks are wanted
 
-A minimal room copied from srvpro2, with WindBot in a container. One to two weeks. Unknown: Mono's memory use, whether its card database and protocol version match ours, and take-back with a connected player.
+A minimal room copied from srvpro2, with WindBot in a container, and each executor's list (`Decks/*.ydk`) imported as a deck of ours marked as WindBot's. One to two weeks. Unknown: Mono's memory use, whether its card database and protocol version match ours, and take-back with a connected player.
 
 ## Open decisions
 
