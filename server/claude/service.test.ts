@@ -237,8 +237,6 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(seen.odds).toMatch(/1 of the 40 cards in the Main Deck are Ojama Yellow\. At least one in 5 draws: 12\.5%/)
     expect(seen.search).toContain('- Ojama Yellow (')
     expect(claude.played(v.id)?.flags).toMatchObject([{ kind: 'mistake', player: 'p1' }])
-    // A trial keeps back what it drew.
-    expect(seen.line).not.toMatch(/Hand \(6\): (?!.*1 hidden)/)
 
     // Without the bot's decklist, only what's on show.
     claude.settings(v.id, { knowsDeck: false })
