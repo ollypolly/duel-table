@@ -305,10 +305,12 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const results: string[] = []
     const batched: string[] = []
     const requests: AgentRequest[] = []
+    const plans: string[] = []
     const lessonAgent: Agent = (req) => {
       requests.push(req)
       async function* run(): AsyncIterable<AgentEvent> {
         if (requests.length === 1) {
+          plans.push(req.tools.plan!(), req.tools.plan!(['Summoning it', 'What it brings out']), req.tools.plan!(), req.tools.plan!())
           results.push(
             await req.tools.setup!(
               {
@@ -354,6 +356,14 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     }
     await claude.idle(v.id)
     expect(requests[0].system).toBe('lesson')
+    // The plan is kept in view, on the point Claude has reached.
+    expect(plans).toEqual([
+      'There is no plan yet: give its points first.',
+      'The person sees: 1 of 2, Summoning it.',
+      'The person sees: 2 of 2, What it brings out.',
+      'The plan is done: wrap up with two or three takeaways.',
+    ])
+    expect(sessions.get(v.id).game?.claude?.plan).toEqual({ points: ['Summoning it', 'What it brings out'], now: 2 })
     expect(requests[0].message).toContain('The person says: Teach me Goblindbergh')
     expect(results[0]).toMatch(/^Set up\./)
     expect(results[0]).toContain('For p1')
@@ -366,7 +376,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.file.players?.p1.cards).toEqual(['Dark Magician'])
     // It stopped to explain. It's p1's move, so the person can let Claude play it or pick it themselves.
     expect(requests.length).toBe(1)
-    expect(s.lesson.prompt).toMatchObject({ type: 'ack', button: 'Let Claude play it' })
+    expect(s.lesson.prompt).toMatchObject({ type: 'ack', button: 'Show me instead', quiet: true })
     expect(s.game?.prompt?.player).toBe('p1')
 
     await shown()

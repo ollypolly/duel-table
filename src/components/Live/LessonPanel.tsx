@@ -35,6 +35,38 @@ export function LessonPanel({ lesson, away, onBackToLive, onNext, onAnswer }: Pr
   )
 }
 
+// What a lesson covers and the point it's on, under the playback bar: a
+// segment per point, the current one named. Click it for the whole list.
+export function LessonPlan({ plan }: { plan: { points: string[]; now: number } }) {
+  const [open, setOpen] = useState(false)
+  const { points, now } = plan
+  const done = now >= points.length
+  return (
+    <div className="px-1" data-testid="lesson-plan">
+      <button type="button" className="w-full space-y-1.5 rounded-md px-1 py-1 text-left hover:bg-raised" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="flex gap-1" aria-hidden>
+          {points.map((p, i) => (
+            <span key={p + i} className={`h-1 flex-1 rounded-full ${i < now ? 'bg-gold' : i === now ? 'bg-gold/60' : 'bg-line'}`} />
+          ))}
+        </span>
+        <span className="flex items-baseline gap-2 text-xs">
+          <span className="shrink-0 font-display font-bold uppercase tracking-wider text-gold">{done ? 'Lesson done' : `${now + 1} of ${points.length}`}</span>
+          {!done && <span className="min-w-0 truncate text-ink">{points[now]}</span>}
+        </span>
+      </button>
+      {open && (
+        <ol className="mt-1 space-y-0.5 px-1 text-xs">
+          {points.map((p, i) => (
+            <li key={p + i} className={i < now ? 'text-muted line-through' : i === now ? 'font-semibold text-ink' : 'text-muted'}>
+              {i + 1}. {p}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 function PromptCard({ prompt, onAnswer }: { prompt: OpenPrompt; onAnswer: (answer: Answer) => void }) {
   const [text, setText] = useState('')
   const answer = (a: Omit<Answer, 'id'> = {}) => onAnswer({ id: prompt.id, ...a })
@@ -44,7 +76,7 @@ function PromptCard({ prompt, onAnswer }: { prompt: OpenPrompt; onAnswer: (answe
         <CardMarkdown>{prompt.message}</CardMarkdown>
       </div>
       {prompt.type === 'ack' && (
-        <button type="button" className="btn btn-primary" onClick={() => answer()}>
+        <button type="button" className={prompt.quiet ? 'btn text-xs' : 'btn btn-primary'} onClick={() => answer()}>
           {prompt.button ?? 'Got it'}
         </button>
       )}

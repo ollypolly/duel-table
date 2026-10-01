@@ -40,6 +40,7 @@ export type DuelTools = {
   handOver?(player: Player, until: Handover['until']): Promise<string>
   takeBack?(player: Player): string
   ask?(question: string, options?: string[]): string
+  plan?(points?: string[], now?: number): string
   // Reviewing a finished game: the table after any step, and marking key moments.
   tableAt?(step: number): string
   mark?(moment: Moment): string
@@ -60,7 +61,7 @@ const MAX_TURNS = 60
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
 export const sdkAgent: Agent = (req) => {
-  const { answer, setup, handOver, takeBack, ask, tableAt, mark, deck, history, options, tryLine } = req.tools
+  const { answer, setup, handOver, takeBack, ask, plan, tableAt, mark, deck, history, options, tryLine } = req.tools
   const t = req.tools
   const entries = z.array(z.object({ name: z.string(), count: z.int().min(1).max(3) }))
   // The coach's other tools, each there only when the service gives it.
@@ -167,6 +168,16 @@ export const sdkAgent: Agent = (req) => {
               { question: z.string(), options: z.array(z.string()).max(6).optional() },
               async (input) => text(ask(input.question, input.options)),
             ),
+            ...(plan
+              ? [
+                  tool(
+                    'plan',
+                    "The lesson's plan, pinned above the chat with the point you're on. First call: give its 3 to 5 points, each a few words. After that, call it with no points each time you move on to the next point (or now, to go to a given one, counting from 0). Past the last point, the lesson is done.",
+                    { points: z.array(z.string().min(1).max(60)).min(2).max(6).optional(), now: z.int().min(0).optional() },
+                    async (input) => text(plan(input.points, input.now)),
+                  ),
+                ]
+              : []),
           ]
         : []),
       ...(tableAt && mark
@@ -196,7 +207,7 @@ export const sdkAgent: Agent = (req) => {
         ...(deck ? ['mcp__duel__deck', 'mcp__duel__history'] : []),
         ...(tryLine ? ['mcp__duel__options', 'mcp__duel__tryLine'] : []),
         ...COACH.filter((n) => t[n]).map((n) => `mcp__duel__${n}`),
-        ...(setup ? ['mcp__duel__setup', 'mcp__duel__handOver', 'mcp__duel__takeBack', 'mcp__duel__ask'] : []),
+        ...(setup ? ['mcp__duel__setup', 'mcp__duel__handOver', 'mcp__duel__takeBack', 'mcp__duel__ask', 'mcp__duel__plan'] : []),
         ...(mark ? ['mcp__duel__tableAt', 'mcp__duel__mark'] : []),
       ],
       settingSources: [],

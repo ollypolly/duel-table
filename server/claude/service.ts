@@ -56,7 +56,8 @@ export type Handover = { player: Player; until: 'answer' | 'turn' | 'takeBack'; 
 // waitingOn: the question Claude left open when it last stopped, so it isn't
 // woken again for it. asking: the lesson prompt open for the person, Next or
 // a question from Claude.
-export type LessonSeats = { holds: Player[]; handed: Handover[]; waitingOn?: number; asking?: { id: string; question?: string } }
+// plan: what the lesson covers, and the point it's on.
+export type LessonSeats = { holds: Player[]; handed: Handover[]; waitingOn?: number; asking?: { id: string; question?: string }; plan?: { points: string[]; now: number } }
 
 const HANDOVER_NOTE: Record<Handover['until'], string> = {
   answer: 'for one question',
@@ -207,6 +208,7 @@ export class ClaudeService {
           chat: stamp(s.chat),
           costUsd: s.costUsd,
           ...(s.lesson && { holds: s.lesson.holds }),
+          ...(s.lesson?.plan && { plan: s.lesson.plan }),
         }
       )
     }
@@ -728,7 +730,7 @@ export class ClaudeService {
   private askNext(id: string, seat: Seat, player: Player) {
     const prompt =
       player === 'p1'
-        ? { type: 'ack' as const, message: 'Your side to move: pick a move yourself, or let Claude play it.', button: 'Let Claude play it' }
+        ? { type: 'ack' as const, message: 'Your move: play it on the board, or from the options below.', button: 'Show me instead', quiet: true }
         : { type: 'ack' as const, message: 'Take your time. Ready for the next move?', button: 'Next' }
     try {
       const open = this.sessions.ask(id, prompt)
@@ -833,6 +835,14 @@ export class ClaudeService {
         return next
           ? `Handed over. You're still asked this:\n\n${this.lessonQuestion(next, state)}`
           : 'Handed over. Stop here: you will get a message when the duel comes back to a player you hold, or when the person writes.'
+      },
+      plan: (points, now) => {
+        const plan = points?.length ? { points, now: now ?? 0 } : lesson.plan && { ...lesson.plan, now: now ?? lesson.plan.now + 1 }
+        if (!plan) return 'There is no plan yet: give its points first.'
+        lesson.plan = { ...plan, now: Math.max(0, Math.min(plan.now, plan.points.length)) }
+        this.changed(id, seat)
+        const { now: at, points: all } = lesson.plan
+        return at >= all.length ? 'The plan is done: wrap up with two or three takeaways.' : `The person sees: ${at + 1} of ${all.length}, ${all[at]}.`
       },
       takeBack: (player) => {
         if (!lesson.handed.some((h) => h.player === player)) return `The person isn't playing ${player}.`

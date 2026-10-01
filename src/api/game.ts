@@ -69,6 +69,7 @@ export const ClaudeViewSchema = z.object({
   chat: z.array(ChatEntrySchema),
   costUsd: z.number().describe('What the runs so far would cost on the API (a subscription login is not charged per call)'),
   holds: z.array(PlayerSchema).optional().describe('In a lesson: the players Claude is answering for now'),
+  plan: z.object({ points: z.array(z.string()), now: z.int() }).optional().describe("In a lesson: what it covers, and the point it's on (0 for the first; points.length once it's done)"),
 })
 export type ClaudeView = z.infer<typeof ClaudeViewSchema>
 

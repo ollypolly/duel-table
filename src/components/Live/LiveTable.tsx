@@ -25,7 +25,7 @@ import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
-import { LessonPanel } from './LessonPanel'
+import { LessonPanel, LessonPlan } from './LessonPanel'
 import { MOMENT } from './moment'
 import { Moments } from './Moments'
 
@@ -270,7 +270,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     ? undefined
     : lesson && lesson.queued > 0
       ? { label: 'Next ▸', run: next }
-      : ack
+      : ack && !ack.quiet
         ? { label: ack.button ?? 'Got it', run: () => report(api.answer(id, { id: ack.id })) }
         : busy || away
           ? undefined
@@ -391,7 +391,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         marks={review?.moments.map((m) => ({ step: m.step, className: MOMENT[m.kind].dot, mark: MOMENT[m.kind].mark, title: `${MOMENT[m.kind].label}, step ${m.step}: ${m.title}`, disabled: momentLocked(m.step) }))}
         onMark={review ? goMoment : undefined}
         stepNav={
-          review && (
+          !review && game?.claude?.plan ? (
+            <LessonPlan plan={game.claude.plan} />
+          ) : review && (
             <Moments
               moments={review.moments}
               names={{ p1: session.players.p1.name, p2: session.players.p2.name }}
