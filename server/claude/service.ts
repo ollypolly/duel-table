@@ -158,6 +158,13 @@ export class ClaudeService {
       if (!seat) return
       seat.seen = Math.min(seat.seen, this.sessions.export(id).steps.length)
       if (seat.logged !== undefined) seat.logged = Math.min(seat.logged, seat.seen)
+      if (seat.lesson) {
+        this.withdraw(id, seat)
+        seat.notes = [...(seat.notes ?? []), 'The person took back their last move, which a lesson always allows. The table below is the game now: that move and what followed never happened, and they are back at the decision before it. If they were misled or missed something, put it right in a line, then stop and let them choose again.']
+        seat.chat.push({ from: 'note', text: 'You took back your last move.' })
+        this.changed(id, seat)
+        return
+      }
       const who = seat.watch ? 'The person' : 'Your opponent'
       seat.notes = [...(seat.notes ?? []), `${who} took back their last move, which the app allows a few times a game. The table below is the game now: what came after that move, ${seat.watch ? "the bot's replies" : 'your answers'} included, never happened.`]
       seat.chat.push({ from: 'note', text: 'You took back your last move.' })
@@ -835,6 +842,27 @@ export class ClaudeService {
         return next
           ? `Handed over. You're still asked this:\n\n${this.lessonQuestion(next, state)}`
           : 'Handed over. Stop here: you will get a message when the duel comes back to a player you hold, or when the person writes.'
+      },
+      // p1's open question played on a copy, so Claude can check what a move
+      // costs or leads to before it says so.
+      options: async () => {
+        const q = await this.games.asking(id, 'p1')
+        return q ? describeQuestion(q, (await this.games.get(id)).state, 'p1', this.db(), 'p1 is being asked') : 'Nothing is being asked of p1 right now.'
+      },
+      tryLine: async (picks) => {
+        if (!(await this.games.asking(id, 'p1'))) return 'Nothing is being asked of p1 right now, so there is no line to try.'
+        const t = await this.games.trial(id, 'p1', picks)
+        const events = t.steps.flatMap((s) => (s.label ? [s.label] : []))
+        return [
+          t.refused ? `Pick ${t.played + 1} wasn't accepted (a wrong number of options, an option that isn't there, or the engine turned it down). Up to there:` : '',
+          events.length ? `What would happen:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Nothing would happen yet.',
+          t.winner ? `The duel would be over: ${t.winner} wins.` : '',
+          t.next ? describeQuestion(t.next, t.state, 'p1', this.db(), 'Then p1 would be asked (add a pick for it to go on)') : '',
+          t.theirs ? "It stops here: the next decision is p2's." : '',
+          'Nothing was played in the real game. This assumes p2 passes wherever it could respond.',
+        ]
+          .filter(Boolean)
+          .join('\n\n')
       },
       plan: (points, now) => {
         const plan = points?.length ? { points, now: now ?? 0 } : lesson.plan && { ...lesson.plan, now: now ?? lesson.plan.now + 1 }

@@ -33,6 +33,7 @@ type Props = {
   onReview?: () => void // go through the finished game with Claude
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move
+  lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
   onForfeit?: () => void // give the game up
   onRespond?: (level: Respond) => void // change when you're asked to respond
   onReopen?: (at: number) => void // be asked a passed chance after all
@@ -42,7 +43,7 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, lesson, onForfeit, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
@@ -53,7 +54,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   const undo = onUndo && !!game.undos && (
     <button type="button" className="btn flex items-center gap-1.5 text-xs" disabled={busy} onClick={onUndo} title="Go back to before your last move">
       <Undo2 size={14} aria-hidden />
-      Take back ({game.undos} left)
+      {lesson ? 'Take back' : `Take back (${game.undos} left)`}
     </button>
   )
 
@@ -99,7 +100,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </button>
     </span>
   ) : (
-    (onForfeit || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
+    lesson ? undo : (onForfeit || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
       <Menu label={<MoreHorizontal size={14} />} title="More" side="top" className="btn text-xs">
         {onRespond && game.respond && (
           <>

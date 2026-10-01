@@ -309,6 +309,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             onRematch={rematch}
             onReview={review || claudeLesson ? undefined : startReview}
             onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
+            lesson={claudeLesson}
             onUndo={() => {
               setBusy(true)
               report(api.undoGame(id).finally(() => setBusy(false)))

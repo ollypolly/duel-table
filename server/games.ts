@@ -206,7 +206,8 @@ export class GameService {
     const response = asked.answer(a.choices)
     const p = live.game.respond(response)
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
-    if (!live.bots.includes(player) && player !== live.claude && startsMove(before, response)) live.moves.push(at)
+    // In a lesson only the person's own moves count: Claude's aren't theirs to take back.
+    if (!live.bots.includes(player) && player !== live.claude && (person || !live.lesson) && startsMove(before, response)) live.moves.push(at)
     if (person) live.answered = at
     if (person) this.onPersonAnswer?.(id, player)
     return this.advance(id, live, p)
@@ -256,11 +257,10 @@ export class GameService {
     const file = this.sessions.export(id)
     const duel = file.duel!
     if (this.undos(id, old) === undefined) {
-      if (duel.lesson) throw new SessionError(409, "a lesson's moves can't be taken back")
       if ((duel.undone ?? 0) >= UNDOS) throw new SessionError(409, `all ${UNDOS} take-backs are used`)
       throw new SessionError(409, old.moves.length ? "a move can be taken back when it's your move" : 'no move of yours to take back')
     }
-    this.rewind(id, old, old.moves.at(-1)!, { undone: (duel.undone ?? 0) + 1 })
+    this.rewind(id, old, old.moves.at(-1)!, old.lesson ? {} : { undone: (duel.undone ?? 0) + 1 })
     this.onUndo?.(id)
     this.onChange?.(id)
     return this.sessions.get(id)
@@ -319,11 +319,11 @@ export class GameService {
   }
 
   // Take-backs left, when there's a move to take back now: at a person's
-  // question, or once the game is over.
+  // question, or once the game is over. A lesson doesn't count them.
   private undos(id: string, live: Live): number | undefined {
     const left = UNDOS - (this.sessions.export(id).duel?.undone ?? 0)
     const yours = live.asked && !this.held(id, live).includes(live.asked.prompt.player)
-    return !live.lesson && left > 0 && live.moves.length && (yours || live.game.duel.result) ? left : undefined
+    return (live.lesson || left > 0) && live.moves.length && (yours || live.game.duel.result) ? (live.lesson ? UNDOS : left) : undefined
   }
 
   // What would happen if player answered their open question, and the ones
@@ -463,7 +463,7 @@ export class GameService {
       bots: live.bots,
       ...(live.bot && { bot: live.bot }),
       ...(live.claude && { claude: live.claude }),
-      ...(live.lesson && { lesson: true }),
+      ...(live.lesson && { lesson: true, yours: live.moves }),
       ...(live.shuffled && { shuffled: true }),
       ...(live.respond && { respond: live.respond }),
       ...(live.skipped?.length && { skipped: live.skipped.slice(-20) }),
@@ -542,17 +542,21 @@ export class GameService {
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const moves: number[] = []
+    const p1Moves: number[] = []
     let answered: number | undefined
-    const { bots = [], bot, claude, lesson, shuffled, respond, skipped, asked: forced } = file.duel
+    const { bots = [], bot, claude, lesson, shuffled, respond, skipped, asked: forced, yours } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
-      if (!bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
+      if (!lesson && !bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
+      if (lesson && p === 'p1' && startsMove(prompt, response)) p1Moves.push(i)
       if (!bots.includes(p) && p !== claude && !skipped?.some((s) => s.at === i)) answered = i
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
     const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, skipped, forced })
-    live.moves = moves
+    // A lesson records which moves were the person's. One from before it did
+    // counts p1's, whoever made them.
+    live.moves = lesson ? (yours ?? p1Moves).filter((m) => m < file.duel!.responses.length) : moves
     live.answered = answered
     if (file.duel.forfeit) game.duel.surrender(file.duel.forfeit)
     else if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {

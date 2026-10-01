@@ -422,4 +422,41 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(batched).toHaveLength(3)
     for (const r of batched) expect(r).not.toContain('Wait:')
   }, 60_000)
+
+  it('lets you take back your own move in a lesson, and Claude can try a move on a copy first', async () => {
+    const requests: AgentRequest[] = []
+    const tried: string[] = []
+    const agent: Agent = (req) => {
+      requests.push(req)
+      async function* run(): AsyncIterable<AgentEvent> {
+        if (requests.length === 1) tried.push(await req.tools.tryLine!([[0]]))
+        yield { type: 'text', text: 'Right.' }
+        yield { type: 'done', sessionId: 'fake-lesson', costUsd: 0.01 }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const { sessions, games, claude } = setup(agent)
+    const v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Anything', seed: 1 })
+    await claude.idle(v.id)
+    let s = sessions.get(v.id)
+    const steps = s.steps
+    // Trying a move played nothing, and Claude's own moves aren't yours to take back.
+    expect(tried[0]).toContain('Nothing was played in the real game')
+    expect(s.game?.undos).toBeUndefined()
+
+    const open = s.game!.prompt!
+    await games.answer(v.id, undefined, { id: open.id, choices: [0] })
+    await claude.idle(v.id)
+    s = sessions.get(v.id)
+    expect(s.game?.undos).toBeGreaterThan(0)
+    await games.undo(v.id)
+    await claude.idle(v.id)
+    s = sessions.get(v.id)
+    expect(s.steps).toBe(steps)
+    expect(s.game?.prompt?.options.map((o) => o.label)).toEqual(open.options.map((o) => o.label))
+    expect(requests.at(-1)!.message).toContain('took back their last move')
+    // The move can be made again, and taken back again: a lesson doesn't count them.
+    expect(s.lesson.prompt).toMatchObject({ type: 'ack', quiet: true })
+  }, 60_000)
+
 })
