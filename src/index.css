@@ -208,6 +208,16 @@
   padding: 0 0.25rem;
   font-size: 0.85em;
 }
+.chat-md pre {
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  padding: 0.4rem 0.5rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-md pre code {
+  padding: 0;
+}
 .chat-md h1,
 .chat-md h2,
 .chat-md h3 {

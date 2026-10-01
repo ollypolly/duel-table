@@ -9,6 +9,15 @@ export const GamePromptSchema = z.object({
   player: PlayerSchema,
   kind: z.enum(['idle', 'battle', 'chain', 'yesno', 'option', 'cards', 'unselect', 'sum', 'tribute', 'position', 'place', 'announce']),
   message: z.string(),
+  source: z
+    .object({
+      name: z.string(),
+      card: z.string().optional(),
+      when: z.enum(['activating', 'resolving']).describe('Asked to activate it (a cost, its targets), or as its effect resolves'),
+    })
+    .optional()
+    .describe('The card whose effect is asking'),
+  costly: z.boolean().optional().describe('The cards picked leave your hand or field (discarded, Tributed, sent to the GY, banished, destroyed, returned)'),
   options: z.array(
     z.object({
       label: z.string(),

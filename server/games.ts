@@ -316,7 +316,7 @@ export class GameService {
   }
 
   private ask(live: Live, p: Progress): Question {
-    return question(p.prompt!, { id: live.game.duel.responses.length, hint: p.hint, ocg: live.ocg, translator: live.game.translator, codes: live.codes })
+    return question(p.prompt!, { id: live.game.duel.responses.length, hint: p.hint, chain: p.chain, ocg: live.ocg, translator: live.game.translator, codes: live.codes })
   }
 
   private async live(id: string): Promise<Live> {

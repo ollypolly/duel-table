@@ -5,16 +5,21 @@
 import type { BoardState, CardInstance, Player, Step } from '../../src/engine'
 import type { ResolvedScenario } from '../../src/scenarios/resolve'
 import { OcgDuel, playerOf, type DuelSetup, type Placed, type RunResult } from './duel'
-import { LOC, POS, type Ocg, type PromptMsg } from './lib'
+import { LOC, M, POS, type Ocg, type PromptMsg } from './lib'
 import { selectHint } from './prompt'
 import { Translator } from './translate'
 
 // hint is the core's "select a..." text for the prompt, if it sent one.
-export type Progress = { steps: Step[]; prompt?: PromptMsg; hint?: number; waitingFor?: Player; winner?: RunResult['winner']; retried?: boolean }
+// chain is what the top chain link is doing when it asks: being activated
+// (costs, targets) or resolving.
+export type ChainPhase = 'activating' | 'resolving'
+export type Progress = { steps: Step[]; prompt?: PromptMsg; hint?: number; chain?: ChainPhase; waitingFor?: Player; winner?: RunResult['winner']; retried?: boolean }
 
 export class OcgGame {
   readonly duel: OcgDuel
   readonly translator: Translator
+  private chain?: ChainPhase
+  private hint?: number // the last question's, which a pick-one-at-a-time question keeps
 
   constructor(ocg: Ocg, scenario: ResolvedScenario, shuffle = true) {
     const { setup } = scenario.game
@@ -62,15 +67,24 @@ export class OcgGame {
       const next = this.respond(r)
       if (next.retried) throw new Error('a saved answer was rejected on replay')
       all.steps.push(...next.steps)
-      Object.assign(all, { prompt: next.prompt, hint: next.hint, waitingFor: next.waitingFor, winner: next.winner })
+      Object.assign(all, { prompt: next.prompt, hint: next.hint, chain: next.chain, waitingFor: next.waitingFor, winner: next.winner })
     }
     return all
   }
 
   private progress(r: RunResult, actor?: Player): Progress {
     const steps = this.translator.feed(r.messages, actor)
-    const hint = r.prompt && selectHint(r.messages, r.prompt.responsePlayer())
-    return { steps, prompt: r.prompt, hint, waitingFor: this.waitingFor, winner: r.winner, ...(r.retried && { retried: true }) }
+    // Picking cards one at a time asks again after each, with the hint only
+    // before the first.
+    const again = r.prompt instanceof M.YGOProMsgSelectUnselectCard ? this.hint : undefined
+    const hint = r.prompt && (selectHint(r.messages, r.prompt.responsePlayer()) ?? again)
+    this.hint = r.prompt instanceof M.YGOProMsgSelectUnselectCard ? hint : undefined
+    for (const m of r.messages) {
+      if (m instanceof M.YGOProMsgChaining) this.chain = 'activating'
+      else if (m instanceof M.YGOProMsgChainSolving) this.chain = 'resolving'
+      else if (m instanceof M.YGOProMsgChained || m instanceof M.YGOProMsgChainSolved || m instanceof M.YGOProMsgChainEnd) this.chain = undefined
+    }
+    return { steps, prompt: r.prompt, hint, chain: this.chain, waitingFor: this.waitingFor, winner: r.winner, ...(r.retried && { retried: true }) }
   }
 }
 

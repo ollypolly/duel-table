@@ -133,6 +133,7 @@ export function optionLabel(prompt: GamePrompt, i: number, state: BoardState, vi
 // theirs: the opponent's question, which they've shown viewer for advice.
 export function describeQuestion(prompt: GamePrompt, state: BoardState, viewer: Player, db: CardDb, theirs = false): string {
   const how = prompt.min === prompt.max ? (prompt.max === 1 ? 'pick one' : `pick ${prompt.max}`) : `pick ${prompt.min} to ${prompt.max}`
-  const head = theirs ? `Your opponent is being asked (theirs to answer, not yours): "${prompt.message}" (${how})` : `Question ${prompt.id}: ${prompt.message} (${how})`
+  const why = prompt.source ? `, ${prompt.source.when === 'activating' ? 'to activate' : 'for the effect of'} ${prompt.source.name}` : ''
+  const head = theirs ? `Your opponent is being asked (theirs to answer, not yours): "${prompt.message}"${why} (${how})` : `Question ${prompt.id}: ${prompt.message}${why} (${how})`
   return [head, ...prompt.options.map((_, i) => `  ${i}. ${optionLabel(prompt, i, state, viewer, db)}`)].join('\n')
 }

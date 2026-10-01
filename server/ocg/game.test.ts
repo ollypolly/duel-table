@@ -9,7 +9,9 @@ import { repoContext, ROOT } from '../files'
 import { botResponse, seededRng } from './bot'
 import { OcgGame } from './game'
 import { LOC, loadOcg, M, ocgDataDir } from './lib'
+import { question } from './prompt'
 import { diffWithCore } from './translate'
+import type { GamePrompt } from '../../src/api/game'
 
 const hasData = existsSync(join(ROOT, ocgDataDir(), 'cards.cdb'))
 const ctx = repoContext()
@@ -95,6 +97,26 @@ describe.skipIf(!hasData)('bot duels on the rules core', () => {
     const replayed = again.replay(game.duel.responses)
     expect(replayed.steps).toEqual(steps)
     expect(again.state).toEqual(game.state)
+  }, 60_000)
+
+  it('says what a card choice is for, and which effect is asking', async () => {
+    const { game } = await playOut(7, 200)
+    const ocg = await loadOcg()
+    const again = new OcgGame(ocg, scenario(7).resolved)
+    const asked: GamePrompt[] = []
+    let p = again.start()
+    for (const [i, r] of game.duel.responses.entries()) {
+      const q = p.prompt && question(p.prompt, { id: i, hint: p.hint, chain: p.chain, ocg, translator: again.translator, codes: [] })
+      if (q && 'prompt' in q) asked.push(q.prompt)
+      p = again.respond(r)
+    }
+    const picks = asked.filter((q) => q.kind === 'cards')
+    expect(picks.length).toBeGreaterThan(0)
+    // The core's hint, not the fallback.
+    expect(picks.filter((q) => q.message === 'Select cards')).toEqual([])
+    expect(picks.some((q) => q.source)).toBe(true)
+    // Tributing your own monster costs you it.
+    for (const q of asked.filter((q) => q.kind === 'tribute')) expect(q).toMatchObject({ message: 'Select a monster to Tribute', costly: true })
   }, 60_000)
 
   describe('from a position', () => {

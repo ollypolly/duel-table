@@ -119,6 +119,35 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     120_000,
   )
 
+  it('stops on an error, and tries again with what you said when resumed', async () => {
+    const fake = fakeAgent(1)
+    let failing = true
+    const requests: AgentRequest[] = []
+    const agent: Agent = (req) => {
+      requests.push(req)
+      if (!failing) return fake.agent(req)
+      async function* run(): AsyncIterable<AgentEvent> {
+        yield { type: 'done', costUsd: 0, error: 'API Error: 529 Overloaded' }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const { sessions, games, claude } = setup(agent)
+    const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1, claude: 'p2' })
+    await claude.idle(v.id)
+    claude.chat(v.id, 'good luck!')
+    await claude.idle(v.id)
+    const c = sessions.get(v.id).game!.claude!
+    expect(requests).toHaveLength(1)
+    expect(c.status).toBe('stopped')
+    expect(c.chat.at(-1)).toEqual({ from: 'note', text: 'Claude stopped with an error: API Error: 529 Overloaded' })
+
+    failing = false
+    claude.resume(v.id)
+    await claude.idle(v.id)
+    expect(requests.at(-1)!.message).toContain('Your opponent says: good luck!')
+    expect(sessions.get(v.id).game!.claude!.status).toBe('idle')
+  })
+
   it('replies to chat, and the browser never sees its question', async () => {
     const fake = fakeAgent(1)
     const { sessions, games, claude } = setup(fake.agent)
