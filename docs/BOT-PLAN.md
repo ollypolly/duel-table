@@ -1,6 +1,6 @@
 # Plan: bots worth playing, for free
 
-**Status:** rough plan, nothing built beyond the ygo-agent container. Research checked 2026-10-01.
+**Status:** rough plan, nothing built beyond the ygo-agent container. Decided 2026-10-01: ygo-agent is the route.
 
 ## Why
 
@@ -8,15 +8,14 @@ A game against the bot today is a game against random legal moves (`server/ocg/b
 
 ## The shape
 
-No single bot plays every deck well, so there are several, and the opponent you pick decides which answers the engine's questions:
+ygo-agent is the bot worth playing. The opponent you pick decides who answers the engine's questions:
 
 | Opponent | Plays | How |
 |---|---|---|
 | **Simple bot** | any deck | today's random legal moves |
 | **Trained bot** (ygo-agent) | its own 30 lists | HTTP call to a container |
 | **Claude** | any deck | as today |
-| Rules bot, later | any deck | our own bot, with WindBot's generic heuristics ported to TypeScript |
-| WindBot, later if wanted | its 73 scripted decks | joins as a network player |
+| Rules bot, maybe later | any deck | our own bot, with hand-written heuristics |
 
 The simple bot is the fallback when the trained bot can't answer a question or is down.
 
@@ -34,19 +33,21 @@ The simple bot is the fallback when the trained bot can't answer a question or i
 - **Its lists** (`assets/deck`): Blue-Eyes, Hero, Cyber Dragon, Branded, Labrynth, Sky Striker, Snake-Eye, Shaddoll, Floowandereeze, Centur-Ion, Tenyi Swordsoul, Voiceless Voice, Blackwing, Chimera, Eldlich and others. These are its lists, not ours of the same name.
 - **Unsupported by its schema:** more than one zone at once, sum with overflow, more than two must-select cards, a pick of zero cards.
 
-### WindBot
+### WindBot: not pursuing
 
-[IceYGO/windbot](https://github.com/IceYGO/windbot) (MIT, C# on Mono, active): a hand-scripted bot with one "executor" per deck, 73 of them, speaking the YGOPro protocol our core's family uses.
+[IceYGO/windbot](https://github.com/IceYGO/windbot) (MIT, C#) is a hand-scripted bot with 73 deck scripts and a generic any-deck player. Set aside because:
+- each deck needs its own script, and none exists for Ojama or Super Quant;
+- it joins as a network player, so our server would have to act as a YGOPro room (one to two weeks, with [purerosefallen/srvpro2](https://github.com/purerosefallen/srvpro2) as the reference), against an HTTP call for ygo-agent;
+- it's a second runtime to host, and a take-back means reconnecting it and replaying the game;
+- WindBot Ignite speaks EDOPro's protocol, not ours, and libWindbot is the same bot built for embedding in the Android apps.
 
-- **Any deck.** `LuckyExecutor` sits on `DefaultExecutor.cs`: attack-target logic, summon/set/reposition defaults, sensible handling of about 40 staples (Ash Blossom, Veiler, Solemns, Raigeki), card picks by hint (enemy cards first to destroy, lowest ATK as material), and a coin flip for other effects. Better than random; no combos.
-- **Scripted decks** beyond ygo-agent's: Dark Magician, Albaz, Altergeist, Dogmatika, Dragunity, Exosister, Kashtira, Lightsworn, Mathmech, Orcust, Salamangreat, Tearlaments, Thunder Dragon, Zoodiac and more. None for Super Quant or Ojama.
-- **To run the real thing** our server would act as a YGOPro room: a TCP listener, about ten join/deck/ready messages and a relay of game messages. [purerosefallen/srvpro2](https://github.com/purerosefallen/srvpro2) (MIT, TypeScript) does this on the same `koishipro-core.js` and `ygopro-msg-encode` versions we use, so it's a reference to copy from.
+Its generic player (`DefaultExecutor.cs`: attack-target logic, summon and set defaults, about 40 staples handled, card picks by hint) is the source for a rules bot of our own, if we want one.
 
 Nothing else usable turned up: other projects are stale or have no published weights.
 
 ## Plan
 
-The trained bot first. The rules bot and WindBot are left for later.
+ygo-agent as the trained bot. A rules bot of our own is the only thing left for later.
 
 ### 1. Which bot, per game
 
@@ -110,7 +111,7 @@ Claude is worth having at the table even when it isn't the opponent, and its adv
 
 **Order.** Coach seat in bot games and the always-there context first, with `deck`, `options` and `history`. Then `tryLine`, which `lethal`, `ruling` and `offerTakeBack` build on. The rest as they come up.
 
-### Later: rules bot
+### Maybe later: rules bot
 
 A free opponent for the decks the trained bot can't play, and a better fallback than the random pick.
 
@@ -119,10 +120,6 @@ A free opponent for the decks the trained bot can't play, and a better fallback 
 - First rules, by how silly the random bot looks without them: attack only when it's safe or lethal, and pick the target; don't pass with lethal on board; summon the strongest it can and set the rest; destroy/banish/target the opponent's cards, not its own; pay costs with its weakest cards; chain staples only when they have something to hit; don't activate an effect with no legal use.
 - Tests: fixed positions with one right answer (lethal on board, a safe attack, a bad one), and whole games against the random bot from seeds, where it should win most.
 - Unknown: how much of `DefaultExecutor` is usable without mirroring WindBot's duel state.
-
-### Later: real WindBot, only if its decks are wanted
-
-A minimal room copied from srvpro2, with WindBot in a container, and each executor's list (`Decks/*.ydk`) imported as a deck of ours marked as WindBot's. One to two weeks. Unknown: Mono's memory use, whether its card database and protocol version match ours, and take-back with a connected player.
 
 ## Open decisions
 
