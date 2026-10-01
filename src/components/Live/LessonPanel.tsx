@@ -83,7 +83,7 @@ function PromptCard({ prompt, onAnswer }: { prompt: OpenPrompt; onAnswer: (answe
       {prompt.type === 'choice' && (
         <div className="flex flex-col gap-1.5">
           {prompt.options.map((o, i) => (
-            <button key={o} type="button" className="btn text-left" onClick={() => answer({ choice: i })}>
+            <button key={o} type="button" className="btn whitespace-normal! text-left" onClick={() => answer({ choice: i })}>
               {o}
             </button>
           ))}
