@@ -168,7 +168,7 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
     }
   }
   return (
-    <div className="panel flex flex-wrap items-center gap-1.5 px-2 py-1.5 text-xs" data-testid="free-bar">
+    <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs" data-testid="free-bar">
       <span className="flex overflow-hidden rounded-md border border-line" role="group" aria-label="Act for">
         {PLAYERS.map((p) => (
           <button key={p} type="button" aria-pressed={side === p} className={`px-2 py-1 transition-colors ${side === p ? (p === 'p1' ? 'bg-p1/25 font-semibold text-p1' : 'bg-p2/25 font-semibold text-p2') : 'text-muted hover:text-ink'}`} onClick={() => setSide(p)}>
@@ -198,7 +198,7 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
           Add a card
         </button>
         {adding && (
-          <div className="panel absolute bottom-full left-0 z-30 mb-1 w-64 space-y-1 p-2">
+          <div className="panel absolute left-0 top-full z-30 mt-1 w-64 space-y-1 p-2">
             <input autoFocus aria-label="Card name" placeholder="Card name…" className="block w-full px-2 py-1.5 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} />
             <label className="flex items-center gap-2 px-1 text-muted">
               Copies

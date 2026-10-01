@@ -236,6 +236,12 @@ export function Table({
         status={<StatusBar view={view} lpChanges={lpChanges} clock={clock} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
       />
 
+      {freePlay && (
+        <div className="relative z-30 flex justify-center border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur">
+          <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
+        </div>
+      )}
+
       <main className="relative min-h-0 flex-1">
         <Renderer
           view={view}
@@ -410,11 +416,6 @@ export function Table({
 
         <DamagePopups changes={moved ? lpChanges : {}} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
-        {freePlay && (
-          <div className="absolute bottom-[max(0.75rem,var(--safe-bottom))] left-3 z-20 max-w-[min(24rem,calc(100%-1.5rem))]">
-            <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
-          </div>
-        )}
         {freePlay && <SideSwitch side={freeSide} name={view.players[freeSide].name} />}
         {freePlay && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center *:pointer-events-auto sm:left-[27rem] sm:right-32">
