@@ -84,7 +84,7 @@ Doesn't depend on the bots beyond step 2, so it can ship with Rules bot and Clau
 
 Claude is worth having at the table even when it isn't the opponent, and its advice is only as good as what it can look up. Today it has three tools in a game (`table`, `card`, and `answer` when it's playing), and it only sees your hidden cards and your open question when you talk to it or turn sharing on.
 
-**Claude as coach in a bot game.** A game against the rules bot or the trained bot can have Claude beside you: the same chat panel, with no seat. It answers when you ask and costs nothing while you don't. It's on your side, so it sees what you see (your hand, your face-downs, your Extra Deck, your open question) and never the bot's hidden cards. Against Claude as the opponent nothing changes: it sees your side only when you show it.
+**Claude as coach in a bot game.** A game against the rules bot or the trained bot can have Claude beside you: the same chat panel, with no seat. It answers when you ask and costs nothing while you don't. It's on your side, so it sees what you see (your hand, your face-downs, your Extra Deck, your open question) and never the bot's hidden cards. It does know the bot's full decklist, as a player who knows the matchup would: a checkbox, "Claude knows the opponent's deck", on by default on the new game screen and in the chat's settings. Off, it knows only what has been played. Against Claude as the opponent nothing changes: it sees your side only when you show it.
 
 **Context it should always have when you ask.** Mostly there today for the table; the rest is new.
 - Your open question as you see it: what it's for, which effect is asking, whether it costs you, and every option.
@@ -92,7 +92,7 @@ Claude is worth having at the table even when it isn't the opponent, and its adv
 - The chain as it stands and what just resolved.
 - The last few moves by both sides, not only those since it last looked.
 - Your decklist and what's left in the Deck, so it stops guessing what you can still search.
-- Who the opponent is (rules bot, trained bot, itself) and, for a bot, what its deck is known for.
+- Who the opponent is (rules bot, trained bot, itself) and, for a bot, its decklist when the checkbox is on.
 - What you're trying to learn: your notes on this deck (`docs/DECK-NOTES.md` is the start of this) and the misplays past reviews marked with it.
 
 **Tools to add.** Roughly in order of how much better they'd make the advice.
@@ -126,4 +126,3 @@ A minimal room copied from srvpro2, with WindBot in a container, and each execut
 - Order: this plan goes rules bot, picker, screen, trained bot. The screen could go first with today's two opponents.
 - What the opponents are called in the picker.
 - Whether a fallback is silent or leaves a line in the feed.
-- Whether the coach in a bot game may know the bot's decklist (it's what a player who knows the matchup would know) or only what has been played.
