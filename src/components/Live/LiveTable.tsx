@@ -6,12 +6,15 @@
 // moves viewers who are following along. Anyone who has scrubbed away stays
 // put and gets a Back to live button.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import type { Cursor } from '../../api/lesson'
 import type { Iid, ZoneRef } from '../../engine'
 import { cardDb } from '../../data/cards'
 import { isMonster } from '../../data/cardDb'
 import { useUiStore } from '../../store/uiStore'
+import { VIEWER } from '../../view/boardView'
+import { turnSoFar } from '../../view/plays'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
@@ -95,8 +98,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const prompt = game && session.lesson.queued === 0 ? game.prompt : undefined
   const choice: GameChoice = picking.for === prompt?.id ? picking : { picked: [] }
   const setChoice = (c: GameChoice) => setPicking({ ...c, for: prompt?.id })
-  const answerGame = (choices: number[]) => {
+  const turn = useMemo(() => (game && result?.ok ? turnSoFar(result.scenario.game.steps, VIEWER) : undefined), [game, result])
+  const answerGame = (choices: number[], sure = false) => {
     if (!prompt) return
+    // Ending a turn you've played nothing in, with something to play, is asked first.
+    const ending = prompt.kind === 'idle' && prompt.options[choices[0]]?.label === 'End turn'
+    if (ending && !sure && turn?.plays === 0 && prompt.options.some((o) => o.card)) {
+      toast("You haven't played a card this turn", { id: 'end', description: 'End it anyway?', action: { label: 'End turn', onClick: () => answerGame(choices, true) }, duration: 8000 })
+      return
+    }
     setBusy(true)
     report(api.answerGame(id, { id: prompt.id, choices }).finally(() => setBusy(false)))
   }
@@ -285,6 +295,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             choice={choice}
             onChoice={setChoice}
             onAnswer={answerGame}
+            normalUsed={turn?.normalUsed}
             onRematch={rematch}
             onReview={review || claudeLesson ? undefined : startReview}
             onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}

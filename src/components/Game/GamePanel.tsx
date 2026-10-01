@@ -37,10 +37,11 @@ type Props = {
   onRespond?: (level: Respond) => void // change when you're asked to respond
   onReopen?: (at: number) => void // be asked a passed chance after all
   claudeOn?: boolean // the levels that ask Claude can be picked
+  normalUsed?: boolean // this turn's Normal Summon or Set has gone
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, normalUsed, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
@@ -176,6 +177,11 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
           {how && <span className="font-normal text-muted">({how})</span>}
         </p>
         {prompt.costly && <p className="text-xs text-warn/80">You lose what you pick.</p>}
+        {prompt.kind === 'idle' && normalUsed !== undefined && (
+          <p className="text-xs text-muted" data-testid="normal-summon">
+            Normal Summon or Set: {normalUsed ? 'used this turn' : <span className="text-ink">still to use</span>}
+          </p>
+        )}
         {prompt.advice && (
           <p className="mt-1 flex items-start gap-1.5 text-xs text-gold-soft" data-testid="advice">
             <Lightbulb size={13} className="mt-0.5 shrink-0" aria-hidden />

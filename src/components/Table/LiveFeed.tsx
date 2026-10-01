@@ -8,6 +8,8 @@
 import { useEffect, useRef } from 'react'
 import { toast, Toaster } from 'sonner'
 import type { Iid, Step } from '../../engine'
+import { VIEWER } from '../../view/boardView'
+import { isTurnStart, played, playedBy } from '../../view/plays'
 import { play } from '../../view/sounds'
 
 const DURATION = 4500
@@ -25,27 +27,13 @@ type Props = {
   onOpen: () => void
 }
 
-// The card a step plays, when the step is worth a banner, and whether its
-// face shows.
-function played(step: Step): { card: Iid; shown: boolean } | undefined {
-  const i = step.intent
-  if (i && i.type !== 'declarePhase' && i.type !== 'endTurn') return { card: i.type === 'attack' ? i.attacker : i.card, shown: i.type !== 'set' }
-  const set = /^Set a /.test(step.label ?? '') && step.actions.find((a) => a.type === 'move')
-  return set ? { card: set.card, shown: false } : undefined
-}
-
 export function LiveFeed({ steps, opponent, image, messages, latest, action, asking, panelOpen, muted, onOpen }: Props) {
   const seen = useRef<{ steps: number; messages: number; asking?: string }>({ steps: steps.length, messages, asking: action ? (asking ?? 'Your move') : undefined })
 
   useEffect(() => {
     const fresh = steps.slice(seen.current.steps)
     seen.current.steps = steps.length
-    // Theirs, going by whose card it is: who a step is put down to isn't
-    // always who played it.
-    const step = fresh.findLast((s) => {
-      const p = played(s)
-      return p ? !p.card.startsWith('p1-') : /^Turn \d+$/.test(s.label ?? '')
-    })
+    const step = fresh.findLast((s) => (played(s) ? !playedBy(s, VIEWER) : isTurnStart(s)))
     if (!step) return
     const p = played(step)
     const src = p?.shown ? image(p.card) : undefined
