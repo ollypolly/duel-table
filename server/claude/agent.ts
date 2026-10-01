@@ -139,14 +139,15 @@ async function* translate(messages: AsyncIterable<SDKMessage>): AsyncIterable<Ag
   try {
     for await (const m of messages) {
       sessionId = m.session_id ?? sessionId
-      if (m.type === 'assistant') {
+      // An API error arrives as an assistant message too; the result carries it.
+      if (m.type === 'assistant' && !m.error) {
         for (const block of m.message.content) {
           if (block.type === 'text' && block.text.trim()) yield { type: 'text', text: block.text }
           if (block.type === 'tool_use') yield { type: 'tool', name: block.name.replace(/^mcp__duel__/, ''), input: block.input }
         }
       }
       if (m.type === 'result') {
-        yield { type: 'done', sessionId, costUsd: m.total_cost_usd, ...(m.subtype !== 'success' && { error: m.subtype }) }
+        yield { type: 'done', sessionId, costUsd: m.total_cost_usd, ...(m.subtype !== 'success' ? { error: m.subtype } : m.is_error && { error: m.result }) }
         return
       }
     }

@@ -300,7 +300,7 @@ export class ClaudeService {
           await this.turnOver(id, seat)
           const prompt = await this.question(id, seat)
           if (!seat.queue.length && !seat.notes?.length && (!prompt || prompt.id === seat.lesson.waitingOn)) break
-          await this.run(id, seat, await this.lessonMessage(id, seat, prompt))
+          if (await this.send(id, seat, () => this.lessonMessage(id, seat, prompt))) break
           seat.lesson.waitingOn = (await this.question(id, seat))?.id
           const waiting = await this.question(id, seat)
           if (waiting && !seat.lesson.asking && !seat.queue.length && !this.stopped(seat)) this.askNext(id, seat, waiting.player)
@@ -314,12 +314,25 @@ export class ClaudeService {
           continue
         }
         lastAsked = prompt?.id
-        await this.run(id, seat, await this.message(id, seat, prompt, nudges > 0))
+        await this.send(id, seat, () => this.message(id, seat, prompt, nudges > 0))
       }
     } finally {
       seat.busy = false
       this.changed(id, seat)
     }
+  }
+
+  // Run Claude on a message. If the run fails, what the message took (your
+  // chat, notes) goes back to be sent again on a retry. True if it failed.
+  private async send(id: string, seat: Seat, build: () => Promise<string>): Promise<boolean> {
+    const queue = [...seat.queue]
+    const notes = [...(seat.notes ?? [])]
+    const failed = await this.run(id, seat, await build())
+    if (failed) {
+      seat.queue.unshift(...queue)
+      seat.notes = [...notes, ...(seat.notes ?? [])]
+    }
+    return failed
   }
 
   private async message(id: string, seat: Seat, prompt: GamePrompt | undefined, nudge: boolean): Promise<string> {
@@ -368,7 +381,10 @@ export class ClaudeService {
     return fresh
   }
 
-  private async run(id: string, seat: Seat, message: string) {
+  // An error stops Claude as Stop does, so the game waits for you to resume
+  // rather than nudging it or moving for it. True if it failed.
+  private async run(id: string, seat: Seat, message: string): Promise<boolean> {
+    let failed = false
     seat.status = 'thinking'
     this.changed(id, seat)
     const tools = seat.lesson ? this.lessonTools(id, seat) : this.tools(id, seat)
@@ -380,7 +396,11 @@ export class ClaudeService {
         if (e.type === 'done') {
           seat.sessionId = e.sessionId ?? seat.sessionId
           seat.costUsd += e.costUsd
-          if (e.error && !this.stopped(seat)) seat.chat.push({ from: 'note', text: `Claude stopped with an error: ${e.error}` })
+          if (e.error && !this.stopped(seat)) {
+            seat.chat.push({ from: 'note', text: `Claude stopped with an error: ${e.error}` })
+            seat.status = 'stopped'
+            failed = true
+          }
         }
         this.changed(id, seat)
       }
@@ -388,6 +408,7 @@ export class ClaudeService {
       seat.run = undefined
       if (seat.status === 'thinking') seat.status = 'idle'
     }
+    return failed
   }
 
   private tools(id: string, seat: Seat): DuelTools {
