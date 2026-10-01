@@ -216,6 +216,7 @@ export function Table({
     return f && { ...f, visible: f.visible || f.owner === VIEWER }
   }
   const materialsOf = (c: CardFace) => (entry.state.cards[c.iid]?.materials ?? []).map((m) => cardFace(entry.state, m, cardDb))
+  const isPile = (ref: ZoneRef) => view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)
   const pile = openPile && view.zones.find((z) => z.kind === 'pile' && z.ref.player === openPile.player && z.ref.zone === openPile.zone)
   const intentIid = intentCardOf(step)
   const focus = !followFocus ? 'free' : freePlay ? 'all' : stepFocus(entry.state, step, entry.events)
@@ -278,9 +279,9 @@ export function Table({
           }
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
-            else if (freePlay && multi.length) fp.placeMany(ref, multi)
+            else if (freePlay && multi.length && !(boxSelect && isPile(ref))) fp.placeMany(ref, multi)
             else if (!freePlay && choosableZones?.some((z) => z.ref.zone === ref.zone && z.ref.player === ref.player && z.ref.slot === ref.slot)) onChooseZone?.(ref)
-            else if (view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)) openPileViewer(ref)
+            else if (isPile(ref)) openPileViewer(ref)
           }}
         />
 
@@ -490,6 +491,8 @@ export function Table({
                 }
               : undefined
           }
+          picked={freePlay ? multi : undefined}
+          onPick={freePlay && boxSelect ? (iids) => setMulti(iids.every((iid) => multi.includes(iid)) ? multi.filter((m) => !iids.includes(m)) : [...new Set([...multi, ...iids])]) : undefined}
           onToHand={freePlay ? (iid) => fp.act({ type: 'move', card: iid, to: { player: entry.state.cards[iid].owner, zone: 'hand' } }) : undefined}
         />
       )}

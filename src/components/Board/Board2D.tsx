@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useContext, useRef, useState, type CSSProperties } from 'react'
 import { PLAYERS, type Iid, type Player, type ZoneRef } from '../../engine'
 import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
-import { VIEWER, type PlacedCard, type ZoneView } from '../../view/boardView'
+import { VIEWER, type CardFace, type PlacedCard, type ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
 import type { BoardRendererProps } from './BoardRenderer'
@@ -60,7 +60,7 @@ export function Board2D({
   const litPiles = new Set(view.cards.filter((c) => lit.has(c.iid) && c.stackIndex !== undefined).map((c) => `${c.zone.player}:${c.zone.zone}`))
   // A few px of movement before a press becomes a drag, so clicks still open cards.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const [dragging, setDragging] = useState<PlacedCard>()
+  const [dragging, setDragging] = useState<CardFace>()
   // The selection box, in the board's own pixels. It starts on the table, not
   // on a card, and a second finger (a pan or pinch) calls it off.
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number }>()
@@ -69,44 +69,59 @@ export function Board2D({
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
   const down = useRef(0)
+  // Where a press on the table began: it becomes a box once it has moved a
+  // few px, so a plain click still opens a pile or places what's selected.
+  const press = useRef<{ x: number; y: number }>(undefined)
+  // The table only shows a pile's top card, so a card picked from further down is found in its zone.
+  const piled = new Map(view.zones.filter((z) => z.kind === 'pile').flatMap((z) => z.cards.map((c) => [c.iid, c] as const)))
+  const inPiles = multi.filter((iid) => piled.has(iid))
+  const faceOf = (iid: Iid): CardFace | undefined => piled.get(iid) ?? view.cards.find((c) => c.iid === iid)
+  // What moves when a drag starts: the whole selection as one pile if the
+  // dragged card is part of it, lead card on top.
+  const [group, setGroup] = useState<CardFace[]>([])
   const select = {
     onPointerDown: (e: React.PointerEvent) => {
       cam.handlers.onPointerDown(e)
       down.current++
       if (!boxSelect || e.button !== 0) return
+      press.current = undefined
       if (down.current > 1) return setMarquee(undefined)
       if ((e.target as Element).closest('[data-iid]')) return
-      const p = at(e)
-      e.currentTarget.setPointerCapture(e.pointerId)
-      setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
+      press.current = at(e)
     },
     onPointerMove: (e: React.PointerEvent) => {
       cam.handlers.onPointerMove(e)
-      if (!marquee) return
       const p = at(e)
-      setMarquee({ ...marquee, x1: p.x, y1: p.y })
+      const from = press.current
+      if (marquee) return setMarquee({ ...marquee, x1: p.x, y1: p.y })
+      if (!from || Math.hypot(p.x - from.x, p.y - from.y) < 6) return
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setMarquee({ x0: from.x, y0: from.y, x1: p.x, y1: p.y })
     },
     onPointerUp: (e: React.PointerEvent) => {
       cam.handlers.onPointerUp(e)
       down.current = Math.max(0, down.current - 1)
-      if (!marquee) return
+      const pressed = press.current
+      press.current = undefined
+      // A click on bare table, not a zone: clear the selection.
+      if (!marquee) return void (pressed && !(e.target as Element).closest('button') && onMultiSelect?.([]))
       setMarquee(undefined)
       const r = ref.current!.getBoundingClientRect()
       const [l, t, rt, b] = [Math.min(marquee.x0, marquee.x1) + r.left, Math.min(marquee.y0, marquee.y1) + r.top, Math.max(marquee.x0, marquee.x1) + r.left, Math.max(marquee.y0, marquee.y1) + r.top]
-      // A click, not a drag: clear the selection.
-      if (rt - l < 6 && b - t < 6) return onMultiSelect?.([])
       const loose = new Set(view.cards.filter((c) => c.stackIndex === undefined).map((c) => c.iid))
       const hit = [...ref.current!.querySelectorAll<HTMLElement>('[data-iid]')].filter((el) => {
         const c = el.getBoundingClientRect()
         return loose.has(el.dataset.iid!) && c.left < rt && c.right > l && c.top < b && c.bottom > t
       })
-      onMultiSelect?.([...new Set(hit.map((el) => el.dataset.iid!))])
+      // Cards picked out of a list stay picked: a box only reaches what's on the table.
+      onMultiSelect?.([...new Set([...inPiles, ...hit.map((el) => el.dataset.iid!)])])
       swallow.current = true
       setTimeout(() => (swallow.current = false))
     },
     onPointerCancel: (e: React.PointerEvent) => {
       cam.handlers.onPointerCancel(e)
       down.current = 0
+      press.current = undefined
       setMarquee(undefined)
     },
     // The click that ends a box isn't a click on the zone under it.
@@ -123,12 +138,21 @@ export function Board2D({
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
-        onDragStart={({ active }) => setDragging(view.cards.find((c) => c.iid === active.id))}
-        onDragCancel={() => setDragging(undefined)}
-        onDragEnd={({ active, over }) => {
+        onDragStart={({ active }) => {
+          const lead = active.id === HELD ? inPiles[0] : (active.id as Iid)
+          const ids = multi.includes(lead) ? [lead, ...multi.filter((m) => m !== lead)] : [lead]
+          setDragging(faceOf(lead))
+          setGroup(ids.flatMap((iid) => faceOf(iid) ?? []))
+        }}
+        onDragCancel={() => {
           setDragging(undefined)
+          setGroup([])
+        }}
+        onDragEnd={({ over }) => {
+          setDragging(undefined)
+          setGroup([])
           const to = over && view.zones.find((z) => z.key === over.id)?.ref
-          if (to) onCardDrop?.(active.id as Iid, to)
+          if (to && dragging) onCardDrop?.(dragging.iid, to)
         }}
       >
         <div
@@ -176,7 +200,7 @@ export function Board2D({
             )}
             <AnimatePresence initial={false}>
               {view.cards.filter((c) => !inFan(c)).map((c) => (
-                <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} />
+                <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} gathered={group.length > 1 && group.some((g) => g.iid === c.iid)} />
               ))}
             </AnimatePresence>
             {view.zones
@@ -233,15 +257,12 @@ export function Board2D({
               Reset view
             </button>
           )}
+          {inPiles.length > 0 && <HeldPile cards={inPiles.flatMap((iid) => faceOf(iid) ?? [])} hidden={dragging && group.length > 0 && inPiles.includes(dragging.iid)} />}
         </div>
         {/* Screen-sized, outside the zoomed world; no drop animation, since a
           card that moved slides to its new zone by itself. */}
         <DragOverlay dropAnimation={null}>
-          {dragging && (
-            <div className="h-full w-full rotate-3 opacity-90 shadow-2xl shadow-black">
-              <CardView card={dragging} />
-            </div>
-          )}
+          {dragging && <Stack cards={group.length ? group : [dragging]} className="rotate-3 opacity-90" />}
         </DragOverlay>
       </DndContext>
     </Tooltip.Provider>
@@ -292,7 +313,48 @@ function ZoneOutline({ zone, placing, lit, picked, onClick }: { zone: ZoneView; 
   )
 }
 
-function BoardCard({ card, selected, lit, onClick, canDrag }: { card: PlacedCard; selected: boolean; lit: boolean; onClick: () => void; canDrag: boolean }) {
+const HELD = 'held-pile'
+
+// Cards as one pile, the first on top, with how many there are.
+function Stack({ cards, className = '' }: { cards: CardFace[]; className?: string }) {
+  const shown = cards.slice(0, 5).reverse()
+  return (
+    <div className={`relative h-full w-full ${className}`} data-testid="stack">
+      {shown.map((c, i) => {
+        const depth = shown.length - 1 - i
+        return (
+          <div key={c.iid} className="absolute inset-0 rounded-[5%] shadow-lg shadow-black/70" style={{ transform: `translate(${depth * 7}%, ${depth * 5}%) rotate(${depth * 2.5}deg)` }}>
+            <CardView card={c} showFace />
+          </div>
+        )
+      })}
+      {cards.length > 1 && <span className="absolute -right-2 -top-2 z-10 rounded-full bg-gold px-2 py-0.5 font-display text-sm font-bold text-bg">{cards.length}</span>}
+    </div>
+  )
+}
+
+// The cards selected out of a list, waiting at the side of the table to be
+// dragged onto it (or placed with a click on a zone).
+function HeldPile({ cards, hidden }: { cards: CardFace[]; hidden?: boolean }) {
+  const { setNodeRef, listeners } = useDraggable({ id: HELD })
+  return (
+    <div className={`panel absolute right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-2 p-3 pr-5 ${hidden ? 'opacity-30' : ''}`} data-testid="held-pile">
+      <div
+        ref={setNodeRef}
+        className="aspect-[1/1.46] w-20 cursor-grab touch-none text-xs"
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          listeners?.onPointerDown?.(e)
+        }}
+      >
+        <Stack cards={cards} />
+      </div>
+      <p className="text-xs text-muted">Drag onto the table</p>
+    </div>
+  )
+}
+
+function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: PlacedCard; selected: boolean; lit: boolean; onClick: () => void; canDrag: boolean; gathered?: boolean }) {
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: card.iid,
     disabled: !canDrag,
@@ -327,7 +389,7 @@ function BoardCard({ card, selected, lit, onClick, canDrag }: { card: PlacedCard
       }}
       className={`absolute text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out hover:-translate-y-[0.4cqw] hover:brightness-110 motion-reduce:transition-none ${inPile ? 'pointer-events-none' : ''} ${
         canDrag ? 'cursor-grab touch-none' : 'cursor-pointer'
-      } ${isDragging ? 'opacity-30' : ''}`}
+      } ${isDragging || gathered ? 'opacity-30' : ''}`}
       style={{ ...box(card.placement), zIndex: z }}
     >
       <div

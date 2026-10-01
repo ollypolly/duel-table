@@ -18,6 +18,8 @@ export function PileViewer({
   cardActions,
   onToHand,
   onPickAll,
+  picked,
+  onPick,
 }: {
   zone: ZoneView
   playerName: string
@@ -26,6 +28,8 @@ export function PileViewer({
   cardActions?: (iid: Iid, close: () => void) => ReactNode
   onPickAll?: (iids: Iid[]) => void // free play: a grouped tile picks up all its copies to place together
   onToHand?: (iid: Iid) => void // free play: a quick way to pull a card, with the pile left open
+  picked?: Iid[] // free play with Select on: a click adds a tile to the selection, or takes it back out
+  onPick?: (iids: Iid[]) => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [pinned, setPinned] = useState<Iid>()
@@ -45,6 +49,8 @@ export function PileViewer({
           .sort((a, b) => a[0].name.localeCompare(b[0].name))
           .map((copies) => ({ c: copies[0], copies: copies.length, iids: copies.map((x) => x.iid), i: -1 }))
       : zone.cards.map((c, i) => ({ c, copies: 1, iids: [c.iid], i }))
+  const isPicked = (iids: Iid[]) => iids.every((iid) => picked?.includes(iid))
+  const held = zone.cards.filter((c) => picked?.includes(c.iid)).length
   return (
     <dialog
       ref={ref}
@@ -71,7 +77,7 @@ export function PileViewer({
               </label>
             )}
             <button type="button" className="btn" onClick={() => ref.current?.close()}>
-              Close
+              {held ? `Take ${held}` : 'Close'}
             </button>
           </span>
         </div>
@@ -79,8 +85,8 @@ export function PileViewer({
           {zone.count === 0 && <p className="col-span-full text-sm text-muted">Empty.</p>}
           {tiles.map(({ c, copies, iids, i }) => (
             <div key={c.iid} className="group relative text-left">
-              <button type="button" className="block w-full text-left" onClick={() => (onPickAll && copies > 1 ? onPickAll(iids) : onCardClick?.(c.iid) || setPinned(c.iid))}>
-                <div className={`relative aspect-[1/1.46] text-base transition group-hover:scale-105 ${copies > 1 ? 'rounded-md shadow-[4px_4px_0_var(--color-line),8px_8px_0_var(--color-line)]' : ''}`}>
+              <button type="button" className="block w-full text-left" aria-pressed={onPick && isPicked(iids)} onClick={() => (onPick ? onPick(iids) : onPickAll && copies > 1 ? onPickAll(iids) : onCardClick?.(c.iid) || setPinned(c.iid))}>
+                <div className={`relative aspect-[1/1.46] text-base transition group-hover:scale-105 ${copies > 1 ? 'rounded-md shadow-[4px_4px_0_var(--color-line),8px_8px_0_var(--color-line)]' : ''} ${isPicked(iids) ? 'rounded-md outline outline-2 outline-offset-2 outline-accent' : ''}`}>
                   <CardView card={c} showFace={!hidden || c.visible} />
                   {copies > 1 && <span className="absolute right-1 top-1 rounded-full bg-gold px-1.5 py-0.5 font-display text-xs font-bold text-bg">×{copies}</span>}
                 </div>
