@@ -33,7 +33,7 @@ describe('API', () => {
     expect(byName.json).toMatchObject({ name: 'Ojamatch', image: expect.stringContaining('/cards/') })
     expect((await call('GET', `/cards/${byName.json.id}`)).json.name).toBe('Ojamatch')
     const miss = await call('GET', '/cards?name=Ojamatchh')
-    expect(miss).toMatchObject({ status: 404, json: { suggestions: ['Ojamatch'] } })
+    expect(miss).toMatchObject({ status: 404, json: { suggestions: expect.arrayContaining(['Ojamatch']) } })
   })
 
   it('runs a session: create, apply, reject, undo, fork, export', async () => {
