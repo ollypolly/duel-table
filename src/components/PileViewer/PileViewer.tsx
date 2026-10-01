@@ -41,8 +41,8 @@ export function PileViewer({
     grouped && !hidden
       ? Object.values(zone.cards.reduce<Record<string, typeof zone.cards>>((by, c) => ({ ...by, [c.name]: [...(by[c.name] ?? []), c] }), {}))
           .sort((a, b) => a[0].name.localeCompare(b[0].name))
-          .map((copies) => ({ c: copies[0], copies: copies.length, i: -1 }))
-      : zone.cards.map((c, i) => ({ c, copies: 1, i }))
+          .map((copies) => ({ c: copies[0], copies: copies.length, iids: copies.map((x) => x.iid), i: -1 }))
+      : zone.cards.map((c, i) => ({ c, copies: 1, iids: [c.iid], i }))
   return (
     <dialog
       ref={ref}
@@ -75,7 +75,7 @@ export function PileViewer({
         </div>
         <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 overflow-y-auto p-4">
           {zone.count === 0 && <p className="col-span-full text-sm text-muted">Empty.</p>}
-          {tiles.map(({ c, copies, i }) => (
+          {tiles.map(({ c, copies, iids, i }) => (
             <div key={c.iid} className="group relative text-left">
               <button type="button" className="block w-full text-left" onClick={() => onCardClick?.(c.iid) || setPinned(c.iid)}>
                 <div className={`relative aspect-[1/1.46] text-base transition group-hover:scale-105 ${copies > 1 ? 'rounded-md shadow-[4px_4px_0_var(--color-line),8px_8px_0_var(--color-line)]' : ''}`}>
@@ -88,9 +88,16 @@ export function PileViewer({
                 </p>
               </button>
               {onToHand && (
-                <button type="button" className="btn mt-1 w-full justify-center text-xs" onClick={() => onToHand(c.iid)}>
-                  To hand
-                </button>
+                <span className="mt-1 flex gap-1">
+                  <button type="button" className="btn min-w-0 flex-1 justify-center text-xs" onClick={() => onToHand(c.iid)}>
+                    To hand
+                  </button>
+                  {copies > 1 && (
+                    <button type="button" className="btn justify-center text-xs" title={`All ${copies} copies to hand`} onClick={() => iids.forEach(onToHand)}>
+                      All {copies}
+                    </button>
+                  )}
+                </span>
               )}
             </div>
           ))}
