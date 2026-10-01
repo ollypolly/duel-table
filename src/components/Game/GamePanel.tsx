@@ -1,13 +1,22 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Lightbulb, MoreHorizontal, Search, TriangleAlert, Undo2 } from 'lucide-react'
+import { Check, Lightbulb, MoreHorizontal, Search, TriangleAlert, Undo2 } from 'lucide-react'
 import { useState } from 'react'
-import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
+import { PICK_KINDS, type GamePrompt, type GameView, type Respond } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
 import { cardFace, VIEWER } from '../../view/boardView'
-import { Menu, MenuItem } from '../Menu/Menu'
+import { CardText } from '../CardLink/CardLink'
+import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
+
+// When you're asked to respond, from most often to never.
+const RESPOND_LEVELS: [Respond, string, string][] = [
+  ['all', 'Every chance', 'Asked whenever you could activate something'],
+  ['auto', 'Auto', "Not asked when nothing happened, or after your own move"],
+  ['advise', "Auto, with Claude's view", 'Claude says whether it would respond, and why'],
+  ['claude', 'Claude passes for me', 'Claude passes the ones not worth it, and says why'],
+]
 
 export type GameChoice = {
   focused?: Iid // single-choice prompts: the card whose options are shown
@@ -25,10 +34,13 @@ type Props = {
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move
   onForfeit?: () => void // give the game up
+  onRespond?: (level: Respond) => void // change when you're asked to respond
+  onReopen?: (at: number) => void // be asked a passed chance after all
+  claudeOn?: boolean // the levels that ask Claude can be picked
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
@@ -85,8 +97,21 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </button>
     </span>
   ) : (
-    (onForfeit || (onUndo && !!game.undos)) && (
+    (onForfeit || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
       <Menu label={<MoreHorizontal size={14} />} title="More" side="top" className="btn text-xs">
+        {onRespond && game.respond && (
+          <>
+            <MenuLabel>Ask me to respond</MenuLabel>
+            {RESPOND_LEVELS.filter(([l]) => claudeOn || (l !== 'advise' && l !== 'claude')).map(([level, label, about]) => (
+              <MenuItem key={level} role="menuitemradio" aria-checked={game.respond === level} title={about} onClick={() => onRespond(level)}>
+                <span className="flex items-center gap-2">
+                  <Check size={14} className={game.respond === level ? 'text-gold' : 'invisible'} aria-hidden />
+                  {label}
+                </span>
+              </MenuItem>
+            ))}
+          </>
+        )}
         {onUndo && !!game.undos && (
           <MenuItem disabled={busy} onClick={onUndo} title="Go back to before your last move">
             Take back ({game.undos} left)
@@ -100,11 +125,31 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </Menu>
     )
   )
+  // The latest chance to respond that was passed for you, with a way back to it.
+  const last = game.skipped?.at(-1)
+  const passed = last && (
+    <div className="flex items-start justify-between gap-2 rounded-md border border-line bg-raised/50 px-2 py-1.5 text-xs text-muted" data-testid="passed">
+      <p className="min-w-0">
+        <span className="text-ink">{last.by === 'claude' ? 'Claude passed for you' : 'Passed for you'}</span>
+        {last.to ? ` on ${last.to}` : ''}: you could have used <CardText>{last.cards.join(', ')}</CardText>
+        {last.why ? `. ${last.by === 'claude' ? last.why : `Skipped as ${last.why}.`}` : '.'}
+      </p>
+      {onReopen && (
+        <button type="button" className="btn shrink-0 text-xs" disabled={busy} onClick={() => onReopen(last.at)} title="Go back to that moment and decide yourself">
+          Ask me
+        </button>
+      )}
+    </div>
+  )
   if (!prompt) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">{waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}</p>
-        {more}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted">
+            {game.deciding ? 'Claude is weighing a response for you…' : waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}
+          </p>
+          {more}
+        </div>
       </div>
     )
   }
@@ -131,6 +176,14 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
           {how && <span className="font-normal text-muted">({how})</span>}
         </p>
         {prompt.costly && <p className="text-xs text-warn/80">You lose what you pick.</p>}
+        {prompt.advice && (
+          <p className="mt-1 flex items-start gap-1.5 text-xs text-gold-soft" data-testid="advice">
+            <Lightbulb size={13} className="mt-0.5 shrink-0" aria-hidden />
+            <span>
+              <CardText>{prompt.advice}</CardText>
+            </span>
+          </p>
+        )}
       </div>
       {multi ? (
         <MultiPick prompt={prompt} picked={choice.picked} onChange={(picked) => onChoice({ ...choice, picked })} onConfirm={() => onAnswer(choice.picked)} busy={busy} />
@@ -153,6 +206,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       ) : (
         <SingleChoice prompt={prompt} withCard={withCard} general={general} name={name} onFocus={(focused) => onChoice({ ...choice, focused })} onAnswer={onAnswer} busy={busy} />
       )}
+      {passed}
       <div className="flex flex-wrap gap-1.5 empty:hidden">
         {onHint && (
           <button type="button" className="btn flex items-center gap-1.5 text-xs" onClick={onHint} title="Claude sees your hidden cards for this question only">

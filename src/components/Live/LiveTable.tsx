@@ -163,6 +163,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // The same decks and opponent again, with a fresh shuffle.
   const players = session?.file.players
   const claude = game?.claude
+  // Whether there's a Claude login, for the response levels that ask it.
+  const [claudeOn, setClaudeOn] = useState(false)
+  useEffect(() => void api.claude().then((c) => setClaudeOn(c.available)), [])
   // A lesson Claude runs: no rematch, hints, coaching or sharing (it sees everything).
   const claudeLesson = !!claude?.holds
   const rematch =
@@ -290,6 +293,12 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
             onForfeit={claudeLesson ? undefined : () => report(api.forfeitGame(id))}
+            onRespond={(respond) => report(api.gameSettings(id, { respond }))}
+            onReopen={(at) => {
+              setBusy(true)
+              report(api.reopenGame(id, at).finally(() => setBusy(false)))
+            }}
+            claudeOn={claudeOn}
             busy={busy}
           />
         )}

@@ -50,10 +50,10 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
   return { agent, requests }
 }
 
-const setup = (agent: Agent) => {
+const setup = (agent: Agent, store = memoryClaudeStore()) => {
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: ({ coach, character, lesson, watch }) => (lesson ? 'lesson' : watch ? 'beside' : [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as ')), store: memoryClaudeStore() })
+  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: ({ coach, character, lesson, watch }) => (lesson ? 'lesson' : watch ? 'beside' : [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as ')), store })
   return { sessions, games, claude }
 }
 
@@ -204,7 +204,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       }
       return { events: run(), interrupt: async () => {} }
     }
-    const { sessions, games, claude } = setup(agent)
+    const store = memoryClaudeStore()
+    const { sessions, games, claude } = setup(agent, store)
     const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1, watch: true })
     expect(v.game).toMatchObject({ bots: ['p2'], bot: 'random', waitingFor: 'p1', claude: { player: 'p1', watch: true, knowsDeck: true, chat: [] } })
     // Nothing runs until you ask, and your question stays yours.
@@ -244,6 +245,11 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     await claude.idle(v.id)
     expect(seen.theirs).toContain("You haven't been given your opponent's decklist.")
     expect(requests[1].sessionId).toBe('fake-session')
+
+    // After a restart it is still beside you, not playing your side.
+    const again = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: () => 'beside', store })
+    expect(again.played(v.id)).toMatchObject({ player: 'p1', watch: true })
+    expect(sessions.get(v.id).game).toMatchObject({ claude: { watch: true, knowsDeck: false }, prompt: { player: 'p1' } })
   }, 60_000)
 
   it("plays as its deck's character", async () => {

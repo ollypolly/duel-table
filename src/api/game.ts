@@ -17,6 +17,7 @@ export const GamePromptSchema = z.object({
     })
     .optional()
     .describe('The card whose effect is asking'),
+  advice: z.string().optional().describe("Claude's view on whether to respond here, when responses are set to ask it"),
   costly: z.boolean().optional().describe('The cards picked leave your hand or field (discarded, Tributed, sent to the GY, banished, destroyed, returned)'),
   options: z.array(
     z.object({
@@ -65,6 +66,23 @@ export type ClaudeView = z.infer<typeof ClaudeViewSchema>
 export const ClaudeSettingsSchema = z.object({ model: ModelChoiceSchema.optional(), coach: z.boolean().optional(), share: z.boolean().optional(), knowsDeck: z.boolean().optional() }).strict()
 export type ClaudeSettings = z.infer<typeof ClaudeSettingsSchema>
 
+// When you're asked "respond with a chain?". all: at every chance you have
+// something to activate. auto: not when nothing happened, nor after your own
+// move. advise: as auto, with Claude's view on each. claude: as auto, and
+// Claude passes for you where responding is plainly not worth it.
+export const RESPOND = ['all', 'auto', 'advise', 'claude'] as const
+export const RespondSchema = z.enum(RESPOND)
+export type Respond = z.infer<typeof RespondSchema>
+
+export const SkippedSchema = z.object({
+  at: z.int().describe('The answer it was passed at: reopen it with /game/reopen'),
+  cards: z.array(z.string()).describe('What you could have activated'),
+  to: z.string().optional().describe('What you could have responded to'),
+  by: z.enum(['rules', 'claude']),
+  why: z.string().optional(),
+})
+export type Skipped = z.infer<typeof SkippedSchema>
+
 export const GameViewSchema = z.object({
   waitingFor: PlayerSchema.optional().describe('Whose answer the rules engine is waiting for'),
   winner: z.object({ player: PlayerSchema, reason: z.int() }).optional(),
@@ -73,5 +91,8 @@ export const GameViewSchema = z.object({
   prompt: GamePromptSchema.optional().describe("The open question, when it's for a person"),
   claude: ClaudeViewSchema.optional().describe('Claude, when it plays one side or coaches you against a bot'),
   undos: z.int().optional().describe('Moves you can still take back, when there is one to take back now'),
+  respond: RespondSchema.optional().describe('When you are asked to respond (default auto)'),
+  skipped: z.array(SkippedSchema).optional().describe('Chances to respond passed for you lately, newest last'),
+  deciding: z.boolean().optional().describe('Claude is weighing a chance to respond for you'),
 })
 export type GameView = z.infer<typeof GameViewSchema>

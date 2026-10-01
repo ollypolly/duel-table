@@ -309,7 +309,9 @@ export class ClaudeService {
       seen: 0,
       ...(duel?.lesson && { lesson: { holds: ['p1', 'p2'], handed: [] } }),
     }
-    const seat: Seat = { ...rec, share: rec.share ?? false, status: 'idle', queue: [], busy: false }
+    // Claude only answers for a player the game's file gives it: otherwise it is beside them.
+    const watch = !duel?.claude && !duel?.lesson
+    const seat: Seat = { ...rec, ...(watch && { watch, knowsDeck: rec.knowsDeck ?? true }), share: rec.share ?? false, status: 'idle', queue: [], busy: false }
     this.seats.set(id, seat)
     return seat
   }
@@ -851,9 +853,11 @@ export class ClaudeService {
 
   private save(id: string, seat: Seat) {
     if (this.seats.get(id) !== seat) return // deleted while a run was finishing
-    const { player, model, coach, share, sessionId, chat, costUsd, seen, texts, character, lesson } = seat
+    const { player, watch, knowsDeck, flags, model, coach, share, sessionId, chat, costUsd, seen, texts, character, lesson } = seat
     this.store.save(id, {
       player,
+      ...(watch && { watch, knowsDeck: knowsDeck ?? true }),
+      ...(flags && { flags }),
       model,
       coach,
       share,

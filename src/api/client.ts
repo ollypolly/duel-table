@@ -3,7 +3,7 @@
 import type { CardData } from '../data/cardDb'
 import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
-import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
+import type { ClaudeSettings, GameAnswer, GameView, ModelChoice, Respond } from './game'
 import type { Answer, LessonView } from './lesson'
 import type { Moment, ReviewView } from './review'
 import type { TutorView } from './tutor'
@@ -73,11 +73,14 @@ export const api = {
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
-  createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { bot?: 'random' | 'agent'; claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean; knowsDeck?: boolean }) =>
+  createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { bot?: 'random' | 'agent'; claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean; knowsDeck?: boolean; respond?: Respond }) =>
     call<SessionSummary>('POST', '/games', opts),
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
   undoGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/undo`),
   forfeitGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/forfeit`),
+  // Go back to a chance to respond that was passed for you; change when you're asked.
+  reopenGame: (id: string, at: number) => call<SessionSummary>('POST', `/sessions/${id}/game/reopen`, { at }),
+  gameSettings: (id: string, s: { respond: Respond }) => call<SessionSummary>('POST', `/sessions/${id}/game/settings`, s),
   // Which bots can be played, and the decks the trained one knows.
   opponents: () => call<Opponents>('GET', '/games/opponents').catch((): Opponents => ({ agent: { available: false, decks: [] } })),
   // Whether this server has a Claude login to play with.

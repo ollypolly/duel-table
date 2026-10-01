@@ -9,7 +9,7 @@ import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import { parseDeck } from '../src/scenarios/resolve'
 import { DeckSchema, StepSchema, type DeckFile } from '../src/scenarios/schema'
 import { AnswerSchema, CursorSchema, LessonEventSchema, LessonViewSchema, PromptSchema, RevealSchema } from '../src/api/lesson'
-import { ClaudeSettingsSchema, GameAnswerSchema, GameViewSchema, ModelChoiceSchema } from '../src/api/game'
+import { ClaudeSettingsSchema, GameAnswerSchema, GameViewSchema, ModelChoiceSchema, RespondSchema } from '../src/api/game'
 import { PlayerSchema } from '../src/scenarios/schema'
 import type { ClaudeService } from './claude/service'
 import type { TutorService } from './claude/tutor'
@@ -507,6 +507,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
             coach: z.boolean().optional().describe('Claude also coaches you (default true)'),
             watch: z.boolean().optional().describe('In a bot game, Claude sits beside you as a coach to ask: it sees your side and answers nothing (needs a Claude login)'),
             knowsDeck: z.boolean().optional().describe("With watch: Claude is given the bot's decklist (default true)"),
+            respond: RespondSchema.optional().describe('When you are asked to respond with a chain (default auto)'),
             title: z.string().optional(),
           })
           .strict()
@@ -821,6 +822,37 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       return c.json(await games.undo(c.req.valid('param').id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/reopen',
+      summary: 'Go back to a chance to respond that was passed for you',
+      description: 'The game goes back to that chance (game.skipped[].at) and asks you after all; what came after is dropped. It does not use up a take-back.',
+      request: { params: IdParam, ...body(z.object({ at: z.int().min(0) }).strict()) },
+      responses: { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, 'No passed chance there'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.reopen(c.req.valid('param').id, c.req.valid('json').at), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/settings',
+      summary: 'Change when you are asked to respond',
+      description:
+        'all: at every chance you have something to activate. auto: not when nothing happened (your trigger effects aside), nor after your own move. advise: as auto, with Claude saying whether it would respond. claude: as auto, and Claude passes for you where responding is plainly not worth it. Chances the rules or Claude passed are in game.skipped. The Claude levels need a Claude login; without one they behave as auto.',
+      request: { params: IdParam, ...body(z.object({ respond: RespondSchema }).strict()) },
+      responses: { 200: json(SessionSchema, 'The game'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.setRespond(c.req.valid('param').id, c.req.valid('json').respond), 200)
     },
   )
 

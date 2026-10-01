@@ -135,6 +135,54 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     await expect(again.forfeit(v.id)).rejects.toThrow(/already over/)
   }, 60_000)
 
+  it('passes chances to respond for you by level, and reopens one when asked', async () => {
+    // A person who picks at random, until a chance has been passed for them
+    // (or, when looking for advice, until Claude's view comes with a question).
+    const play = async (games: GameService, respond: 'claude' | 'advise', seed: number) => {
+      const rng = seededRng(seed)
+      let v = await games.create({ deck: 'trained-blue-eyes', opponentDeck: 'trained-hero', seed, respond })
+      const passes: string[] = []
+      for (let i = 0; i < 400 && !v.game?.winner; i++) {
+        const p = v.game!.prompt!
+        if (p.kind === 'chain' && p.options.some((o) => o.group === 'Pass')) passes.push(p.message)
+        if (respond === 'advise' ? p.advice : v.game?.skipped?.some((s) => (respond === 'claude') === (s.by === 'claude'))) break
+        const n = p.min + Math.floor(rng() * (Math.min(p.max, p.options.length) - p.min + 1))
+        const choices = [...p.options.keys()].sort(() => rng() - 0.5).slice(0, n)
+        v = await games.answer(v.id, undefined, { id: p.id, choices }).catch((e) => {
+          if (!(e instanceof SessionError) || e.status !== 422) throw e
+          return v
+        })
+      }
+      return { v, passes }
+    }
+    const sessions = new SessionService(ctx, saving())
+    const games = new GameService(sessions, ctx)
+
+    // Claude passes the ones it wouldn't take, with its reason.
+    const asked: string[] = []
+    games.adviser = async (_id, _player, prompt) => {
+      asked.push(prompt.message)
+      return { stop: false, why: 'nothing worth hitting yet' }
+    }
+    const claude = await play(games, 'claude', 5)
+    const skipped = claude.v.game!.skipped!.at(-1)!
+    expect(skipped).toMatchObject({ by: 'claude', why: 'nothing worth hitting yet' })
+    expect(skipped.cards.length).toBeGreaterThan(0)
+    expect(claude.passes).toEqual([])
+    expect(asked.length).toBeGreaterThan(0)
+    expect(sessions.export(claude.v.id).duel).toMatchObject({ respond: 'claude' })
+    // Asked after all: back at that chance, which is no longer listed as passed.
+    const back = await games.reopen(claude.v.id, skipped.at)
+    expect(back.game?.prompt).toMatchObject({ id: skipped.at, kind: 'chain' })
+    expect(back.game?.skipped?.some((s) => s.at === skipped.at) ?? false).toBe(false)
+    expect(back.file.duel?.responses).toHaveLength(skipped.at)
+    await expect(games.reopen(claude.v.id, skipped.at)).rejects.toThrow(/no passed chance/)
+    // Or it only says what it thinks.
+    const advise = await play(games, 'advise', 5)
+    expect(advise.v.game!.prompt).toMatchObject({ kind: 'chain', advice: 'Claude would pass: nothing worth hitting yet' })
+    expect((await games.setRespond(advise.v.id, 'all')).game?.respond).toBe('all')
+  }, 120_000)
+
   it('takes back a move, a few times a game', async () => {
     const store = saving()
     const sessions = new SessionService(ctx, store)

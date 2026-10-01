@@ -3,7 +3,7 @@
 // file as duel.responses). After a restart a game is rebuilt by replaying
 // those answers the first time it's needed.
 import { PLAYERS, type BoardState, type Player, type Step } from '../src/engine'
-import type { GameAnswer, GamePrompt, GameView, ModelChoice } from '../src/api/game'
+import type { GameAnswer, GamePrompt, GameView, ModelChoice, Respond, Skipped } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
 import { AgentBot, agentCodes, agentUrl } from './ocg/agentBot'
@@ -38,6 +38,7 @@ export type CreateGameOptions = {
   coach?: boolean
   watch?: boolean
   knowsDeck?: boolean
+  respond?: Respond
   title?: string
 }
 
@@ -48,10 +49,14 @@ export const UNDOS = 3
 
 type Asked = Extract<Question, { prompt: unknown }>
 export type BotKind = 'random' | 'agent'
-type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean }
+// respond: when the person is asked to chain. skipped: chances passed for
+// them. forced: an answer index where they asked for a passed chance back.
+type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean; respond?: Respond; skipped?: Skipped[]; forced?: number }
+// What Claude makes of a chance to respond: stop for it or not, and why.
+export type ChainAdvice = { stop: boolean; why: string }
 // moves: for each move a person began, how many answers had been given.
 // agents: the trained bot's side of the conversation, for each player it plays.
-type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; agents?: Partial<Record<Player, AgentBot>> }
+type Live = Seats & { deciding?: boolean; game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; agents?: Partial<Record<Player, AgentBot>> }
 
 // A line tried on a copy of the game: what happened, the table after it, how
 // many of the picks were played, and why it stopped (the next question for the
@@ -82,6 +87,8 @@ export class GameService {
   onUndo?: (id: string) => void
   // The person gave up.
   onForfeit?: (id: string) => void
+  // Claude's view of a chance to respond, for the levels that ask it.
+  adviser?: (id: string, player: Player, prompt: GamePrompt) => Promise<ChainAdvice | undefined>
 
   constructor(
     sessions: SessionService,
@@ -170,7 +177,7 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true })
+    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
@@ -231,8 +238,8 @@ export class GameService {
       throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
     this.sessions.restartGame(id, from)
-    const { bots, bot, claude, lesson, shuffled } = old
-    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled })
+    const { bots, bot, claude, lesson, shuffled, respond } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond })
     return this.advance(id, live, game.start())
   }
 
@@ -250,18 +257,46 @@ export class GameService {
       if ((duel.undone ?? 0) >= UNDOS) throw new SessionError(409, `all ${UNDOS} take-backs are used`)
       throw new SessionError(409, old.moves.length ? "a move can be taken back when it's your move" : 'no move of yours to take back')
     }
-    const to = old.moves.at(-1)!
-    const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
-    const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
-    const { bots, bot, claude, lesson, shuffled } = old
-    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled })
-    live.moves = old.moves.slice(0, -1)
-    const q = last.prompt && this.ask(live, last)
-    if (q && 'prompt' in q) live.asked = q
-    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, undone: (duel.undone ?? 0) + 1 })
+    this.rewind(id, old, old.moves.at(-1)!, { undone: (duel.undone ?? 0) + 1 })
     this.onUndo?.(id)
     this.onChange?.(id)
     return this.sessions.get(id)
+  }
+
+  // Go back to a chance to respond that was passed for the person, and ask
+  // them after all. What came after it is dropped, as with a take-back, but
+  // it doesn't use one up.
+  async reopen(id: string, at: number): Promise<SessionView> {
+    const old = await this.live(id)
+    if (!old.skipped?.some((s) => s.at === at)) throw new SessionError(409, 'no passed chance to respond there')
+    if (old.asked && this.held(id, old).includes(old.asked.prompt.player)) throw new SessionError(409, "wait until it's your move")
+    this.rewind(id, old, at, { asked: at })
+    this.onUndo?.(id)
+    this.onChange?.(id)
+    return this.sessions.get(id)
+  }
+
+  // Change when the person is asked to respond, from here on.
+  async setRespond(id: string, respond: Respond): Promise<SessionView> {
+    const live = await this.live(id)
+    live.respond = respond
+    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, respond })
+    return this.sessions.get(id)
+  }
+
+  // Replay the game up to answer `to` and ask the question open there.
+  private rewind(id: string, old: Live, to: number, change: { undone?: number; asked?: number }) {
+    const file = this.sessions.export(id)
+    const duel = file.duel!
+    const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
+    const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
+    const { bots, bot, claude, lesson, shuffled, respond } = old
+    const skipped = old.skipped?.filter((s) => s.at < to)
+    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled, respond, skipped, forced: change.asked })
+    live.moves = old.moves.filter((m) => m < to)
+    const q = last.prompt && this.ask(live, last)
+    if (q && 'prompt' in q) live.asked = q
+    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, skipped, asked: undefined, ...change })
   }
 
   // The person gives up a game that's still going, at any point: the other
@@ -360,7 +395,8 @@ export class GameService {
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
     const undos = this.undos(id, live)
-    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }) }
+    const person = !live.lesson && PLAYERS.some((p) => !bots.includes(p) && p !== live.claude)
+    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && live.skipped?.length && { skipped: live.skipped.slice(-3) }), ...(live.deciding && { deciding: true }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -373,6 +409,7 @@ export class GameService {
     let actor: Player | undefined
     let attempt = 0
     live.asked = undefined
+    live.deciding = false
     for (;;) {
       for (const s of p.steps) {
         steps.push(s)
@@ -381,6 +418,7 @@ export class GameService {
       if (!p.prompt || !p.waitingFor) break
       if (attempt > 50) throw new Error(`stuck on ${p.prompt.constructor.name}`)
       attempt = p.retried ? attempt + 1 : 0
+      const cause = actor
       actor = p.waitingFor
       let response: Uint8Array
       if (live.bots.includes(actor)) {
@@ -391,18 +429,23 @@ export class GameService {
         if (live.game.duel.result) break // given up while it was thinking
         response = picked ?? botResponse(p.prompt, live.rng, attempt, live.codes)
       }
-      else if (quietChance(p, live.game.state)) response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
+      else if (quietChance(p, live.game.state) && (live.respond ?? 'auto') !== 'all') response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
       else {
         const q = this.ask(live, p)
         if ('prompt' in q) {
-          live.asked = q
-          break
-        }
-        response = q.auto
+          const passed = await this.chance(id, live, p, q, cause)
+          if (live.game.duel.result) break
+          if (!passed) {
+            live.asked = q
+            break
+          }
+          live.skipped = [...(live.skipped ?? []), passed]
+          response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
+        } else response = q.auto
       }
       p = live.game.respond(response)
     }
-    const { undone, forfeit } = this.sessions.export(id).duel ?? {}
+    const { undone, forfeit, asked: reopened } = this.sessions.export(id).duel ?? {}
     const duel = {
       responses: live.game.duel.responses.map(encodeResponse),
       ...(undone && { undone }),
@@ -412,11 +455,43 @@ export class GameService {
       ...(live.claude && { claude: live.claude }),
       ...(live.lesson && { lesson: true }),
       ...(live.shuffled && { shuffled: true }),
+      ...(live.respond && { respond: live.respond }),
+      ...(live.skipped?.length && { skipped: live.skipped.slice(-20) }),
+      ...(reopened !== undefined && live.asked?.prompt.id === reopened && { asked: reopened }),
       ...(live.game.duel.result && { winner: live.game.duel.result.player }),
     }
     const view = this.sessions.appendGame(id, steps, duel, (s) => (paced.has(s) ? { afterMs: BOT_STEP_MS } : undefined))
     this.onChange?.(id)
     return view
+  }
+
+  // A chance for a person to respond: passed for them (returned, to be
+  // recorded), or theirs to answer. Anything forced and a chance they asked
+  // to have back are always theirs.
+  private async chance(id: string, live: Live, p: Progress, q: Asked, cause?: Player): Promise<Skipped | undefined> {
+    const m = p.prompt
+    const { prompt } = q
+    const level = live.respond ?? 'auto'
+    if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced)) return undefined
+    if (level === 'all' || live.lesson || live.forced === prompt.id || this.held(id, live).includes(prompt.player)) return undefined
+    const { state } = live.game
+    const names = [...new Set(prompt.options.flatMap((o) => (o.card ? [live.ocg.card(state.cards[o.card]?.cardId ?? 0)?.name ?? 'a card'] : [])))]
+    const top = state.chain.at(-1)
+    const to = top && live.ocg.card(state.cards[top.card]?.cardId ?? 0)?.name
+    const skip = (by: Skipped['by'], why?: string): Skipped => ({ at: prompt.id, cards: names, ...(to && { to }), by, ...(why && { why }) })
+    // The engine counts the responses that answer what just happened (and
+    // your trigger effects); the rest are cards that could be used at any time.
+    // After your own summon or activation, with nothing of theirs on the chain, those aren't asked.
+    if (m.specialCount === 0 && (top ? top.player === prompt.player : cause === prompt.player)) return skip('rules', 'it followed your own move')
+    if (level === 'auto' || !this.adviser) return undefined
+    live.deciding = true
+    this.sessions.touch(id)
+    const advice = await this.adviser(id, prompt.player, prompt).catch(() => undefined)
+    live.deciding = false
+    if (!advice) return undefined
+    if (level === 'claude' && !advice.stop) return skip('claude', advice.why)
+    prompt.advice = `${advice.stop ? 'Worth responding' : 'Claude would pass'}: ${advice.why}`
+    return undefined
   }
 
   // Games saved before the winner was, get it by replaying them (without
@@ -451,14 +526,14 @@ export class GameService {
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const moves: number[] = []
-    const { bots = [], bot, claude, lesson, shuffled } = file.duel
+    const { bots = [], bot, claude, lesson, shuffled, respond, skipped, asked: forced } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
       if (!bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled })
+    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, skipped, forced })
     live.moves = moves
     if (file.duel.forfeit) game.duel.surrender(file.duel.forfeit)
     else if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
@@ -532,7 +607,7 @@ export class GameService {
 // summon, attack or activation just now, and you're asked.
 function quietChance(p: Progress, state: BoardState): boolean {
   const m = p.prompt
-  if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced) || state.chain.length) return false
+  if (!(m instanceof M.YGOProMsgSelectChain) || m.specialCount > 0 || m.chains.some((c) => c.forced) || state.chain.length) return false
   const loud = new Set(['activate', 'normalSummon', 'tributeSummon', 'specialSummon', 'attack'])
   return !p.steps.some((s) => s.intent && loud.has(s.intent.type))
 }

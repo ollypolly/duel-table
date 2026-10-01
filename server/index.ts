@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
+import { chainMessage, parseAdvice, sdkQuick } from './claude/respond'
 import { ClaudeService, diskClaudeStore } from './claude/service'
 import { TutorService, type TutorRecord } from './claude/tutor'
 import { ReviewService, type ReviewRecord } from './claude/review'
@@ -64,6 +65,15 @@ const service: ClaudeService = new ClaudeService({
       .flatMap((s) => review.misplays(s.id))
       .slice(0, 8),
 })
+
+// Claude's view of a chance to respond, for the response levels that ask it.
+// Without a login the person is simply asked.
+games.adviser = async (id, player, question) => {
+  if (!(await checkAccount())) return undefined
+  const { state } = sessions.get(id)
+  const labels = sessions.export(id).steps.flatMap((s) => (s.label ? [s.label] : []))
+  return parseAdvice(await sdkQuick(prompt('respond'), chainMessage(question, state, player, labels, ctx().db)))
+}
 
 const tutor = new TutorService({
   ctx,
