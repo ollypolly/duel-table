@@ -1,6 +1,6 @@
 # Spike: a better bot that costs nothing to play
 
-**Status:** research only, nothing built. Checked 2026-10-01.
+**Status:** the ygo-agent container runs on servitor and answers a hand-written question (2026-10-01). No translation from our engine yet.
 
 ## Why
 
@@ -18,17 +18,16 @@ A game against the bot today is a game against random legal moves (`server/ocg/b
 
 [sbl1996/ygo-agent](https://github.com/sbl1996/ygo-agent): a neural net trained by self-play on ygopro-core. MIT licence. Last commit August 2024.
 
-- **Runs as an HTTP service.** The repo's `Dockerfile` builds a Python 3.10 image with the `0546_26550M.tflite` checkpoint downloaded into it, served by uvicorn on port 3000. TensorFlow Lite on CPU, no GPU. The Dockerfile binds `127.0.0.1` inside the container, so it needs `--host 0.0.0.0` to be reachable.
+- **Runs as an HTTP service.** `docker compose up -d ygo-agent` builds `docker/ygo-agent/Dockerfile` and serves it on `127.0.0.1:5182`. TensorFlow Lite on CPU, no GPU. Measured: 271 MB image, 83 MB of memory idle, under 10 ms per prediction.
 - **API** (`ygoinf/ygoinf/server.py`, `models.py`): `POST /v0/duels` creates a duel, `DELETE /v0/duels/{id}` drops it, and a predict endpoint takes the open question plus the visible table. Each option carries a `response` number we choose; it returns a probability per option and a win rate. The question types match the engine's: idle command, chain, card, tribute, sum, yes/no, effect yes/no, position, place, option, announce number and attribute.
 - **Fit.** It would replace the random pick in `server/ocg/bot.ts`: translate the engine's question and the table to their JSON, POST, play the most probable option. The translation of the table is the real work.
-- **Card coverage.** `scripts/code_list.txt` lists 13,472 cards. Of the 349 in `data/cards.json`, 6 are missing: Super Quantum Black Layer, Super Quantal Fairy Zetan, Ojamandala, Dark Armed Dragon Punisher, Drill Armed Dragon, Fist Armed Dragon. Both Chazz decks are fully covered. Super Quant is not, so the bot needs another deck or a list without those two.
-- **Trained decks** (`assets/deck`): Blue-Eyes, Branded, Labrynth, Sky Striker, Snake-Eye, Hero, Cyber Dragon, Shaddoll, Floowandereeze, Centur-Ion, Tenyi Swordsoul, Voiceless Voice, Blackwing and others, about 30 lists.
+- **Card coverage: 864 cards.** The released checkpoint (`0546_26550M.tflite`, July 2024) has an embedding per line of the `code_list.txt` of its time, 864 cards. The repo's later 13,472-card list is for a model that was never published, so the build is pinned to the July 2024 commit. None of our decks is fully covered (91 of the 349 cards in `data/cards.json` are).
+- **A card it doesn't know.** Sending its code is a 500 error. Sending code 0 (how a face-down or unknown card is sent) works: it plays on, treating the card as unknown. So it can face any deck of ours, blind to the cards it wasn't trained on, but it can only play a deck from its 864.
+- **Trained decks** (`assets/deck`, 30 lists): Blue-Eyes, Hero, Cyber Dragon, Branded, Labrynth, Sky Striker, Snake-Eye, Shaddoll, Floowandereeze, Centur-Ion, Tenyi Swordsoul, Voiceless Voice, Blackwing, Chimera, Eldlich and others. These are its own lists, not ours of the same name.
 
 Unknown:
-- How it plays a deck it never trained on, and how it copes with an opponent on one.
-- What it does with cards outside its list (and anything released after August 2024).
-- Cases its schema marks unsupported (more than one zone at once, sum with overflow, more than two must-select cards). These would fall back to the random bot.
-- Memory and time per prediction on servitor.
+- How well it plays against a deck made mostly of cards it sees as unknown.
+- Cases its schema marks unsupported (more than one zone at once, sum with overflow, more than two must-select cards, a pick of zero cards). These would fall back to the random bot.
 
 ### WindBot
 
@@ -45,16 +44,17 @@ Unknown: which messages a room must send for WindBot to play, and whether its ca
 
 No dependency. A few rules on top of the random bot: attack when it's safe, don't activate an effect with nothing to hit, summon the strongest monster available, don't pass with lethal on board. Far less silly, but it won't play combos. Worth doing as the fallback whichever option wins, since both have cases they can't answer.
 
-## Proposed spike
+## Spike
 
-Timebox: about half a day, ygo-agent first.
+Done:
+1. The container builds, starts and returns OK.
+2. A hand-written idle-command question (Blue-Eyes opening hand) gets a probability per option, in 9 ms.
 
-1. Build the image on servitor with the host fix and check `GET /` returns OK. Note image size and idle memory.
-2. Send one hand-written idle-command question for a real position from a saved game and check the answer is legal and plausible. Time it.
-3. Write the smallest translation that covers idle command, chain and select card, behind a flag, and let it play p2 in a bot-vs-bot game with a trained deck (Blue-Eyes). Count how often it falls back to random and whether the game finishes.
+Next:
+3. Write the smallest translation that covers idle command, battle command, chain and select card, behind a flag, and let it play p2 in a bot-vs-bot game with its Blue-Eyes list. Count how often it falls back to random and whether the game finishes. It keeps state per duel (`index`, and the option picked last time), so a take-back needs a fresh duel replayed up to that point.
 4. Play one game against it with the Pink Chazz deck and judge whether it's an opponent worth learning against.
 
-Stop and write up if step 2 fails, or if step 3 falls back for more than a small share of questions. WindBot is the next thing to try in that case.
+Stop and write up if step 3 falls back for more than a small share of questions. WindBot is the next thing to try in that case.
 
 ## Decision to make afterwards
 
