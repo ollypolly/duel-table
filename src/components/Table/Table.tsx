@@ -457,15 +457,16 @@ export function Table({
           zone={pile}
           playerName={view.players[pile.ref.player!].name}
           onClose={() => openPileViewer(undefined)}
-          // Free play picks the card up, and a game takes it as an answer when
+          // Free play picks the card up to place it, and a game takes it as an answer when
           // it's one. Otherwise it opens over the pile, which stays up.
           onCardClick={(iid) => {
             const took = freePlay || (!!choosable?.includes(iid) && !!onChoose?.(iid))
             if (took) openPileViewer(undefined)
-            if (freePlay) inspect(iid)
+            if (freePlay) fp.select(iid)
             return took
           }}
           cardActions={freePlay ? undefined : cardActions}
+          onToHand={freePlay ? (iid) => fp.act({ type: 'move', card: iid, to: { player: entry.state.cards[iid].owner, zone: 'hand' } }) : undefined}
         />
       )}
     </SeatDecks.Provider>

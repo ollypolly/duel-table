@@ -10,6 +10,7 @@ import { useUiStore } from '../../store/uiStore'
 import { cardFace } from '../../view/boardView'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
+const EXTRA = new Set(['fusion', 'synchro', 'xyz', 'link', 'fusion_pendulum', 'synchro_pendulum', 'xyz_pendulum'])
 const SUMMONS: SummonMethod[] = ['normal', 'tribute', 'flip', 'special', 'fusion', 'synchro', 'xyz', 'link', 'ritual']
 
 // What you can do with a card, shown in the inspector. onDone closes it.
@@ -36,6 +37,26 @@ export function CardActions({ fp, iid, onDone }: { fp: FreePlay; iid: Iid; onDon
       {zone !== 'hand' && (
         <button type="button" className="btn" onClick={() => run(act({ type: 'move', card: iid, to: { player: card.owner, zone: 'hand' } }))}>
           To hand
+        </button>
+      )}
+      {zone !== 'deck' && zone !== 'extraDeck' && (
+        <button
+          type="button"
+          className="btn"
+          title="Put it back in its owner's Deck (or Extra Deck) and shuffle"
+          onClick={() => {
+            const extra = EXTRA.has(card.cardId !== undefined ? (cardDb.byId(card.cardId)?.frameType ?? '') : '')
+            const ok = act({ type: 'move', card: iid, to: { player: card.owner, zone: extra ? 'extraDeck' : 'deck' } })
+            if (ok && !extra) act({ type: 'shuffle', player: card.owner, zone: 'deck' })
+            run(ok)
+          }}
+        >
+          Back to Deck
+        </button>
+      )}
+      {iid.includes('-added-') && (
+        <button type="button" className="btn" title="Take this added card off the table" onClick={() => run(act({ type: 'remove', card: iid }))}>
+          Remove
         </button>
       )}
       {zone && zone !== 'hand' && (
@@ -117,14 +138,30 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
   const [count, setCount] = useState(3)
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
+  const [copies, setCopies] = useState(1)
   const { openHands, setOpenHands, freeSide: side, setFreeSide: setSide } = useUiStore()
   const fresh = PLAYERS.every((p) => state.players[p].zones.hand.length === 0) && state.turn <= 1
   const q = query.trim().toLowerCase()
-  const found = q.length < 2 ? [] : cardDb.all().filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8)
+  // The side's Deck first, then any other card the app knows.
+  const inDeck = (cardId: number) => state.players[side].zones.deck.filter((iid) => state.cards[iid].cardId === cardId)
+  const found =
+    q.length < 2
+      ? []
+      : cardDb
+          .all()
+          .filter((c) => c.name.toLowerCase().includes(q))
+          .map((c) => ({ c, have: inDeck(c.id).length }))
+          .sort((a, b) => b.have - a.have)
+          .slice(0, 8)
+  // Take that many copies from the Deck; any it doesn't have are added new.
   const add = (cardId: number) => {
+    const fromDeck = inDeck(cardId).slice(0, copies)
+    let ok = fromDeck.every((iid) => act({ type: 'move', card: iid, to: { player: side, zone: 'hand' } }))
     let n = Object.keys(state.cards).length
-    while (state.cards[`${side}-added-${n}`]) n++
-    const ok = act({ type: 'create', card: `${side}-added-${n}`, cardId, owner: side, to: { player: side, zone: 'hand' } })
+    for (let k = fromDeck.length; ok && k < copies; k++) {
+      while (state.cards[`${side}-added-${n}`]) n++
+      ok = act({ type: 'create', card: `${side}-added-${n++}`, cardId, owner: side, to: { player: side, zone: 'hand' } })
+    }
     if (ok) {
       setQuery('')
       setAdding(false)
@@ -163,12 +200,17 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
         {adding && (
           <div className="panel absolute bottom-full left-0 z-30 mb-1 w-64 space-y-1 p-2">
             <input autoFocus aria-label="Card name" placeholder="Card name…" className="block w-full px-2 py-1.5 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} />
-            {found.map((c) => (
+            <label className="flex items-center gap-2 px-1 text-muted">
+              Copies
+              <input aria-label="Copies to add" type="number" min={1} max={3} className="w-12 px-1 py-1" value={copies} onChange={(e) => setCopies(Math.min(3, Math.max(1, Number(e.target.value) || 1)))} />
+            </label>
+            {found.map(({ c, have }) => (
               <button key={c.id} type="button" className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-raised" onClick={() => add(c.id)}>
                 {c.name}
+                {have > 0 && <span className="ml-1.5 text-xs text-muted">{have} in Deck</span>}
               </button>
             ))}
-            <p className="px-1 text-muted">{q.length < 2 ? `Goes to ${state.players[side].name}'s hand.` : found.length ? '' : 'No card by that name.'}</p>
+            <p className="px-1 text-muted">{q.length < 2 ? `Goes to ${state.players[side].name}'s hand: from the Deck if it's there, added new if not.` : found.length ? '' : 'No card by that name.'}</p>
           </div>
         )}
       </span>
