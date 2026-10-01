@@ -207,6 +207,8 @@ export const ScenarioSchema = z
         winner: PlayerSchema.optional().describe('Who won, once the duel is over'),
         undone: z.int().optional().describe('Moves taken back so far'),
         forfeit: PlayerSchema.optional().describe('The player who gave up, if the duel ended that way'),
+        startedAt: z.number().optional().describe('When the game began (ms since the epoch)'),
+        endedAt: z.number().optional().describe('When it ended'),
         respond: z.enum(['all', 'auto', 'advise', 'claude']).optional().describe('When the person is asked to respond with a chain (default auto)'),
         skipped: z
           .array(z.object({ at: z.int(), cards: z.array(z.string()), to: z.string().optional(), by: z.enum(['rules', 'claude']), why: z.string().optional() }))

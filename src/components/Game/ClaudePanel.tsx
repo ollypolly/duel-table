@@ -36,14 +36,22 @@ type ChatProps = {
   outlines?: Record<number, string>
 }
 
+// When an entry was said, small and after it.
+function Time({ at }: { at?: number }) {
+  if (!at) return null
+  return <time className="ml-1.5 whitespace-nowrap text-[10px] font-normal text-faint">{new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+}
+
 function Entry({ e, outline = '', anchor }: { e: ChatEntry; outline?: string; anchor?: Ref<HTMLElement> }) {
   return e.from === 'claude' ? (
     <div ref={anchor as Ref<HTMLDivElement>} className={`chat-md ${STYLE.claude} ${outline}`} data-moment={e.moment}>
       <CardMarkdown>{e.text}</CardMarkdown>
+      <Time at={e.at} />
     </div>
   ) : (
     <p ref={anchor as Ref<HTMLParagraphElement>} className={`whitespace-pre-wrap ${STYLE[e.from]}`} data-moment={e.moment}>
       {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}
+      <Time at={e.at} />
     </p>
   )
 }

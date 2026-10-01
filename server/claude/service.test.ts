@@ -139,7 +139,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const c = sessions.get(v.id).game!.claude!
     expect(requests).toHaveLength(1)
     expect(c.status).toBe('stopped')
-    expect(c.chat.at(-1)).toEqual({ from: 'note', text: 'Claude stopped with an error: API Error: 529 Overloaded' })
+    expect(c.chat.at(-1)).toMatchObject({ from: 'note', text: 'Claude stopped with an error: API Error: 529 Overloaded' })
 
     failing = false
     claude.resume(v.id)
@@ -159,10 +159,11 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const last = fake.requests.at(-1)!
     expect(last.message).toContain('Your opponent says: good luck!')
     const chat = sessions.get(v.id).game!.claude!.chat
-    expect(chat.slice(-2)).toEqual([
+    expect(chat.slice(-2)).toMatchObject([
       { from: 'you', text: 'good luck!' },
       { from: 'claude', text: 'Hello from the fake.' },
     ])
+    expect(chat.at(-1)!.at).toBeGreaterThan(0)
     expect(sessions.get(v.id).game?.prompt?.player ?? 'p1').toBe('p1')
     // Talking while they have a decision shows Claude their question, like a hint.
     expect(last.message).toContain('showing you their hidden cards')

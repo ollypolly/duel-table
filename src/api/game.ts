@@ -42,7 +42,15 @@ export const ChatEntrySchema = z.object({
   from: z.enum(['you', 'claude', 'move', 'note']).describe('move: an answer Claude gave; note: from the app'),
   text: z.string(),
   moment: z.int().optional().describe("In a review: the step of the key moment this is Claude taking you through"),
+  at: z.number().optional().describe('When it was said (ms since the epoch); older chats have none'),
 })
+
+// Gives the time to entries that have none yet. Entries are added in many
+// places, so it's done where a chat is shown or saved.
+export function stamp(chat: ChatEntry[]): ChatEntry[] {
+  for (const e of chat) e.at ??= Date.now()
+  return chat
+}
 export type ChatEntry = z.infer<typeof ChatEntrySchema>
 
 export const ModelChoiceSchema = z.enum(['opus', 'sonnet'])
@@ -86,6 +94,8 @@ export type Skipped = z.infer<typeof SkippedSchema>
 export const GameViewSchema = z.object({
   waitingFor: PlayerSchema.optional().describe('Whose answer the rules engine is waiting for'),
   winner: z.object({ player: PlayerSchema, reason: z.int() }).optional(),
+  startedAt: z.number().optional().describe('When the game began (ms since the epoch); older games have none'),
+  endedAt: z.number().optional().describe('When it was won, lost or given up'),
   bots: z.array(PlayerSchema).describe('Players a bot answers for'),
   bot: z.enum(['random', 'agent']).optional().describe('Which bot: the random one, or the trained one (ygo-agent)'),
   prompt: GamePromptSchema.optional().describe("The open question, when it's for a person"),

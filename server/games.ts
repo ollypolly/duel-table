@@ -296,7 +296,7 @@ export class GameService {
     live.moves = old.moves.filter((m) => m < to)
     const q = last.prompt && this.ask(live, last)
     if (q && 'prompt' in q) live.asked = q
-    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, skipped, asked: undefined, ...change })
+    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, endedAt: undefined, skipped, asked: undefined, ...change })
   }
 
   // The person gives up a game that's still going, at any point: the other
@@ -309,7 +309,7 @@ export class GameService {
     if (!player) throw new SessionError(409, 'nobody is playing this game')
     live.game.duel.surrender(player)
     live.asked = undefined
-    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, forfeit: player, winner: live.game.duel.result!.player })
+    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, forfeit: player, winner: live.game.duel.result!.player, endedAt: Date.now() })
     this.onForfeit?.(id)
     this.onChange?.(id)
     return this.sessions.get(id)
@@ -391,12 +391,13 @@ export class GameService {
     }
     const { game, bots, asked } = live
     const winner = game.duel.result
+    const { startedAt, endedAt } = this.sessions.export(id).duel ?? {}
     const claude = this.claudeView?.(id)
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
     const undos = this.undos(id, live)
     const person = !live.lesson && PLAYERS.some((p) => !bots.includes(p) && p !== live.claude)
-    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && live.skipped?.length && { skipped: live.skipped.slice(-3) }), ...(live.deciding && { deciding: true }) }
+    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(startedAt && { startedAt }), ...(endedAt && { endedAt }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && live.skipped?.length && { skipped: live.skipped.slice(-3) }), ...(live.deciding && { deciding: true }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -445,7 +446,11 @@ export class GameService {
       }
       p = live.game.respond(response)
     }
-    const { undone, forfeit, asked: reopened } = this.sessions.export(id).duel ?? {}
+    const before = this.sessions.export(id).duel
+    const { undone, forfeit, asked: reopened } = before ?? {}
+    // The clock starts with a game's first answer; games from before it have none.
+    const startedAt = before?.startedAt ?? (before?.responses.length ? undefined : Date.now())
+    const endedAt = live.game.duel.result ? (before?.endedAt ?? Date.now()) : undefined
     const duel = {
       responses: live.game.duel.responses.map(encodeResponse),
       ...(undone && { undone }),
@@ -459,6 +464,8 @@ export class GameService {
       ...(live.skipped?.length && { skipped: live.skipped.slice(-20) }),
       ...(reopened !== undefined && live.asked?.prompt.id === reopened && { asked: reopened }),
       ...(live.game.duel.result && { winner: live.game.duel.result.player }),
+      ...(startedAt && { startedAt }),
+      ...(endedAt && { endedAt }),
     }
     const view = this.sessions.appendGame(id, steps, duel, (s) => (paced.has(s) ? { afterMs: BOT_STEP_MS } : undefined))
     this.onChange?.(id)

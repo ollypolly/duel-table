@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { Phase, Player } from '../../engine'
 import type { BoardView } from '../../view/boardView'
 
@@ -10,15 +11,36 @@ const PHASES = [
   ['end', 'EP'],
 ] as const
 
+// How long a game has run, ticking each second until it ends.
+function Clock({ startedAt, endedAt }: { startedAt: number; endedAt?: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (endedAt) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [endedAt])
+  const s = Math.max(0, Math.floor(((endedAt ?? now) - startedAt) / 1000))
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(s >= 3600 ? 2 : 1, '0')
+  return (
+    <span className="tabular-nums" data-testid="game-clock">
+      {' · '}
+      {s >= 3600 ? `${Math.floor(s / 3600)}:` : ''}
+      {mm}:{String(s % 60).padStart(2, '0')}
+    </span>
+  )
+}
+
 // LP, turn and phase for the header. With onPhase (free-play), the phase
 // chips are buttons.
 export function StatusBar({
   view,
   lpChanges = {},
+  clock,
   onPhase,
 }: {
   view: BoardView
   lpChanges?: Partial<Record<Player, number>> // LP change in the current step
+  clock?: { startedAt: number; endedAt?: number } // a game's timer
   onPhase?: (phase: Phase) => void
 }) {
   const lp = (p: Player) => {
@@ -49,6 +71,7 @@ export function StatusBar({
       <div className="flex flex-col items-center gap-1">
         <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted">
           Turn {view.turn} · <span className={view.activePlayer === 'p1' ? 'text-p1' : 'text-p2'}>{view.players[view.activePlayer].name}</span>
+          {clock && <Clock {...clock} />}
         </span>
         <span className="flex gap-0.5 rounded-md border border-line bg-surface p-0.5">
           {PHASES.map(([phase, short]) => (

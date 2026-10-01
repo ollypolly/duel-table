@@ -73,6 +73,7 @@ type TableProps = {
   // The button you're most likely to want next, on the phone sheet's header
   // so it doesn't need opening: pass on a chain, the next phase, Next.
   quick?: { label: string; run: () => void }
+  clock?: { startedAt: number; endedAt?: number } // a game's timer
   marks?: { step: number; className: string }[]
   stepNav?: ReactNode // a line under the playback bar (a review's key moments)
   // A game on the rules engine: cards you can pick now, lit up. onChoose
@@ -99,6 +100,7 @@ export function Table({
   chat,
   activity,
   quick,
+  clock,
   marks,
   stepNav,
   choosable,
@@ -200,7 +202,7 @@ export function Table({
             {freePlay && <FreePlayMenu fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />}
           </>
         }
-        status={<StatusBar view={view} lpChanges={lpChanges} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
+        status={<StatusBar view={view} lpChanges={lpChanges} clock={clock} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
       />
 
       <main className="relative min-h-0 flex-1">

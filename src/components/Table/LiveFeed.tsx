@@ -3,8 +3,8 @@
 // activation, an attack, a Set) and each new turn, with the card's picture;
 // the next one takes its place rather than stacking under it. Phases,
 // resolutions and your own moves don't: the board shows those. Claude's
-// messages and the question waiting for you show, with a chime, only while
-// the panel is hidden, since otherwise they're in front of you.
+// messages chime; they and the question waiting for you show as banners only
+// while the panel is hidden, since otherwise they're in front of you.
 import { useEffect, useRef } from 'react'
 import { toast, Toaster } from 'sonner'
 import type { Iid, Step } from '../../engine'
@@ -48,10 +48,11 @@ export function LiveFeed({ steps, opponent, image, messages, latest, action, ask
   useEffect(() => {
     const was = seen.current.messages
     seen.current.messages = messages
-    if (messages > was && !panelOpen && latest) {
+    if (messages <= was || !latest) return
+    if (!muted) play('message')
+    if (!panelOpen) {
       const text = latest.replace(/[*_`#>]/g, '')
       toast(`${opponent} says`, { id: 'says', description: text.length > 140 ? `${text.slice(0, 140)}…` : text, action: { label: 'Open', onClick: onOpen }, duration: 6000 })
-      if (!muted) play('message')
     }
   }, [messages, latest, opponent, panelOpen, muted, onOpen])
 

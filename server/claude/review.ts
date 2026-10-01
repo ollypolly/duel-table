@@ -8,7 +8,7 @@
 // moments, which you then step through with Claude leading each one.
 // One review per session, kept by a RecordStore so it carries on after a
 // restart.
-import type { ChatEntry, ModelChoice } from '../../src/api/game'
+import { stamp, type ChatEntry, type ModelChoice } from '../../src/api/game'
 import { reviewable, type Moment, type ReviewView } from '../../src/api/review'
 import type { CardDb } from '../../src/data/cardDb'
 import type { BoardState } from '../../src/engine'
@@ -193,7 +193,7 @@ export class ReviewService {
   }
 
   private view({ model, status, chat, costUsd, moments, scanned }: Review): ReviewView {
-    return { model, status, chat, costUsd, moments, scanned }
+    return { model, status, chat: stamp(chat), costUsd, moments, scanned }
   }
 
   // Claude's first look, unless it's had one or is having it.
@@ -360,7 +360,7 @@ export class ReviewService {
   private changed(id: string, r: Review) {
     if (this.reviews.get(id) !== r) return // deleted while a run was finishing
     const { open, model, sessionId, chat, costUsd, read, heard, texts, moments, scanned } = r
-    this.store.save(id, { open, model, ...(sessionId && { sessionId }), chat, costUsd, read, heard, ...(texts && { texts }), moments, scanned })
+    this.store.save(id, { open, model, ...(sessionId && { sessionId }), chat: stamp(chat), costUsd, read, heard, ...(texts && { texts }), moments, scanned })
     this.sessions.touch(id)
   }
 }

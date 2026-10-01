@@ -15,7 +15,7 @@
 // saved by a ClaudeStore, so a game carries on after a restart.
 import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ChatEntry, ClaudeSettings, ClaudeView, GamePrompt, ModelChoice } from '../../src/api/game'
+import { stamp, type ChatEntry, type ClaudeSettings, type ClaudeView, type GamePrompt, type ModelChoice } from '../../src/api/game'
 import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
 import { PLAYERS, type BoardState, type Player } from '../../src/engine'
@@ -198,7 +198,7 @@ export class ClaudeService {
           coach: s.coach,
           share: s.share,
           status: s.status,
-          chat: s.chat,
+          chat: stamp(s.chat),
           costUsd: s.costUsd,
           ...(s.lesson && { holds: s.lesson.holds }),
         }
@@ -284,7 +284,7 @@ export class ClaudeService {
   // Which side Claude played and what was said, for a review of the game.
   played(id: string): Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined {
     const s = this.seat(id)
-    return s && { player: s.player, chat: s.chat, ...(s.watch && { watch: true }), ...(s.flags && { flags: s.flags }) }
+    return s && { player: s.player, chat: stamp(s.chat), ...(s.watch && { watch: true }), ...(s.flags && { flags: s.flags }) }
   }
 
   private seat(id: string): Seat | undefined {
@@ -875,7 +875,7 @@ export class ClaudeService {
       coach,
       share,
       ...(sessionId && { sessionId }),
-      chat,
+      chat: stamp(chat),
       costUsd,
       seen,
       ...(texts && { texts }),

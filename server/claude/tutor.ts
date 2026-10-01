@@ -3,7 +3,7 @@
 // with the narration of the steps it hasn't read yet. Steps after yours are
 // never sent, so it can't give the lesson away. One chat per lesson, kept by
 // a RecordStore so it carries on after a restart.
-import type { ChatEntry, ModelChoice } from '../../src/api/game'
+import { stamp, type ChatEntry, type ModelChoice } from '../../src/api/game'
 import type { TutorView } from '../../src/api/tutor'
 import type { BoardState } from '../../src/engine'
 import { resolveScenario, type ResolveContext, type ResolvedScenario } from '../../src/scenarios/resolve'
@@ -56,7 +56,7 @@ export class TutorService {
 
   view(id: string): TutorView {
     const { model, status, chat, costUsd } = this.need(id)
-    return { model, status, chat, costUsd }
+    return { model, status, chat: stamp(chat), costUsd }
   }
 
   // Sent while Claude is answering, it waits for that answer to finish.
@@ -204,6 +204,6 @@ export class TutorService {
   private save(id: string, t: Tutor) {
     if (this.tutors.get(id) !== t) return
     const { model, sessionId, chat, costUsd, read, texts } = t
-    this.store.save(id, { model, ...(sessionId && { sessionId }), chat, costUsd, read, ...(texts && { texts }) })
+    this.store.save(id, { model, ...(sessionId && { sessionId }), chat: stamp(chat), costUsd, read, ...(texts && { texts }) })
   }
 }
