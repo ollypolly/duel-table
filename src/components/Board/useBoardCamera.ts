@@ -11,7 +11,7 @@ const MAX_FOCUS_ZOOM = 2.2
 // A focused view may crop the table's sides by this much, so narrow (phone)
 // screens can still zoom in on one player's half.
 const MAX_SIDE_CROP = 0.35
-const FREE_ZOOM = { min: 0.5, max: 5 }
+const FREE_ZOOM = { min: 0.5, max: 12 } // far enough in to read a card's text
 // The camera avoids a left overlay only if that leaves this much of the width.
 const MIN_UNCOVERED = 0.6
 const DRAG_THRESHOLD = 4 // px before a press becomes a drag rather than a click
