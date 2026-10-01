@@ -40,23 +40,84 @@ export function Board2D({
   onCardDrop,
   onZoneClick,
   choosableZones = [],
+  boxSelect = false,
+  multi = [],
+  onMultiSelect,
 }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const swallow = useRef(false)
   // Unmeasured (a test's DOM), the fan lays out for a desktop.
   const size = useSize(ref) ?? { w: 1280, h: 800 }
   const fan = pinnedHand ? insetBottom + fanHeight(fanCardHeight(size)) : 0
-  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined)
+  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined, boxSelect)
   const inFan = (c: PlacedCard) => pinnedHand && c.handIndex !== undefined && c.zone.player === VIEWER
   const seatDecks = useContext(SeatDecks)
   const byDeck = useCosmeticsStore((s) => s.cosmetics)
   const cosmetics = (p: Player) => (seatDecks[p] && byDeck[seatDecks[p]]) || {}
-  const lit = new Set(choosable)
+  const lit = new Set([...choosable, ...multi])
   const canDrag = new Set(onCardDrop ? draggable : [])
   const zoneChoice = (r: ZoneRef) => choosableZones.find((z) => z.ref.zone === r.zone && z.ref.player === r.player && z.ref.slot === r.slot)
   const litPiles = new Set(view.cards.filter((c) => lit.has(c.iid) && c.stackIndex !== undefined).map((c) => `${c.zone.player}:${c.zone.zone}`))
   // A few px of movement before a press becomes a drag, so clicks still open cards.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [dragging, setDragging] = useState<PlacedCard>()
+  // The selection box, in the board's own pixels. It starts on the table, not
+  // on a card, and a second finger (a pan or pinch) calls it off.
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number }>()
+  const at = (e: React.PointerEvent) => {
+    const r = ref.current!.getBoundingClientRect()
+    return { x: e.clientX - r.left, y: e.clientY - r.top }
+  }
+  const down = useRef(0)
+  const select = {
+    onPointerDown: (e: React.PointerEvent) => {
+      cam.handlers.onPointerDown(e)
+      down.current++
+      if (!boxSelect || e.button !== 0) return
+      if (down.current > 1) return setMarquee(undefined)
+      if ((e.target as Element).closest('[data-iid]')) return
+      const p = at(e)
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      cam.handlers.onPointerMove(e)
+      if (!marquee) return
+      const p = at(e)
+      setMarquee({ ...marquee, x1: p.x, y1: p.y })
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      cam.handlers.onPointerUp(e)
+      down.current = Math.max(0, down.current - 1)
+      if (!marquee) return
+      setMarquee(undefined)
+      const r = ref.current!.getBoundingClientRect()
+      const [l, t, rt, b] = [Math.min(marquee.x0, marquee.x1) + r.left, Math.min(marquee.y0, marquee.y1) + r.top, Math.max(marquee.x0, marquee.x1) + r.left, Math.max(marquee.y0, marquee.y1) + r.top]
+      // A click, not a drag: clear the selection.
+      if (rt - l < 6 && b - t < 6) return onMultiSelect?.([])
+      const loose = new Set(view.cards.filter((c) => c.stackIndex === undefined).map((c) => c.iid))
+      const hit = [...ref.current!.querySelectorAll<HTMLElement>('[data-iid]')].filter((el) => {
+        const c = el.getBoundingClientRect()
+        return loose.has(el.dataset.iid!) && c.left < rt && c.right > l && c.top < b && c.bottom > t
+      })
+      onMultiSelect?.([...new Set(hit.map((el) => el.dataset.iid!))])
+      swallow.current = true
+      setTimeout(() => (swallow.current = false))
+    },
+    onPointerCancel: (e: React.PointerEvent) => {
+      cam.handlers.onPointerCancel(e)
+      down.current = 0
+      setMarquee(undefined)
+    },
+    // The click that ends a box isn't a click on the zone under it.
+    onClickCapture: (e: React.MouseEvent) => {
+      if (swallow.current) {
+        swallow.current = false
+        return e.stopPropagation()
+      }
+      cam.handlers.onClickCapture(e)
+    },
+  }
   return (
     <Tooltip.Provider delayDuration={300}>
       <DndContext
@@ -72,11 +133,18 @@ export function Board2D({
       >
         <div
           ref={ref}
-          className="felt relative isolate h-full w-full cursor-grab touch-none overflow-hidden active:cursor-grabbing"
+          className={`felt relative isolate h-full w-full touch-none overflow-hidden ${boxSelect ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
           data-testid="board"
           data-focus={focus}
-          {...cam.handlers}
+          {...select}
         >
+          {marquee && (
+            <div
+              className="pointer-events-none absolute z-[80] rounded-sm border border-accent bg-accent/15"
+              data-testid="marquee"
+              style={{ left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }}
+            />
+          )}
           <motion.div
             className="playmat @container absolute left-0 top-0 origin-top-left select-none"
             style={{

@@ -138,7 +138,7 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
   const [copies, setCopies] = useState(1)
-  const { openHands, setOpenHands, freeSide: side, setFreeSide: setSide } = useUiStore()
+  const { openHands, setOpenHands, freeSide: side, setFreeSide: setSide, boxSelect, setBoxSelect, multi } = useUiStore()
   const fresh = PLAYERS.every((p) => state.players[p].zones.hand.length === 0) && state.turn <= 1
   const q = query.trim().toLowerCase()
   // The side's Deck first, then any other card the app knows.
@@ -237,6 +237,10 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
       <label className="flex items-center gap-1.5 px-1 text-muted" title="Show both hands face-up, to play both sides or show someone">
         <input type="checkbox" className="accent-gold" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} />
         Both hands
+      </label>
+      <label className="flex items-center gap-1.5 px-1 text-muted" title="Drag on the table to box cards, then drag one of them (or click a zone) to move them all. Two fingers pan, pinch zooms">
+        <input type="checkbox" className="accent-gold" checked={boxSelect} onChange={(e) => setBoxSelect(e.target.checked)} />
+        Select{multi.length > 0 && ` (${multi.length})`}
       </label>
       <button type="button" className="btn text-xs" disabled={!away.length} onClick={clear} title="Every card back to its Deck, shuffled, and life points back to 8000. Undo brings it back">
         Clear the board

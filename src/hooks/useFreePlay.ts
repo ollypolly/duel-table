@@ -47,6 +47,17 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     onStep({ label, actions })
   }
 
+  const follow = (to: ZoneRef, rest: Iid[]) => {
+    if (isSlotZone(to.zone) && to.slot !== undefined) {
+      // Cards already in this row count as leaving their slots free.
+      const slots = zoneArray(state, to)
+      const free = slots.map((iid, slot) => ((iid === null || rest.includes(iid)) && slot !== to.slot ? slot : -1)).filter((slot) => slot >= 0)
+      // Nearest free slots first, so they sit together.
+      free.sort((a, b) => Math.abs(a - to.slot!) - Math.abs(b - to.slot!))
+      rest.slice(0, free.length).every((iid, i) => act({ type: 'move', card: iid, to: { ...to, slot: free[i] } }))
+    } else rest.every((iid) => act({ type: 'move', card: iid, to }))
+  }
+
   // Move a card (by default the selected one) to a zone, using the "next
   // move" options.
   const place = (to: ZoneRef, card = selected) => {
@@ -60,15 +71,7 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
       ...(summon && monsterZone && { summon }),
     })
     if (ok) {
-      if (card === selected && more.length && isSlotZone(to.zone) && to.slot !== undefined) {
-        const slots = zoneArray(state, to)
-        const free = slots.map((iid, slot) => (iid === null && slot !== to.slot ? slot : -1)).filter((slot) => slot >= 0)
-        // Nearest free slots first, so the copies sit together.
-        free.sort((a, b) => Math.abs(a - to.slot!) - Math.abs(b - to.slot!))
-        more.slice(0, free.length).every((iid, i) => act({ type: 'move', card: iid, to: { ...to, slot: free[i] } }))
-      } else if (card === selected && more.length) {
-        more.every((iid) => act({ type: 'move', card: iid, to }))
-      }
+      if (card === selected) follow(to, more)
       setMore([])
       select(undefined)
       setSummon('')
@@ -85,11 +88,19 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     return true
   }
 
+  // Several cards to one place: the first where it was dropped, the rest
+  // beside it (or all onto the pile or hand).
+  const placeMany = (to: ZoneRef, iids: Iid[]) => {
+    if (!act({ type: 'move', card: iids[0], to })) return false
+    follow(to, iids.slice(1))
+    return true
+  }
+
   const cancel = () => {
     setMore([])
     setAttaching(false)
     select(undefined)
   }
 
-  return { state, selected, select, pick, more, act, actAll, place, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
+  return { state, selected, select, pick, more, act, actAll, place, placeMany, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
 }

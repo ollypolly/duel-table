@@ -140,7 +140,7 @@ export function Table({
   onCardDrop,
 }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, pinHand, muted, goTo, setPlaying, setSpeed, setFollowFocus, setPinHand, setMuted } = usePlayerStore()
-  const { inspected, selected, openPile, inspect, openPileViewer, openHands, freeSide } = useUiStore()
+  const { inspected, selected, openPile, inspect, openPileViewer, openHands, freeSide, boxSelect, multi, setMulti } = useUiStore()
   const open = !!onStep && openHands // free play, playing both sides
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board; the URL keeps it
@@ -265,9 +265,24 @@ export function Table({
             inspect(iid)
           }}
           draggable={freePlay ? view.cards.map((c) => c.iid) : draggable}
-          onCardDrop={freePlay ? (iid, to) => fp.place(to, iid) : onCardDrop}
+          boxSelect={freePlay && boxSelect}
+          multi={freePlay ? multi : undefined}
+          onMultiSelect={setMulti}
+          onCardDrop={
+            freePlay
+              ? (iid, to) => {
+                  if (!multi.includes(iid)) return void fp.place(to, iid)
+                  fp.placeMany(to, [iid, ...multi.filter((m) => m !== iid)])
+                  setMulti([])
+                }
+              : onCardDrop
+          }
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
+            else if (freePlay && multi.length) {
+              fp.placeMany(ref, multi)
+              setMulti([])
+            }
             else if (!freePlay && choosableZones?.some((z) => z.ref.zone === ref.zone && z.ref.player === ref.player && z.ref.slot === ref.slot)) onChooseZone?.(ref)
             else if (view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)) openPileViewer(ref)
           }}

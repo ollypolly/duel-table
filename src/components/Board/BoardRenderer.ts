@@ -13,6 +13,12 @@ export type BoardRendererProps = {
   view: BoardView
   events: EngineEvent[] // what the last step did, for animations
   selected?: Iid
+  // Free play's box-select: with boxSelect on, a drag on the table draws a
+  // box and reports the cards in it; multi are the ones selected, which move
+  // together when one is dragged.
+  boxSelect?: boolean
+  multi?: Iid[]
+  onMultiSelect?: (iids: Iid[]) => void
   choosable?: Iid[] // cards the rules engine lets you pick now, lit up
   choosableZones?: { ref: ZoneRef; picked: boolean }[] // and zones, with those picked so far
   // The part of the table to frame. A 2D board pans and zooms; a 3D one

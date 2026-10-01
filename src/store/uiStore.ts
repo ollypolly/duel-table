@@ -11,6 +11,10 @@ type UiState = {
   openPile?: ZoneRef
   openHands: boolean // free play: both hands face-up, for playing both sides
   setOpenHands: (on: boolean) => void
+  boxSelect: boolean // free play: a drag on the table draws a selection box
+  setBoxSelect: (on: boolean) => void
+  multi: Iid[] // the cards box-selected, which move together
+  setMulti: (iids: Iid[]) => void
   freeSide: Player // free play: the side the toolbar draws and adds for
   setFreeSide: (p: Player) => void
   inspect: (iid?: Iid) => void
@@ -21,6 +25,10 @@ type UiState = {
 
 export const useUiStore = create<UiState>()((set) => ({
   openHands: false,
+  boxSelect: false,
+  setBoxSelect: (boxSelect) => set({ boxSelect, multi: [] }),
+  multi: [],
+  setMulti: (multi) => set({ multi }),
   freeSide: 'p1',
   setFreeSide: (freeSide) => set({ freeSide }),
   setOpenHands: (openHands) => set({ openHands }),

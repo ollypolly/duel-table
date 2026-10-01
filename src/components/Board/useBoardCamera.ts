@@ -51,7 +51,7 @@ function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number, 
   return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand, select = false) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -89,6 +89,8 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     for (const mv of [x, y, scale]) mv.stop() // don't fight a focus animation in flight
     onManual?.()
   }
+  const selectRef = useRef(select)
+  selectRef.current = select
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const dragged = useRef(false)
   const pinch = useRef<number>(undefined)
@@ -108,6 +110,14 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
+      // Box-select mode pans like a canvas app: two fingers on a trackpad
+      // scroll the table, and a pinch (ctrl+wheel) zooms.
+      if (selectRef.current && !e.ctrlKey) {
+        manual.current()
+        x.jump(x.get() - e.deltaX)
+        y.jump(y.get() - e.deltaY)
+        return
+      }
       zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)))
     }
     el.addEventListener('wheel', onWheel, { passive: false }) // React's onWheel is passive
@@ -146,6 +156,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
         dragged.current = true
         return
   }
+      if (selectRef.current) return // one finger draws the selection box
       if (!dragged.current && Math.hypot(p.x - prev.x, p.y - prev.y) < DRAG_THRESHOLD) return
       if (!dragged.current) {
         e.currentTarget.setPointerCapture(e.pointerId)
