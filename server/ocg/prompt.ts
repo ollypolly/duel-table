@@ -7,7 +7,7 @@ import type { Iid, Player } from '../../src/engine'
 import { playerOf } from './duel'
 import type { ChainPhase } from './game'
 import { LOC, M, POS, type CardData, type Ocg, type PromptMsg } from './lib'
-import type { Translator } from './translate'
+import { zoneFor, type Translator } from './translate'
 
 type Option = GamePrompt['options'][number]
 type Where = { controller: number; location: number; sequence: number }
@@ -164,7 +164,7 @@ export function question(m: PromptMsg, ctx: Context): Question {
     const places = m.getSelectablePlaces()
     const n = Math.max(1, m.count)
     if (!(m instanceof M.YGOProMsgSelectDisField)) return { auto: m.prepareResponse(places.slice(0, n)) }
-    const options = places.map((p) => ({ label: zoneName(p, player) }))
+    const options = places.map((p) => ({ label: zoneName(p, player), zone: zoneFor({ controller: p.player, location: p.location, sequence: p.sequence }) }))
     return ask('place', hint('Choose zones'), options, (is) => m.prepareResponse(is.map((i) => places[i])), n, n)
   }
 

@@ -81,6 +81,9 @@ type TableProps = {
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
   choosable?: Iid[]
   onChoose?: (iid: Iid) => boolean
+  // And zones, when zones are the question: lit, and a click picks one.
+  choosableZones?: { ref: ZoneRef; picked: boolean }[]
+  onChooseZone?: (ref: ZoneRef) => void
   cardActions?: (iid: Iid, close: () => void) => ReactNode
   draggable?: Iid[]
   onCardDrop?: (iid: Iid, to: ZoneRef) => void
@@ -105,6 +108,8 @@ export function Table({
   stepNav,
   choosable,
   onChoose,
+  choosableZones,
+  onChooseZone,
   cardActions,
   draggable,
   onCardDrop,
@@ -211,6 +216,7 @@ export function Table({
           events={entry.events}
           selected={freePlay ? selected : undefined}
           choosable={choosable}
+          choosableZones={freePlay ? undefined : choosableZones}
           focus={focus}
           insetLeft={panelOpen ? SCENE_PANEL_PX : 0}
           pinnedHand={pinHand}
@@ -226,6 +232,7 @@ export function Table({
           onCardDrop={freePlay ? (iid, to) => fp.place(to, iid) : onCardDrop}
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
+            else if (!freePlay && choosableZones?.some((z) => z.ref.zone === ref.zone && z.ref.player === ref.player && z.ref.slot === ref.slot)) onChooseZone?.(ref)
             else if (view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)) openPileViewer(ref)
           }}
         />

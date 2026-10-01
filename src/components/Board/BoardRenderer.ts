@@ -14,6 +14,7 @@ export type BoardRendererProps = {
   events: EngineEvent[] // what the last step did, for animations
   selected?: Iid
   choosable?: Iid[] // cards the rules engine lets you pick now, lit up
+  choosableZones?: { ref: ZoneRef; picked: boolean }[] // and zones, with those picked so far
   // The part of the table to frame. A 2D board pans and zooms; a 3D one
   // would move its camera.
   focus?: CameraMode

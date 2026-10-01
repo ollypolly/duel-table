@@ -1,6 +1,6 @@
 // Zod schemas for games on the rules engine. Pure: shared by browser and server.
 import { z } from 'zod'
-import { PlayerSchema } from '../scenarios/schema'
+import { PlayerSchema, ZoneRefSchema } from '../scenarios/schema'
 
 // What the rules engine is asking a player, as numbered options. Cards are
 // iids on the board, so the browser can highlight them.
@@ -23,6 +23,7 @@ export const GamePromptSchema = z.object({
     z.object({
       label: z.string(),
       card: z.string().optional().describe('The card this option is about'),
+      zone: ZoneRefSchema.optional().describe('The zone this option is, when zones are the choice'),
       group: z.string().optional().describe('For grouping options in a menu, e.g. "Summon" or "Phase"'),
     }),
   ),

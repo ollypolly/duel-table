@@ -8,7 +8,7 @@ import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, us
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { AnimatePresence, motion } from 'motion/react'
 import { useContext, useRef, useState, type CSSProperties } from 'react'
-import { PLAYERS, type Iid, type Player } from '../../engine'
+import { PLAYERS, type Iid, type Player, type ZoneRef } from '../../engine'
 import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
 import { VIEWER, type PlacedCard, type ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
@@ -39,6 +39,7 @@ export function Board2D({
   draggable = [],
   onCardDrop,
   onZoneClick,
+  choosableZones = [],
 }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
   // Unmeasured (a test's DOM), the fan lays out for a desktop.
@@ -51,6 +52,7 @@ export function Board2D({
   const cosmetics = (p: Player) => (seatDecks[p] && byDeck[seatDecks[p]]) || {}
   const lit = new Set(choosable)
   const canDrag = new Set(onCardDrop ? draggable : [])
+  const zoneChoice = (r: ZoneRef) => choosableZones.find((z) => z.ref.zone === r.zone && z.ref.player === r.player && z.ref.slot === r.slot)
   const litPiles = new Set(view.cards.filter((c) => lit.has(c.iid) && c.stackIndex !== undefined).map((c) => `${c.zone.player}:${c.zone.zone}`))
   // A few px of movement before a press becomes a drag, so clicks still open cards.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
@@ -86,7 +88,7 @@ export function Board2D({
             {PLAYERS.map((p) => cosmetics(p).playmat && <Playmat key={p} player={p} src={cosmetics(p).playmat!} />)}
             <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
             {view.zones.map((z) => (
-              <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`)} onClick={() => onZoneClick?.(z.ref)} />
+              <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`) || !!zoneChoice(z.ref)} picked={zoneChoice(z.ref)?.picked} onClick={() => onZoneClick?.(z.ref)} />
             ))}
             {PLAYERS.map(
               (p) =>
@@ -194,7 +196,7 @@ function Playmat({ player, src }: { player: Player; src: string }) {
 
 // Piles (Deck, GY…) sit above their top card so the whole stack is the click
 // target, and light up with a "View" chip on hover.
-function ZoneOutline({ zone, placing, lit, onClick }: { zone: ZoneView; placing: boolean; lit: boolean; onClick: () => void }) {
+function ZoneOutline({ zone, placing, lit, picked, onClick }: { zone: ZoneView; placing: boolean; lit: boolean; picked?: boolean; onClick: () => void }) {
   const pile = zone.kind === 'pile'
   const { setNodeRef, isOver, active } = useDroppable({ id: zone.key })
   return (
@@ -205,7 +207,7 @@ function ZoneOutline({ zone, placing, lit, onClick }: { zone: ZoneView; placing:
       aria-label={`${zone.ref.player ?? ''} ${zone.label}${pile ? ` (${zone.count})` : ''}`}
       className={`zone group absolute cursor-pointer rounded-[6%] border transition-[background-color,border-color,box-shadow] ${
         zone.ref.zone === 'extraMonster' ? 'border-gold/40 text-gold/50' : zone.ref.player === 'p2' ? 'border-p2/25 text-p2/40' : 'border-p1/25 text-p1/40'
-      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''} ${lit ? 'border-accent shadow-[0_0_1.2cqw_var(--color-accent)]' : ''} ${
+      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''} ${picked ? 'border-gold bg-gold/25 text-gold shadow-[0_0_1.4cqw_var(--color-gold)]' : lit ? 'border-accent shadow-[0_0_1.2cqw_var(--color-accent)]' : ''} ${
         isOver ? 'border-gold bg-gold/15 shadow-[0_0_1.2cqw_var(--color-gold)]' : active ? 'border-dashed' : ''
       }`}
       style={box(zone.placement)}

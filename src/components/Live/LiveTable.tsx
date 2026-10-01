@@ -124,6 +124,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     answerGame([matching[0]])
     return true
   }
+  const [hot, setHot] = useState<{ for?: number; i?: number }>({}) // the zone option the pointer is on
+  // Zones lit when zones are the question; a click picks one (or unpicks it).
+  const zoneOptions = prompt ? prompt.options.flatMap((o, i) => (o.zone ? [{ ref: o.zone, picked: choice.picked.includes(i) || (hot.for === prompt.id && hot.i === i), i }] : [])) : []
+  const chooseZone = (ref: ZoneRef) => {
+    const z = zoneOptions.find((o) => o.ref.zone === ref.zone && o.ref.player === ref.player && o.ref.slot === ref.slot)
+    if (!z || !prompt) return
+    if (prompt.max === 1) answerGame([z.i])
+    else setChoice({ ...choice, picked: choice.picked.includes(z.i) ? choice.picked.filter((p) => p !== z.i) : [...choice.picked, z.i] })
+  }
   const optionsFor = (iid: Iid) => (prompt && prompt.max === 1 ? prompt.options.flatMap((o, i) => (o.card === iid ? [{ ...o, i }] : [])) : [])
   const cardActions = (iid: Iid, close: () => void) => {
     const options = optionsFor(iid)
@@ -296,6 +305,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             onChoice={setChoice}
             onAnswer={answerGame}
             normalUsed={turn?.normalUsed}
+            onHover={(i) => setHot({ for: prompt?.id, i })}
             onRematch={rematch}
             onReview={review || claudeLesson ? undefined : startReview}
             onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
@@ -407,6 +417,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         onUndo={game ? undefined : () => report(api.undo(id))}
         choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
         onChoose={prompt && !away ? chooseCard : undefined}
+        choosableZones={zoneOptions.length && !away ? zoneOptions : undefined}
+        onChooseZone={chooseZone}
         cardActions={prompt && !away ? cardActions : undefined}
         draggable={away ? undefined : draggable}
         onCardDrop={prompt && !away ? dropCard : undefined}

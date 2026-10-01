@@ -38,10 +38,11 @@ type Props = {
   onReopen?: (at: number) => void // be asked a passed chance after all
   claudeOn?: boolean // the levels that ask Claude can be picked
   normalUsed?: boolean // this turn's Normal Summon or Set has gone
+  onHover?: (option?: number) => void // the pointer is over an option that is a zone, to show which
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, normalUsed, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
@@ -192,7 +193,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
         )}
       </div>
       {multi ? (
-        <MultiPick prompt={prompt} picked={choice.picked} onChange={(picked) => onChoice({ ...choice, picked })} onConfirm={() => onAnswer(choice.picked)} busy={busy} />
+        <MultiPick prompt={prompt} onHover={onHover} picked={choice.picked} onChange={(picked) => onChoice({ ...choice, picked })} onConfirm={() => onAnswer(choice.picked)} busy={busy} />
       ) : choice.focused && withCard.some((o) => o.card === choice.focused) ? (
         <div className="space-y-1.5">
           <p className="text-xs text-accent">{name(choice.focused)}</p>
@@ -210,7 +211,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
           </div>
         </div>
       ) : (
-        <SingleChoice prompt={prompt} withCard={withCard} general={general} name={name} onFocus={(focused) => onChoice({ ...choice, focused })} onAnswer={onAnswer} busy={busy} />
+        <SingleChoice prompt={prompt} onHover={onHover} withCard={withCard} general={general} name={name} onFocus={(focused) => onChoice({ ...choice, focused })} onAnswer={onAnswer} busy={busy} />
       )}
       {passed}
       <div className="flex flex-wrap gap-1.5 empty:hidden">
@@ -226,9 +227,14 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   )
 }
 
+// An option that is a zone shows which one on the board while the pointer (or focus) is on it.
+const hover = (o: GamePrompt['options'][number], i: number, onHover?: (option?: number) => void) =>
+  o.zone && onHover ? { onMouseEnter: () => onHover(i), onMouseLeave: () => onHover(), onFocus: () => onHover(i), onBlur: () => onHover() } : {}
+
 type Indexed = GamePrompt['options'][number] & { i: number }
 
-function SingleChoice({ prompt, withCard, general, name, onFocus, onAnswer, busy }: {
+function SingleChoice({ prompt, withCard, general, name, onFocus, onAnswer, onHover, busy }: {
+  onHover?: (option?: number) => void
   prompt: GamePrompt
   withCard: Indexed[]
   general: Indexed[]
@@ -272,7 +278,7 @@ function SingleChoice({ prompt, withCard, general, name, onFocus, onAnswer, busy
       {shown.length > 0 && (
         <div className={`flex flex-wrap gap-1.5 ${general.length > 10 ? 'max-h-64 overflow-y-auto' : ''}`}>
           {shown.map((o) => (
-            <button key={o.i} type="button" className={`btn ${o.group === 'Pass' || o.group === 'Phase' ? '' : 'btn-primary'}`} disabled={busy} onClick={() => onAnswer([o.i])}>
+            <button key={o.i} type="button" className={`btn ${o.group === 'Pass' || o.group === 'Phase' ? '' : 'btn-primary'}`} disabled={busy} onClick={() => onAnswer([o.i])} {...hover(o, o.i, onHover)}>
               {o.label}
             </button>
           ))}
@@ -282,7 +288,8 @@ function SingleChoice({ prompt, withCard, general, name, onFocus, onAnswer, busy
   )
 }
 
-function MultiPick({ prompt, picked, onChange, onConfirm, busy }: {
+function MultiPick({ prompt, picked, onChange, onConfirm, onHover, busy }: {
+  onHover?: (option?: number) => void
   prompt: GamePrompt
   picked: number[]
   onChange: (picked: number[]) => void
@@ -296,7 +303,7 @@ function MultiPick({ prompt, picked, onChange, onConfirm, busy }: {
       <ul className="max-h-64 space-y-1 overflow-y-auto">
         {prompt.options.map((o, i) => (
           <li key={i}>
-            <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-raised">
+            <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-raised" {...hover(o, i, onHover)}>
               <input type="checkbox" checked={picked.includes(i)} onChange={(e) => onChange(e.target.checked ? [...picked, i] : picked.filter((p) => p !== i))} />
               {o.label}
             </label>
