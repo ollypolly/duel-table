@@ -374,7 +374,7 @@ export function Table({
           label="Focus"
           icon={Crosshair}
           title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
-          className="top-3"
+          className="right-3 top-3"
           checked={followFocus}
           onChange={setFollowFocus}
         />
@@ -382,13 +382,13 @@ export function Table({
           label="Pin hand"
           icon={Hand}
           title="Pin hand. On: your hand stays at the bottom of the screen while the board moves"
-          className="top-[3.875rem] sm:top-[3.375rem]"
+          className="right-[5.5rem] top-3 sm:right-3 sm:top-[3.375rem]"
           checked={pinHand}
           onChange={setPinHand}
         />
 
         {!(phone && panelOpen) && (
-          <div className="absolute right-3 top-[7.25rem] z-10 max-h-[40%] w-56 overflow-y-auto sm:top-[6.25rem] sm:w-64">
+          <div className="absolute right-3 top-[4.25rem] z-10 max-h-[40%] w-56 overflow-y-auto sm:top-[6.25rem] sm:w-64">
             <ChainList view={view} />
           </div>
         )}
@@ -422,11 +422,12 @@ export function Table({
 
 type ViewToggleProps = { label: string; icon: LucideIcon; title: string; className: string; checked: boolean; onChange: (checked: boolean) => void }
 
-// A checkbox at the board's top right. On a phone its icon stands for the label.
+// A checkbox at the board's top right. On a phone its icon stands for the
+// label, and they sit in a row, in the strip the open sheet leaves.
 function ViewToggle({ label, icon: Icon, title, className, checked, onChange }: ViewToggleProps) {
   return (
     <label
-      className={`panel absolute right-3 z-10 flex h-11 cursor-pointer items-center gap-2 px-3.5 text-sm text-muted hover:text-ink sm:h-9 sm:gap-1.5 sm:px-2.5 sm:text-xs ${className}`}
+      className={`panel absolute z-10 flex h-11 cursor-pointer items-center gap-2 px-3.5 text-sm text-muted hover:text-ink sm:h-9 sm:gap-1.5 sm:px-2.5 sm:text-xs ${className}`}
       title={title}
     >
       <input type="checkbox" className="accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label={label} />
