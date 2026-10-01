@@ -75,7 +75,7 @@ const SCAN =
 const LEAD =
   "Tell them what happened here and why it was good or bad. Unless it was a good play, give the better line and why it's better, from the cards they had. If it was the other side's move, say what the person could have done about it. Don't ask them what they'd do."
 
-const SPEAKER: Record<ChatEntry['from'], string> = { you: 'The person', claude: 'Claude', move: 'Claude played', note: 'The app' }
+const SPEAKER: Record<ChatEntry['from'], string> = { you: 'The person', claude: 'Claude', move: 'Claude played', note: 'The app', log: 'The game' }
 
 export class ReviewService {
   // null: looked for and there isn't one, so a session's updates don't hit the store.
@@ -262,7 +262,7 @@ export class ReviewService {
     // A lesson that carried on after the review started has more to tell.
     const chat = this.played(id)?.chat ?? []
     if (chat.length > r.heard) {
-      parts.push(`${r.heard ? 'The game chat since' : 'The chat during the game'}:\n${chat.slice(r.heard).map((e) => `${SPEAKER[e.from]}: ${e.text}`).join('\n')}`)
+      parts.push(`${r.heard ? 'The game chat since' : 'The chat during the game'}:\n${chat.slice(r.heard).filter((e) => e.from !== 'log').map((e) => `${SPEAKER[e.from]}: ${e.text}`).join('\n')}`)
       r.heard = chat.length
     }
     if (steps.length > r.read) {

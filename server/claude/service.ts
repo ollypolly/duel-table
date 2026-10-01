@@ -24,6 +24,7 @@ import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
 import type { Moment } from '../../src/api/review'
 import { cardFace } from '../../src/view/boardView'
+import { isTurnStart, played, playedBy } from '../../src/view/plays'
 import { cardLines, cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, matchCards, optionLabel, publicLabel, seenBy } from './view'
 
 // watch: Claude isn't playing. It sits on player's side of a game against a
@@ -42,6 +43,7 @@ export type ClaudeRecord = {
   chat: ChatEntry[]
   costUsd: number
   seen: number // steps Claude has been told about
+  logged?: number // steps written to the chat as a log, when Claude coaches
   texts?: string[] // cards whose text Claude has been given
   character?: Character // who Claude plays as, from its deck
   lesson?: LessonSeats
@@ -137,7 +139,10 @@ export class ClaudeService {
         if (people.length === 1) this.join(id, people[0], opts)
       }
     }
-    games.onChange = (id) => void this.poke(id)
+    games.onChange = (id) => {
+      this.log(id)
+      void this.poke(id)
+    }
     games.onPersonAnswer = (id, player) => {
       const seat = this.seat(id)
       if (!seat?.lesson) return
@@ -151,6 +156,7 @@ export class ClaudeService {
       const seat = this.seat(id)
       if (!seat) return
       seat.seen = Math.min(seat.seen, this.sessions.export(id).steps.length)
+      if (seat.logged !== undefined) seat.logged = Math.min(seat.logged, seat.seen)
       const who = seat.watch ? 'The person' : 'Your opponent'
       seat.notes = [...(seat.notes ?? []), `${who} took back their last move, which the app allows a few times a game. The table below is the game now: what came after that move, ${seat.watch ? "the bot's replies" : 'your answers'} included, never happened.`]
       seat.chat.push({ from: 'note', text: 'You took back your last move.' })
@@ -313,6 +319,8 @@ export class ClaudeService {
     // Claude only answers for a player the game's file gives it: otherwise it is beside them.
     const watch = !duel?.claude && !duel?.lesson
     const seat: Seat = { ...rec, ...(watch && { watch, knowsDeck: rec.knowsDeck ?? true }), share: rec.share ?? false, status: 'idle', queue: [], busy: false }
+    // A game from before the log starts it from here, not with its whole history at once.
+    if (stored && watch) seat.logged ??= this.sessions.export(id).steps.length
     this.seats.set(id, seat)
     return seat
   }
@@ -859,6 +867,27 @@ export class ClaudeService {
     return seat.status === 'stopped'
   }
 
+  // A coached game's chat keeps a log of what's played, since Claude, who
+  // isn't playing, leaves no lines of its own: each turn, and each summon,
+  // activation, attack and Set, by whose card it is.
+  private log(id: string) {
+    const seat = this.seat(id)
+    if (!seat?.watch) return
+    const { steps } = this.sessions.export(id)
+    const { state } = this.sessions.get(id)
+    const other = seat.player === 'p1' ? 'p2' : 'p1'
+    const lines = steps.slice(seat.logged ?? 0).flatMap((s) => {
+      if (isTurnStart(s)) return [s.label!]
+      if (!played(s)) return []
+      const theirs = playedBy(s, other)
+      return [`${theirs ? state.players[other].name : 'You'}: ${s.label ?? 'A move'}`] // labels never name a hidden card
+    })
+    seat.logged = steps.length
+    if (!lines.length) return
+    seat.chat.push(...lines.map((text) => ({ from: 'log' as const, text })))
+    this.changed(id, seat)
+  }
+
   private changed(id: string, seat: Seat) {
     this.save(id, seat)
     this.sessions.touch(id)
@@ -866,7 +895,7 @@ export class ClaudeService {
 
   private save(id: string, seat: Seat) {
     if (this.seats.get(id) !== seat) return // deleted while a run was finishing
-    const { player, watch, knowsDeck, flags, model, coach, share, sessionId, chat, costUsd, seen, texts, character, lesson } = seat
+    const { player, watch, knowsDeck, flags, model, coach, share, sessionId, chat, costUsd, seen, logged, texts, character, lesson } = seat
     this.store.save(id, {
       player,
       ...(watch && { watch, knowsDeck: knowsDeck ?? true }),
@@ -878,6 +907,7 @@ export class ClaudeService {
       chat: stamp(chat),
       costUsd,
       seen,
+      ...(logged !== undefined && { logged }),
       ...(texts && { texts }),
       ...(character && { character }),
       ...(lesson && { lesson }),

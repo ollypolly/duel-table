@@ -16,6 +16,7 @@ const STYLE = {
   claude: 'mr-8 rounded-lg bg-raised px-2.5 py-1.5',
   move: 'text-xs text-muted',
   note: 'text-xs text-warn',
+  log: 'text-xs text-muted',
 }
 
 const MODELS: [ModelChoice, string][] = [
@@ -50,7 +51,7 @@ function Entry({ e, outline = '', anchor }: { e: ChatEntry; outline?: string; an
     </div>
   ) : (
     <p ref={anchor as Ref<HTMLParagraphElement>} className={`whitespace-pre-wrap ${STYLE[e.from]}`} data-moment={e.moment}>
-      {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}
+      {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.from === 'log' ? <CardText>{e.text}</CardText> : e.text}
       <Time at={e.at} />
     </p>
   )

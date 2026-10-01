@@ -40,7 +40,7 @@ export const GameAnswerSchema = z.object({ id: z.int(), choices: z.array(z.int()
 export type GameAnswer = z.infer<typeof GameAnswerSchema>
 
 export const ChatEntrySchema = z.object({
-  from: z.enum(['you', 'claude', 'move', 'note']).describe('move: an answer Claude gave; note: from the app'),
+  from: z.enum(['you', 'claude', 'move', 'note', 'log']).describe('move: an answer Claude gave; note: from the app; log: something that happened in a game Claude coaches'),
   text: z.string(),
   moment: z.int().optional().describe("In a review: the step of the key moment this is Claude taking you through"),
   at: z.number().optional().describe('When it was said (ms since the epoch); older chats have none'),
