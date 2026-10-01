@@ -25,7 +25,8 @@ type UiState = {
 
 export const useUiStore = create<UiState>()((set) => ({
   openHands: false,
-  boxSelect: false,
+  // On by default with a mouse or trackpad, where the wheel pans. A finger drags the table instead.
+  boxSelect: typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches,
   setBoxSelect: (boxSelect) => set({ boxSelect, multi: [] }),
   multi: [],
   setMulti: (multi) => set({ multi }),
