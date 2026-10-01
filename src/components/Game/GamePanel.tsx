@@ -1,7 +1,7 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Lightbulb, Undo2 } from 'lucide-react'
+import { Lightbulb, Search, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
@@ -20,12 +20,13 @@ type Props = {
   onChoice: (c: GameChoice) => void
   onAnswer: (choices: number[]) => void
   onRematch?: () => void // once it's over
+  onReview?: () => void // go through the finished game with Claude
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onHint, onUndo, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, busy }: Props) {
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
     const f = cardFace(state, iid, cardDb)
@@ -42,10 +43,16 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   if (winner) {
     const who = winner.player === 'p1' ? 'You win!' : `${state.players[winner.player].name} wins`
     return (
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-display text-lg font-semibold text-gold">{who}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {undo}
+          {onReview && (
+            <button type="button" className="btn flex items-center gap-1.5" onClick={onReview} title="Go through this game with Claude">
+              <Search size={14} className="text-gold" aria-hidden />
+              Review
+            </button>
+          )}
           {onRematch && (
             <button type="button" className="btn btn-primary" onClick={onRematch}>
               Rematch
