@@ -105,7 +105,10 @@ export function PileViewer({
       onClick={(e) => e.target === e.currentTarget && ref.current?.close()}
       className="m-0 h-auto max-h-none w-auto max-w-none place-items-center bg-transparent p-0 text-ink open:grid backdrop:bg-bg/70 backdrop:backdrop-blur-md"
     >
-      <div className="panel flex h-[min(80vh,calc(var(--safe-h)-2rem))] w-[min(64rem,94vw)] flex-col">
+      <div
+        // A click on the list that isn't on a card or a button lets go of what's picked from it.
+        onClick={(e) => held > 0 && !(e.target as Element).closest('button, label') && onPick?.(zone.cards.filter((c) => picked?.includes(c.iid)).map((c) => c.iid))}
+        className="panel flex h-[min(80vh,calc(var(--safe-h)-2rem))] w-[min(64rem,94vw)] flex-col">
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="font-display font-semibold">
             {playerName === 'You' ? 'Your' : `${playerName}'s`} {zone.label} <span className="text-muted">({zone.count})</span>

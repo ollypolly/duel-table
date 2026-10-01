@@ -1,6 +1,8 @@
+import { useContext } from 'react'
 import { isExtraFrame } from '../../data/cardDb'
 import { useSleeve } from '../../store/cosmeticsStore'
 import type { CardFace } from '../../view/boardView'
+import { FullArt } from './fullArt'
 
 const FRAME_COLOURS: Record<string, string> = {
   normal: 'bg-amber-200',
@@ -17,10 +19,11 @@ const FRAME_COLOURS: Record<string, string> = {
 // One card, face or back. Sized by its parent (fills it).
 export function CardView({ card, showFace }: { card: CardFace; showFace?: boolean }) {
   const face = showFace ?? card.visible
+  const full = useContext(FullArt)
   const sleeve = useSleeve(card.owner, isExtraFrame(card.frame))
   if (!face) return <CardBack sleeve={sleeve} />
   if (card.image) {
-    return <img src={card.image} alt={card.name} draggable={false} className={`h-full w-full rounded-[4%] object-cover ${card.set ? 'opacity-60 saturate-50' : ''}`} />
+    return <img src={(full && card.imageFull) || card.image} alt={card.name} draggable={false} className={`h-full w-full rounded-[4%] object-cover ${card.set ? 'opacity-60 saturate-50' : ''}`} />
   }
   return (
     <div

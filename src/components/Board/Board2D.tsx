@@ -6,13 +6,14 @@
 // cards onto zones is dnd-kit.
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useMotionValueEvent } from 'motion/react'
 import { useContext, useRef, useState, type CSSProperties } from 'react'
 import { PLAYERS, type Iid, type Player, type ZoneRef } from '../../engine'
 import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
 import { VIEWER, type CardFace, type PlacedCard, type ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
+import { FullArt } from '../CardView/fullArt'
 import type { BoardRendererProps } from './BoardRenderer'
 import { fanCardHeight, fanHeight } from './fan'
 import { HandFan } from './HandFan'
@@ -69,6 +70,14 @@ export function Board2D({
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }
   const down = useRef(0)
+  // Zoomed in close, the table swaps to the full-size art: the small scan is
+  // 268px wide and goes soft well before a card fills that many pixels.
+  const [fullArt, setFullArt] = useState(false)
+  useMotionValueEvent(cam.style.scale, 'change', (scale) => {
+    // offsetWidth is the zone's size before the camera's zoom, which hasn't reached the page yet.
+    const zone = ref.current?.querySelector<HTMLElement>('.playmat button')
+    if (zone) setFullArt(zone.offsetWidth * scale * devicePixelRatio > 180)
+  })
   // Where a press on the table began: it becomes a box once it has moved a
   // few px, so a plain click still opens a pile or places what's selected.
   const press = useRef<{ x: number; y: number }>(undefined)
@@ -177,6 +186,7 @@ export function Board2D({
               ...cam.style,
             }}
           >
+            <FullArt.Provider value={fullArt}>
             {PLAYERS.map((p) => cosmetics(p).playmat && <Playmat key={p} player={p} src={cosmetics(p).playmat!} />)}
             <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
             {view.zones.map((z) => (
@@ -234,6 +244,7 @@ export function Board2D({
                 />
               ))}
             </svg>
+            </FullArt.Provider>
           </motion.div>
           {pinnedHand && (
             <HandFan
