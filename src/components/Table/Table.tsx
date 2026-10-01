@@ -22,7 +22,7 @@ import { play, stepSounds } from '../../view/sounds'
 import { Board2D } from '../Board/Board2D'
 import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
-import { CardActions, FreePlayBar, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
+import { CardActions, FreePlayBar, FreePlayStatus, FreePlayTable } from '../FreePlay/FreePlay'
 import { DamagePopups } from './DamagePopups'
 import { LiveFeed } from './LiveFeed'
 import { useSheet } from './useSheet'
@@ -235,17 +235,13 @@ export function Table({
   return (
     <SeatDecks.Provider value={seatDecks}>
       <TopBar
-        nav={
-          <>
-            {nav}
-            {freePlay && <FreePlayMenu fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />}
-          </>
-        }
+        nav={nav}
         status={<StatusBar view={view} lpChanges={lpChanges} clock={clock} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
       />
 
       {barShown && (
-        <div className={`relative z-30 flex justify-center border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur ${freePlay ? '' : 'pointer-events-none'}`}>
+        <div className={`relative z-30 flex flex-col items-center gap-1.5 border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur ${freePlay ? '' : 'pointer-events-none'}`}>
+          <FreePlayTable fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />
           <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
         </div>
       )}

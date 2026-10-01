@@ -33,7 +33,7 @@ export function DamagePopups({ changes, position, names }: { changes: Partial<Re
                   {delta}
                 </div>
                 <div className="mt-1 font-display text-xs font-semibold uppercase tracking-widest text-ink/80">
-                  {names[p]} {damage ? 'takes damage' : 'gains LP'}
+                  {names[p]} {names[p] === 'You' ? (damage ? 'take damage' : 'gain LP') : damage ? 'takes damage' : 'gains LP'}
                 </div>
               </motion.div>
             </motion.div>

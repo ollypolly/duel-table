@@ -1,14 +1,13 @@
 // Free-play tools. Drag a card onto a zone to move it. Clicking a card opens
 // it with its actions (including "Move…", then click a zone); the table
-// actions (draw, shuffle, LP…) are a menu in the header.
+// and card tools are two rows under the header.
 import { useState } from 'react'
 import { isMaterial } from '../../branches/branches'
 import { cardDb } from '../../data/cards'
-import { getCard, locate, PLAYERS, type Iid, type Player, type SummonMethod } from '../../engine'
+import { getCard, locate, PLAYERS, type Iid, type SummonMethod } from '../../engine'
 import type { FreePlay } from '../../hooks/useFreePlay'
 import { useUiStore } from '../../store/uiStore'
 import { cardFace } from '../../view/boardView'
-import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
 const EXTRA = new Set(['fusion', 'synchro', 'xyz', 'link', 'fusion_pendulum', 'synchro_pendulum', 'xyz_pendulum'])
 const SUMMONS: SummonMethod[] = ['normal', 'tribute', 'flip', 'special', 'fusion', 'synchro', 'xyz', 'link', 'ritual']
@@ -251,49 +250,35 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
   )
 }
 
-export function FreePlayMenu({ fp, onUndo }: { fp: FreePlay; onUndo?: () => void }) {
+// The table's own controls, as a row above the card tools: shuffle, turn,
+// undo and life points, for the side picked below.
+export function FreePlayTable({ fp, onUndo }: { fp: FreePlay; onUndo?: () => void }) {
   const { state, act } = fp
   const [lpAmount, setLpAmount] = useState(1000)
-  const who = (p: Player) => state.players[p].name
-
+  const side = useUiStore((s) => s.freeSide)
+  const whose = side === 'p1' ? 'your' : `${state.players[side].name}'s`
   return (
-    <Menu label={<span className="font-display font-semibold text-gold">Free play</span>} title="Drag a card onto a zone to move it, or click it for more">
-      <div data-testid="free-play" className="flex flex-col">
-        {PLAYERS.map((p) => (
-          <MenuItem key={p} onClick={() => act({ type: 'draw', player: p })}>
-            {who(p)} draw{p === 'p1' ? '' : 's'}
-          </MenuItem>
-        ))}
-        {PLAYERS.map((p) => (
-          <MenuItem key={p} onClick={() => act({ type: 'shuffle', player: p, zone: 'deck' })}>
-            Shuffle {who(p)}'s Deck
-          </MenuItem>
-        ))}
-        <MenuItem onClick={() => act({ type: 'nextTurn' })}>Next turn</MenuItem>
-        <MenuItem onClick={onUndo} disabled={!onUndo}>
-          Undo
-        </MenuItem>
-        <MenuLabel>Life points</MenuLabel>
-        <label className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-muted">
-          Amount
-          <input
-            aria-label="LP amount"
-            type="number"
-            min={0}
-            step={100}
-            className="w-24 px-1 py-1"
-            value={lpAmount}
-            onChange={(e) => setLpAmount(Math.max(0, Number(e.target.value)))}
-          />
-        </label>
-        {PLAYERS.map((p) => (
-          <div key={p} className="flex items-center gap-1 px-1">
-            <span className="flex-1 px-1.5 text-sm">{who(p)}</span>
-            <MenuItem onClick={() => act({ type: 'lp', player: p, delta: -lpAmount })}>− LP</MenuItem>
-            <MenuItem onClick={() => act({ type: 'lp', player: p, delta: lpAmount })}>+ LP</MenuItem>
-          </div>
-        ))}
-      </div>
-    </Menu>
+    <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs" data-testid="free-play">
+      <span className="font-display font-semibold uppercase tracking-wider text-gold">Free play</span>
+      <button type="button" className="btn text-xs" onClick={() => act({ type: 'shuffle', player: side, zone: 'deck' })}>
+        Shuffle {whose} Deck
+      </button>
+      <button type="button" className="btn text-xs" onClick={() => act({ type: 'nextTurn' })}>
+        Next turn
+      </button>
+      <button type="button" className="btn text-xs" onClick={onUndo} disabled={!onUndo}>
+        Undo
+      </button>
+      <span className="flex items-center gap-1 pl-2 text-muted">
+        LP
+        <button type="button" className="btn text-xs" aria-label={`Take ${lpAmount} from ${whose} life points`} onClick={() => act({ type: 'lp', player: side, delta: -lpAmount })}>
+          −
+        </button>
+        <input aria-label="LP amount" type="number" min={0} step={100} className="w-16 px-1 py-1" value={lpAmount} onChange={(e) => setLpAmount(Math.max(0, Number(e.target.value)))} />
+        <button type="button" className="btn text-xs" aria-label={`Add ${lpAmount} to ${whose} life points`} onClick={() => act({ type: 'lp', player: side, delta: lpAmount })}>
+          +
+        </button>
+      </span>
+    </div>
   )
 }
