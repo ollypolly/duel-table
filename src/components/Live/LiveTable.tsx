@@ -171,19 +171,22 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const liveNav = (
     <>
       {nav}
-      <span className="flex min-w-0 items-center gap-2 text-sm">
-        <span className="relative flex h-2 w-2">
-          <span className={`absolute inline-flex h-full w-full rounded-full ${connection ? 'bg-warn' : 'animate-ping bg-ok/70'}`} />
-          <span className={`relative inline-flex h-2 w-2 rounded-full ${connection ? 'bg-warn' : 'bg-ok'}`} />
+      {/* Only when something's wrong: the connection, or a move the server turned down. */}
+      {(connection || rejected) && (
+        <span className="flex min-w-0 items-center gap-2 text-sm">
+          {connection && (
+            <>
+              <span className="h-2 w-2 shrink-0 rounded-full bg-warn" />
+              <span className="truncate text-warn">{connection}</span>
+            </>
+          )}
+          {rejected && (
+            <span role="alert" className="truncate text-danger">
+              {rejected}
+            </span>
+          )}
         </span>
-        <span className="hidden text-ok sm:inline">Live</span>
-        {connection && <span className="text-warn">{connection}</span>}
-        {rejected && (
-          <span role="alert" className="text-danger">
-            {rejected}
-          </span>
-        )}
-      </span>
+      )}
     </>
   )
 

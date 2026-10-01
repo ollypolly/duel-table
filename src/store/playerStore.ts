@@ -1,6 +1,6 @@
 // What's open and the playback position, and preferences. Only the
 // preferences are saved: what's open lives in the URL (urlSync), so a reload
-// lands where you were and a fresh start opens the picker. `position` is 0 for
+// lands where you were and a fresh start opens the home page. `position` is 0 for
 // the setup and n for "after step n".
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -18,16 +18,22 @@ type PlayerState = {
   followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; back on at each load and each scenario or game opened
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
+  goHome: () => void // nothing open
   goTo: (position: number) => void
   setSpeed: (speed: number) => void
   setPlaying: (playing: boolean) => void
+  progress: Record<string, { step: number; at: number }> // how far you got in each lesson, and when you were last on it
   pinHand: boolean // your hand stays at the bottom of the screen as a fan
   setFollowFocus: (followFocus: boolean) => void
   setPinHand: (pinHand: boolean) => void
   setMuted: (muted: boolean) => void
 }
 
-type Persisted = Pick<PlayerState, 'speed' | 'muted' | 'pinHand'>
+type Persisted = Pick<PlayerState, 'speed' | 'muted' | 'pinHand' | 'progress'>
+
+// The furthest step reached in the lesson that's open, if one is.
+const reached = (s: PlayerState, scenarioId: string | undefined, position: number) =>
+  scenarioId && Number.isFinite(position) ? { progress: { ...s.progress, [scenarioId]: { step: Math.max(position, s.progress[scenarioId]?.step ?? 0), at: Date.now() } } } : {}
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -38,9 +44,11 @@ export const usePlayerStore = create<PlayerState>()(
       muted: false,
       followFocus: true,
       pinHand: true,
-      open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true }),
+      progress: {},
+      open: (scenarioId, position = 0) => set((s) => ({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true, ...reached(s, scenarioId, position) })),
       openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false, followFocus: true }),
-      goTo: (position) => set({ position }),
+      goHome: () => set({ scenarioId: undefined, sessionId: undefined, position: 0, playing: false }),
+      goTo: (position) => set((s) => ({ position, ...reached(s, s.sessionId ? undefined : s.scenarioId, position) })),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),
       setFollowFocus: (followFocus) => set({ followFocus }),
@@ -49,13 +57,13 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: 'duel-table/player',
-      version: 3,
-      partialize: ({ speed, muted, pinHand }): Persisted => ({ speed, muted, pinHand }),
+      version: 4,
+      partialize: ({ speed, muted, pinHand, progress }): Persisted => ({ speed, muted, pinHand, progress }),
       // Only called when the stored version differs. Earlier versions also
       // saved what was open; the preferences carry over.
       migrate: (old): Persisted => {
-        const { speed = 1, muted = false, pinHand = true } = (old ?? {}) as Partial<Persisted>
-        return { speed, muted, pinHand }
+        const { speed = 1, muted = false, pinHand = true, progress = {} } = (old ?? {}) as Partial<Persisted>
+        return { speed, muted, pinHand, progress }
       },
     },
   ),

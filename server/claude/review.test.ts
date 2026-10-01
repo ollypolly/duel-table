@@ -134,6 +134,18 @@ describe.skipIf(!hasData)('reviewing a game with Claude', () => {
     expect(sessions.get(id).review?.moments).toHaveLength(2)
   }, 60_000)
 
+  it('shows in the list of tables: who you played, and what the review found', async () => {
+    const { sessions, review, id } = await setup()
+    const entry = () => sessions.list().find((t) => t.id === id)!
+    expect(entry()).toMatchObject({ opponent: 'bot' })
+    expect(entry().reviewed).toBeUndefined()
+
+    review.start(id)
+    expect(entry().reviewed).toMatchObject({ scanned: false, busy: true })
+    await review.idle(id)
+    expect(entry().reviewed).toEqual({ scanned: true, busy: false, moments: { blunder: 1, good: 1 } })
+  })
+
   it("won't review a game that's still going", async () => {
     const sessions = new SessionService(ctx)
     const games = new GameService(sessions, ctx)

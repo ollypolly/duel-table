@@ -14,7 +14,7 @@ import { PlayerSchema } from '../src/scenarios/schema'
 import type { ClaudeService } from './claude/service'
 import type { TutorService } from './claude/tutor'
 import { TutorAskSchema, TutorViewSchema } from '../src/api/tutor'
-import { ReviewChatSchema, ReviewMomentSchema, ReviewViewSchema } from '../src/api/review'
+import { MOMENT_KINDS, ReviewChatSchema, ReviewMomentSchema, ReviewViewSchema } from '../src/api/review'
 import type { ReviewService } from './claude/review'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
@@ -37,6 +37,11 @@ const SummarySchema = z.object({
   kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),
   winner: z.enum(['p1', 'p2']).optional(),
   claudeLesson: z.literal(true).optional().openapi({ description: 'A lesson Claude ran on the rules engine' }),
+  opponent: z.enum(['bot', 'claude']).optional().openapi({ description: 'Who answers for p2 in a game, if not a person' }),
+  reviewed: z
+    .object({ scanned: z.boolean(), busy: z.boolean(), moments: z.partialRecord(z.enum(MOMENT_KINDS), z.int()) })
+    .optional()
+    .openapi({ description: 'It has a review with Claude: whether the first look is done, and the key moments by kind' }),
 })
 const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),

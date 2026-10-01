@@ -5,7 +5,7 @@ import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice } from './game'
 import type { Answer, LessonView } from './lesson'
-import type { ReviewView } from './review'
+import type { Moment, ReviewView } from './review'
 import type { TutorView } from './tutor'
 
 export type SessionSummary = {
@@ -19,6 +19,8 @@ export type SessionSummary = {
   kind: 'game' | 'board'
   winner?: Player
   claudeLesson?: true // a lesson Claude ran on the rules engine
+  opponent?: 'bot' | 'claude' // who answers for p2 in a game, if not a person
+  reviewed?: { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> } // it has a review with Claude
 }
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
 

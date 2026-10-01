@@ -1,7 +1,6 @@
 // Export, delete and import branches. An exported branch is a fork file, so
 // it can be dropped straight into scenarios/.
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { parseBranch, uniqueId } from '../../branches/branches'
 import { cardDb } from '../../data/cards'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
@@ -48,7 +47,7 @@ export function BranchActions({ id }: { id: string }) {
   )
 }
 
-export function ImportBranch({ takenIds }: { takenIds: string[] }) {
+export function ImportBranch({ takenIds, onImported }: { takenIds: string[]; onImported?: () => void }) {
   const input = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string>()
   const { branches, add } = useBranchStore()
@@ -77,12 +76,14 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
     }
     add(branch)
     open(branch.id, r.scenario.game.steps.length)
+    onImported?.()
   }
 
-  // A menu item; the error shows as a toast, outside the (closed) menu.
   return (
     <>
-      <MenuItem onClick={() => input.current?.click()}>Import branch…</MenuItem>
+      <button type="button" className="btn" onClick={() => input.current?.click()}>
+        Import branch…
+      </button>
       <input
         ref={input}
         type="file"
@@ -95,18 +96,11 @@ export function ImportBranch({ takenIds }: { takenIds: string[] }) {
           e.target.value = ''
         }}
       />
-      {error &&
-        createPortal(
-          <div role="alert" className="panel fixed bottom-[max(1rem,var(--safe-bottom))] left-1/2 z-50 flex max-w-[min(40rem,90vw)] -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm text-danger">
-            <span className="truncate" title={error}>
-              Import failed: {error}
-            </span>
-            <button type="button" className="btn" onClick={() => setError(undefined)}>
-              OK
-            </button>
-          </div>,
-          document.body,
-        )}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          Import failed: {error}
+        </p>
+      )}
     </>
   )
 }

@@ -1,8 +1,9 @@
 // Start a game on the rules engine: your deck against the bot's, or
 // against Claude's when the server has a Claude login. Claude plays as the
-// anime character its deck belongs to, picked at random by default. Or a
-// lesson, where Claude runs the duel to teach you what you ask. Any of them
-// can start from a scenario's setup instead of opening hands.
+// anime character its deck belongs to, picked at random by default. With
+// lesson, it's the form for a lesson instead, where Claude runs the duel to
+// teach you what you ask. Any of them can start from a scenario's setup
+// instead of opening hands.
 import { useEffect, useRef, useState } from 'react'
 import { api, type ClaudeStatus } from '../../api/client'
 import type { ModelChoice } from '../../api/game'
@@ -15,14 +16,16 @@ const RANDOM = 'random-character'
 const positions = Object.values(rawScenarios as Record<string, ScenarioFile>).filter((s) => s.setup)
 const OPENING = 'opening-hands'
 
-export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: { open: boolean; deck?: string; onClose: () => void; onStarted: (id: string) => void }) {
+type Props = { open: boolean; deck?: string; lesson?: boolean; onClose: () => void; onStarted: (id: string) => void }
+
+export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose, onStarted }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const [deck, setDeck] = useState(initialDeck ?? decks[0]?.id ?? '')
   const [opponentDeck, setOpponentDeck] = useState(characterDecks.length ? RANDOM : (decks[1]?.id ?? decks[0]?.id ?? ''))
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
   const [status, setStatus] = useState<ClaudeStatus>()
-  const [mode, setMode] = useState<'bot' | 'claude' | 'lesson'>('bot')
+  const [mode, setMode] = useState<'bot' | 'claude'>('bot')
   const [topic, setTopic] = useState('')
   const [model, setModel] = useState<ModelChoice>('opus')
   const [coach, setCoach] = useState(true)
@@ -40,8 +43,7 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
       live = false
     }
   }, [open])
-  const claude = mode !== 'bot' && status?.available
-  const lesson = claude && mode === 'lesson'
+  const claude = (lesson || mode === 'claude') && status?.available
 
   const start = async () => {
     setStarting(true)
@@ -88,36 +90,39 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
             void start()
           }}
         >
-          <h2 className="font-display text-lg font-semibold">New game</h2>
-          <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm">Opponent</legend>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="radio" name="opponent" checked={!claude} onChange={() => setMode('bot')} className="mt-1" />
-              <span>
-                Bot <span className="block text-xs text-muted">Makes random legal moves. Free and instant.</span>
-              </span>
-            </label>
-            <label className={`flex items-start gap-2 text-sm ${status?.available ? '' : 'opacity-60'}`}>
-              <input type="radio" name="opponent" checked={!!claude && !lesson} disabled={!status?.available} onChange={() => setMode('claude')} className="mt-1" />
-              <span>
-                Claude
-                <span className="block text-xs text-muted">
-                  {!status
-                    ? 'Checking for a Claude login…'
-                    : status.available
-                      ? `Plays to win, chats, and can coach you. Uses your Claude plan${status.email ? ` (${status.email})` : ''}.`
-                      : 'Log in to Claude Code on this machine (run `claude`) to play Claude.'}
+          <h2 className="font-display text-lg font-semibold">{lesson ? 'New lesson with Claude' : 'New game'}</h2>
+          {lesson ? (
+            <p className="text-xs text-muted">
+              {!status
+                ? 'Checking for a Claude login…'
+                : status.available
+                  ? 'Claude plays both sides to show you combos and lines, then hands you a side to try them.'
+                  : 'Log in to Claude Code on this machine (run `claude`) for lessons with Claude.'}
+            </p>
+          ) : (
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm">Opponent</legend>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="opponent" checked={!claude} onChange={() => setMode('bot')} className="mt-1" />
+                <span>
+                  Bot <span className="block text-xs text-muted">Makes random legal moves. Free and instant.</span>
                 </span>
-              </span>
-            </label>
-            <label className={`flex items-start gap-2 text-sm ${status?.available ? '' : 'opacity-60'}`}>
-              <input type="radio" name="opponent" checked={!!lesson} disabled={!status?.available} onChange={() => setMode('lesson')} className="mt-1" />
-              <span>
-                Lesson with Claude
-                <span className="block text-xs text-muted">Claude plays both sides to show you combos and lines, then hands you a side to try them.</span>
-              </span>
-            </label>
-          </fieldset>
+              </label>
+              <label className={`flex items-start gap-2 text-sm ${status?.available ? '' : 'opacity-60'}`}>
+                <input type="radio" name="opponent" checked={!!claude} disabled={!status?.available} onChange={() => setMode('claude')} className="mt-1" />
+                <span>
+                  Claude
+                  <span className="block text-xs text-muted">
+                    {!status
+                      ? 'Checking for a Claude login…'
+                      : status.available
+                        ? `Plays to win, chats, and can coach you. Uses your Claude plan${status.email ? ` (${status.email})` : ''}.`
+                        : 'Log in to Claude Code on this machine (run `claude`) to play Claude.'}
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+          )}
           {lesson && (
             <label className="block space-y-1 text-sm">
               <span>What do you want to learn?</span>
@@ -178,7 +183,7 @@ export function NewGameDialog({ open, deck: initialDeck, onClose, onStarted }: {
             <button type="button" className="btn" onClick={() => ref.current?.close()}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={starting || (from === OPENING && !deck)}>
+            <button type="submit" className="btn btn-primary" disabled={starting || (from === OPENING && !deck) || (lesson && !claude)}>
               {starting ? 'Starting…' : 'Start'}
             </button>
           </div>

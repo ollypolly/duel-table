@@ -98,6 +98,13 @@ export class ReviewService {
       const r = this.find(id)
       return r?.open ? this.view(r) : undefined
     }
+    sessions.reviewSummary = (id) => {
+      const r = this.find(id)
+      if (!r) return undefined
+      const moments: Partial<Record<Moment['kind'], number>> = {}
+      for (const m of r.moments) moments[m.kind] = (moments[m.kind] ?? 0) + 1
+      return { scanned: r.scanned, busy: r.status === 'thinking', moments }
+    }
     sessions.onRemove.push((id) => {
       const r = this.reviews.get(id)
       void r?.run?.interrupt()

@@ -14,7 +14,7 @@ import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { Lesson, type AnswerEvent } from './lesson'
 import type { GameView } from '../src/api/game'
-import type { ReviewView } from '../src/api/review'
+import type { Moment, ReviewView } from '../src/api/review'
 import type { Player } from '../src/engine'
 
 export { SessionError }
@@ -49,7 +49,12 @@ export type SessionSummary = {
   kind: 'game' | 'board' // a game on the rules engine, or a free board
   winner?: Player // the other player's LP hit 0
   claudeLesson?: true // a lesson Claude ran on the rules engine
+  opponent?: 'bot' | 'claude' // who answers for p2 in a game, if not a person
+  reviewed?: ReviewSummary // it has a review with Claude, open or not
 }
+// scanned: Claude has finished looking for the key moments, counted by kind.
+// busy: Claude is working on it now.
+export type ReviewSummary = { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> }
 export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView; review?: ReviewView }
 type Duel = NonNullable<ScenarioFile['duel']>
 export type ApplyResult = { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number } | { ok: false; issues: Issue[] }
@@ -66,6 +71,7 @@ export class SessionService {
   gameView?: (id: string) => GameView | undefined
   // A review of the session with Claude, while one is open (set by ReviewService).
   reviewView?: (id: string) => ReviewView | undefined
+  reviewSummary?: (id: string) => ReviewSummary | undefined
   // Told when a session is deleted, to drop what else they hold for it.
   onRemove: ((id: string) => void)[] = []
   // Told when the viewer answers a lesson prompt (Claude, running a lesson).
@@ -299,6 +305,7 @@ export class SessionService {
       const deckName = file.players?.[p].list?.name ?? (deck && decks[deck]?.name)
       return { name, ...(deck && { deck }), ...(deckName && { deckName }) }
     }
+    const reviewed = file.duel && this.reviewSummary?.(file.id)
     const lost = (['p1', 'p2'] as const).find((p) => last.players[p].lp <= 0)
     const winner = file.duel?.winner ?? (lost && (lost === 'p1' ? 'p2' : 'p1'))
     return {
@@ -312,6 +319,8 @@ export class SessionService {
       kind: file.duel ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
       ...(file.duel?.lesson && { claudeLesson: true as const }),
+      ...(file.duel && !file.duel.lesson && (file.duel.claude === 'p2' ? { opponent: 'claude' as const } : file.duel.bots?.includes('p2') && { opponent: 'bot' as const })),
+      ...(reviewed && { reviewed }),
     }
   }
 
