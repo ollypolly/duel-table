@@ -15,7 +15,7 @@ import type { ResolvedScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
 import { SeatDecks } from '../../store/cosmeticsStore'
 import { useUiStore } from '../../store/uiStore'
-import { buildBoardView, cardFace, type CardFace } from '../../view/boardView'
+import { buildBoardView, cardFace, VIEWER, type CardFace } from '../../view/boardView'
 import { stepFocus } from '../../view/focus'
 import { play, stepSounds } from '../../view/sounds'
 import { Board2D } from '../Board/Board2D'
@@ -168,6 +168,12 @@ export function Table({
   }, [rawPosition, position, goTo])
 
   const face = (iid?: Iid) => (iid && entry.state.cards[iid] ? cardFace(entry.state, iid, cardDb) : undefined)
+  // Opened up, your own cards show their face wherever they are, as the pile
+  // viewer shows your Deck and Extra Deck.
+  const inspectedFace = () => {
+    const f = face(inspected)
+    return f && { ...f, visible: f.visible || f.owner === VIEWER }
+  }
   const materialsOf = (c: CardFace) => (entry.state.cards[c.iid]?.materials ?? []).map((m) => cardFace(entry.state, m, cardDb))
   const pile = openPile && view.zones.find((z) => z.kind === 'pile' && z.ref.player === openPile.player && z.ref.zone === openPile.zone)
   const intentIid = intentCardOf(step)
@@ -372,7 +378,7 @@ export function Table({
       </main>
 
       <CardInspector
-        card={face(inspected)}
+        card={inspectedFace()}
         materialsOf={materialsOf}
         onClose={closeInspector}
         actions={inspected && (freePlay ? <CardActions fp={fp} iid={inspected} onDone={closeInspector} /> : cardActions?.(inspected, closeInspector))}
@@ -382,15 +388,15 @@ export function Table({
           zone={pile}
           playerName={view.players[pile.ref.player!].name}
           onClose={() => openPileViewer(undefined)}
-          onCardClick={
-            freePlay || onChoose
-              ? (iid) => {
-                  openPileViewer(undefined)
-                  if (!freePlay && choosable?.includes(iid) && onChoose?.(iid)) return
-                  inspect(iid)
-                }
-              : undefined
-          }
+          // Free play picks the card up, and a game takes it as an answer when
+          // it's one. Otherwise it opens over the pile, which stays up.
+          onCardClick={(iid) => {
+            const took = freePlay || (!!choosable?.includes(iid) && !!onChoose?.(iid))
+            if (took) openPileViewer(undefined)
+            if (freePlay) inspect(iid)
+            return took
+          }}
+          cardActions={freePlay ? undefined : cardActions}
         />
       )}
     </SeatDecks.Provider>

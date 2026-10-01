@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Iid } from '../../engine'
 import type { ZoneView } from '../../view/boardView'
 import { CardInspector } from '../CardInspector/CardInspector'
@@ -7,18 +7,21 @@ import { CardView } from '../CardView/CardView'
 // Lists a pile's contents, top first. This is a learning tool, so even your
 // Deck and Extra Deck are shown face-up. Clicking a card opens the same
 // inspector as the board (inside the dialog, because a modal dialog sits
-// above everything outside it), unless onCardClick takes the click (free
-// play picks the card up).
+// above everything outside it), with what you can do with it from cardActions,
+// unless onCardClick takes the click (free play picks the card up, a game
+// picks it for a prompt).
 export function PileViewer({
   zone,
   playerName,
   onClose,
   onCardClick,
+  cardActions,
 }: {
   zone: ZoneView
   playerName: string
   onClose: () => void
-  onCardClick?: (iid: Iid) => void
+  onCardClick?: (iid: Iid) => boolean // whether it took the click
+  cardActions?: (iid: Iid, close: () => void) => ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
   const [pinned, setPinned] = useState<Iid>()
@@ -59,7 +62,7 @@ export function PileViewer({
               key={c.iid}
               type="button"
               className="group text-left"
-              onClick={() => (onCardClick ? onCardClick(c.iid) : setPinned(c.iid))}
+              onClick={() => onCardClick?.(c.iid) || setPinned(c.iid)}
             >
               <div className="aspect-[1/1.46] text-base transition group-hover:scale-105">
                 <CardView card={c} showFace={!hidden || c.visible} />
@@ -72,7 +75,7 @@ export function PileViewer({
           ))}
         </div>
       </div>
-      <CardInspector card={face(pinned)} materialsOf={() => []} onClose={() => setPinned(undefined)} />
+      <CardInspector card={face(pinned)} materialsOf={() => []} onClose={() => setPinned(undefined)} actions={pinned && cardActions?.(pinned, onClose)} />
     </dialog>
   )
 }
