@@ -5,6 +5,7 @@
 import { Crosshair, Hand, PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { imagePath } from '../../data/cardDb'
 import { cardDb } from '../../data/cards'
 import type { Iid, Player, Step, ZoneRef } from '../../engine'
 import { useFreePlay } from '../../hooks/useFreePlay'
@@ -68,7 +69,7 @@ type TableProps = {
   // hidden, its handle shows Claude typing and a dot for a message from it
   // you haven't seen or a question waiting for you, and those toast too.
   // who: who's talking, if not the other player (Claude, in a review).
-  activity?: { typing: boolean; messages: number; latest?: string; action: boolean; who?: string }
+  activity?: { typing: boolean; messages: number; latest?: string; action: boolean; asking?: string; who?: string }
   // The button you're most likely to want next, on the phone sheet's header
   // so it doesn't need opening: pass on a chain, the next phase, Next.
   quick?: { label: string; run: () => void }
@@ -167,6 +168,13 @@ export function Table({
     if (rawPosition !== position) goTo(position)
   }, [rawPosition, position, goTo])
 
+  const feedImage = useCallback(
+    (iid: Iid) => {
+      const id = scenario.timeline.at(-1)!.state.cards[iid]?.cardId
+      return id ? imagePath(id) : undefined
+    },
+    [scenario],
+  )
   const face = (iid?: Iid) => (iid && entry.state.cards[iid] ? cardFace(entry.state, iid, cardDb) : undefined)
   // Opened up, your own cards show their face wherever they are, as the pile
   // viewer shows your Deck and Extra Deck.
@@ -233,6 +241,8 @@ export function Table({
             messages={messages}
             latest={activity.latest}
             action={activity.action}
+            asking={activity.asking}
+            image={feedImage}
             panelOpen={panelOpen}
             muted={muted}
             onOpen={openPanel}

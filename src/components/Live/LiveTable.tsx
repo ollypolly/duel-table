@@ -385,6 +385,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             messages: talking?.chat.filter((e) => e.from === 'claude').length ?? 0,
             latest: talking?.chat.findLast((e) => e.from === 'claude')?.text,
             action: !!game.prompt,
+            asking: game.prompt?.message,
             ...(review && { who: 'Claude' }),
           }
         }
