@@ -3,7 +3,7 @@
 // last one to play again or go over. Under it, everything by kind: games (won
 // in green, lost in red, with what Claude's review found), lessons, boards.
 // Shown when nothing is open; the header's title comes back here.
-import { Loader2, MessageSquareText, MoreHorizontal, Play, Plus, RotateCcw } from 'lucide-react'
+import { Loader2, MessageSquareText, MoreHorizontal, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api, type SessionSummary } from '../../api/client'
 import { MOMENT_KINDS, reviewable, type Moment } from '../../api/review'
@@ -49,7 +49,6 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
   const games = newest.filter((t) => t.kind === 'game' && !t.claudeLesson)
   const claudeLessons = newest.filter((t) => t.claudeLesson)
   const boards = newest.filter((t) => t.kind === 'board')
-  const current = games.find((t) => !t.winner)
   const finished = games.filter((t) => t.winner)
   const won = finished.filter((t) => t.winner === 'p1').length
   const shown = games.filter((t) => filter === 'All' || result(t) === filter)
@@ -65,42 +64,23 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
           <Logo className="size-10 sm:size-12" />
           Duel Table
         </h1>
-        <section className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          {current ? (
-            <button type="button" className="panel group flex min-w-0 flex-1 items-center gap-4 p-4 text-left hover:border-gold sm:p-5" onClick={() => onOpenTable(current.id)}>
-              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-gold text-bg transition group-hover:scale-105">
-                <Play size={22} className="translate-x-px" fill="currentColor" aria-hidden />
-              </span>
-              <span className="min-w-0">
-                <span className="block font-display text-xs font-semibold uppercase tracking-widest text-gold">Continue</span>
-                <span className="block truncate font-display text-lg font-semibold">{autoTitle(current) ? yourDeck(current) : current.title}</span>
-                <span className="block truncate text-sm text-muted">
-                  {against(current)} · Turn {current.turn} · {ago(current.updatedAt)}
-                </span>
-              </span>
-            </button>
-          ) : finished[0] ? (
-            <LastGame table={finished[0]} claudeOn={claudeOn} onOpen={() => onOpenTable(finished[0].id)} onReview={() => onReview(finished[0].id)} onRematch={() => onRematch(finished[0])} />
-          ) : (
-            <div className="panel flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-5">
-              <p className="font-display text-lg font-semibold">{tables ? 'No games yet' : 'Lessons and scenarios'}</p>
-              <p className="text-sm text-muted">
-                {tables ? 'Start one against the bot or Claude, or pick a lesson below.' : "The local API isn't running, so games are off. The lessons below still work."}
-              </p>
-            </div>
-          )}
+        <section className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">
+            {!tables ? (
+              "The local API isn't running, so games are off. The lessons below still work."
+            ) : finished.length ? (
+              <>
+                {finished.length} played · <span className="text-ok">{won} won</span> · <span className="text-danger">{finished.length - won} lost</span>
+              </>
+            ) : (
+              'No games played yet.'
+            )}
+          </p>
           {tables && (
-            <div className="flex flex-col gap-2 sm:w-56">
-              <button type="button" className="btn btn-primary flex flex-1 items-center justify-center gap-2 px-6 py-4 font-display text-base font-semibold" onClick={onNewGame}>
-                <Plus size={20} aria-hidden />
-                New game
-              </button>
-              {finished.length > 0 && (
-                <p className="text-center text-sm text-muted">
-                  {finished.length} played · <span className="text-ok">{won} won</span> · <span className="text-danger">{finished.length - won} lost</span>
-                </p>
-              )}
-            </div>
+            <button type="button" className="btn btn-primary flex items-center gap-1.5" onClick={onNewGame}>
+              <Plus size={14} aria-hidden />
+              New game
+            </button>
           )}
         </section>
 
@@ -242,43 +222,6 @@ function ReviewButton({ table: t, busy, onClick }: { table: SessionSummary; busy
       <MessageSquareText size={13} aria-hidden />
       {t.reviewed ? 'View review' : 'Review'}
     </button>
-  )
-}
-
-// With no game to carry on, the top is your last one: play it again or go over it.
-function LastGame({ table: t, claudeOn, onOpen, onReview, onRematch }: Actions) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const run = (p: Promise<unknown>) => {
-    setBusy(true)
-    void p.catch((e: Error) => setError(e.message)).finally(() => setBusy(false))
-  }
-  const how = result(t)
-  return (
-    <div className={`panel relative flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3 border-l-4 p-4 hover:bg-raised/40 sm:p-5 ${RESULT[how].edge}`}>
-      <button type="button" className="absolute inset-0 rounded-[inherit]" aria-label={`Open ${tableName(t)}`} onClick={onOpen} />
-      <span className="pointer-events-none relative min-w-0 flex-1 basis-56">
-        <span className="block font-display text-xs font-semibold uppercase tracking-widest">
-          <span className="text-faint">Last game · </span>
-          <span className={RESULT[how].text}>{how}</span>
-        </span>
-        <span className="block truncate font-display text-lg font-semibold">{autoTitle(t) ? yourDeck(t) : t.title}</span>
-        <span className="block truncate text-sm text-muted">
-          {against(t)} · Turn {t.turn} · {ago(t.updatedAt)}
-        </span>
-        {t.reviewed && <Reviewed reviewed={t.reviewed} />}
-        {error && <span className="block text-xs text-danger">{error}</span>}
-      </span>
-      <span className="relative flex shrink-0 gap-1.5">
-        {canRematch(t) && (
-          <button type="button" className="btn flex items-center gap-1.5 text-xs" disabled={busy} title="The same decks and opponent, shuffled again" onClick={() => run(onRematch())}>
-            <RotateCcw size={13} aria-hidden />
-            Rematch
-          </button>
-        )}
-        {canReview(t, claudeOn) && <ReviewButton table={t} busy={busy} onClick={() => run(onReview())} />}
-      </span>
-    </div>
   )
 }
 
