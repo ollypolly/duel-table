@@ -37,6 +37,7 @@ const SummarySchema = z.object({
   kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),
   winner: z.enum(['p1', 'p2']).optional(),
   claudeLesson: z.literal(true).optional().openapi({ description: 'A lesson Claude ran on the rules engine' }),
+  lessonPlan: z.object({ now: z.int(), of: z.int() }).optional().openapi({ description: "How far a lesson's plan has got: the point it's on of how many, equal once it's done" }),
   opponent: z.enum(['bot', 'trained', 'claude']).optional().openapi({ description: 'Who answers for p2 in a game, if not a person' }),
   reviewed: z
     .object({ scanned: z.boolean(), busy: z.boolean(), moments: z.partialRecord(z.enum(MOMENT_KINDS), z.int()) })

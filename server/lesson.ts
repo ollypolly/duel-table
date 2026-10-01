@@ -24,9 +24,10 @@ export class Lesson {
   private timer?: ReturnType<typeof setTimeout>
   private onChange: () => void
 
-  constructor(steps: number, onChange: () => void) {
+  // seq carries on from the pacing this replaces, so viewers see the cursor move.
+  constructor(steps: number, onChange: () => void, seq = 0) {
     this.revealed = steps
-    this.cursor = { position: steps, seq: 0 }
+    this.cursor = { position: steps, seq }
     this.onChange = onChange
   }
 

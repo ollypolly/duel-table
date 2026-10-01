@@ -32,6 +32,9 @@ const TABS = ['Games', 'Lessons', 'Boards'] as const
 const FILTERS = ['All', 'Won', 'Lost', 'In progress'] as const
 
 const result = (t: SessionSummary) => (!t.winner ? 'In progress' : t.winner === 'p1' ? 'Won' : 'Lost')
+// A lesson is done once its plan is, or its duel is over; until then, the point it's on.
+const lessonDone = (t: SessionSummary) => (t.lessonPlan ? t.lessonPlan.now >= t.lessonPlan.of : !!t.winner)
+const lessonStatus = (t: SessionSummary) => (lessonDone(t) ? 'Done' : t.lessonPlan ? `${t.lessonPlan.now + 1} of ${t.lessonPlan.of}` : 'In progress')
 const RESULT = {
   Won: { edge: 'border-l-ok', text: 'text-ok' },
   Lost: { edge: 'border-l-danger', text: 'text-danger' },
@@ -282,12 +285,16 @@ function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged 
   }
 
   return (
-    <div className={`panel relative flex flex-col gap-2 border-l-4 p-4 hover:bg-raised/40 has-[[aria-expanded=true]]:z-20 ${game ? RESULT[how].edge : 'border-l-line'}`} data-testid="table-card">
+    <div className={`panel relative flex flex-col gap-2 border-l-4 p-4 hover:bg-raised/40 has-[[aria-expanded=true]]:z-20 ${t.claudeLesson ? (lessonDone(t) ? 'border-l-ok' : 'border-l-gold') : game ? RESULT[how].edge : 'border-l-line'}`} data-testid="table-card">
       <button type="button" className="absolute inset-0 rounded-[inherit]" aria-label={`Open ${tableName(t)}`} onClick={onOpen} />
       <div className="pointer-events-none relative min-w-0">
         <p className="flex items-baseline justify-between gap-2">
           <span className="font-display font-semibold">{title}</span>
-          {game && <span className={`shrink-0 font-display text-xs font-semibold uppercase tracking-wider ${RESULT[how].text}`}>{how}</span>}
+          {t.claudeLesson ? (
+            <span className={`shrink-0 font-display text-xs font-semibold uppercase tracking-wider ${lessonDone(t) ? 'text-ok' : 'text-gold'}`}>{lessonStatus(t)}</span>
+          ) : (
+            game && <span className={`shrink-0 font-display text-xs font-semibold uppercase tracking-wider ${RESULT[how].text}`}>{how}</span>
+          )}
         </p>
         {under && <p className="text-sm text-muted">{under}</p>}
         <p className="text-xs text-faint">{meta}</p>

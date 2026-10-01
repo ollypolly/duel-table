@@ -49,6 +49,7 @@ export type SessionSummary = {
   kind: 'game' | 'board' // a game on the rules engine, or a free board
   winner?: Player // the other player's LP hit 0
   claudeLesson?: true // a lesson Claude ran on the rules engine
+  lessonPlan?: { now: number; of: number } // how far its plan has got: now === of once it's done
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: ReviewSummary // it has a review with Claude, open or not
 }
@@ -72,6 +73,8 @@ export class SessionService {
   // A review of the session with Claude, while one is open (set by ReviewService).
   reviewView?: (id: string) => ReviewView | undefined
   reviewSummary?: (id: string) => ReviewSummary | undefined
+  // How far a lesson's plan has got (set by ClaudeService).
+  lessonPlan?: (id: string) => { now: number; of: number } | undefined
   // Told when a session is deleted, to drop what else they hold for it.
   onRemove: ((id: string) => void)[] = []
   // Told when the viewer answers a lesson prompt (Claude, running a lesson).
@@ -214,7 +217,8 @@ export class SessionService {
   private replaceGame(file: ScenarioFile, problem: string): SessionView {
     const r = this.resolve(file)
     if (!r.ok) throw new SessionError(422, problem, r.errors)
-    this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario), updatedAt: Date.now() })
+    const seq = (this.sessions.get(file.id)?.lesson.view().cursor.seq ?? -1) + 1
+    this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario, seq), updatedAt: Date.now() })
     this.store.save(file)
     return this.notify(file.id)
   }
@@ -287,9 +291,9 @@ export class SessionService {
     return v
   }
 
-  private newLesson(id: string, r: ResolvedScenario) {
+  private newLesson(id: string, r: ResolvedScenario, seq?: number) {
     // A paced step can come due after the session was deleted.
-    return new Lesson(r.game.steps.length, () => void (this.sessions.has(id) && this.notify(id)))
+    return new Lesson(r.game.steps.length, () => void (this.sessions.has(id) && this.notify(id)), seq)
   }
 
   private resolve(file: unknown) {
@@ -307,6 +311,7 @@ export class SessionService {
       return { name, ...(deck && { deck }), ...(deckName && { deckName }) }
     }
     const reviewed = file.duel && this.reviewSummary?.(file.id)
+    const lessonPlan = file.duel?.lesson && this.lessonPlan?.(file.id)
     const lost = (['p1', 'p2'] as const).find((p) => last.players[p].lp <= 0)
     const winner = file.duel?.winner ?? (lost && (lost === 'p1' ? 'p2' : 'p1'))
     return {
@@ -320,6 +325,7 @@ export class SessionService {
       kind: file.duel ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
       ...(file.duel?.lesson && { claudeLesson: true as const }),
+      ...(lessonPlan && { lessonPlan }),
       ...(file.duel && !file.duel.lesson && (file.duel.claude === 'p2' ? { opponent: 'claude' as const } : file.duel.bots?.includes('p2') && { opponent: file.duel.bot === 'agent' ? ('trained' as const) : ('bot' as const) })),
       ...(reviewed && { reviewed }),
     }

@@ -170,6 +170,10 @@ export class ClaudeService {
       seat.chat.push({ from: 'note', text: 'You took back your last move.' })
       this.changed(id, seat)
     }
+    sessions.lessonPlan = (id) => {
+      const plan = this.seat(id)?.lesson?.plan
+      return plan && { now: plan.now, of: plan.points.length }
+    }
     games.onForfeit = (id) => {
       const seat = this.seat(id)
       if (!seat) return
