@@ -73,7 +73,7 @@ const KIND: Record<Moment['kind'], string> = { blunder: 'a blunder', mistake: 'a
 const SCAN =
   "Before they ask anything, go through the whole game and find its key moments: the person's blunders, mistakes, missed chances and good plays, and the other side's mistakes they could have punished. Don't mark the other side's good plays, least of all your own: mark where the person could have played around it. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one on the step of the move itself, checking the number against the list, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
 const LEAD =
-  "Take them through it. If the choice was theirs, ask what they'd do here before you say what you'd have done. If it was the other side's, say what happened and what the person could have done about it."
+  "Tell them what happened here and why it was good or bad. Unless it was a good play, give the better line and why it's better, from the cards they had. If it was the other side's move, say what the person could have done about it. Don't ask them what they'd do."
 
 const SPEAKER: Record<ChatEntry['from'], string> = { you: 'The person', claude: 'Claude', move: 'Claude played', note: 'The app' }
 

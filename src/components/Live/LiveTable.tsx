@@ -212,6 +212,12 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       if (entry) scrollLogTo(entry, true)
     })
   }
+  // A review started from the end of the game goes back to the start, where
+  // Claude's opening message and the first moment's Next are.
+  const startReview = () => {
+    goTo(0)
+    report(api.startReview(id))
+  }
   const talking = review ?? game?.claude
 
   // The quick button: what you'd most likely press next when it's routine.
@@ -267,7 +273,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             onChoice={setChoice}
             onAnswer={answerGame}
             onRematch={rematch}
-            onReview={review || claudeLesson ? undefined : () => report(api.startReview(id))}
+            onReview={review || claudeLesson ? undefined : startReview}
             onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
             onUndo={() => {
               setBusy(true)
