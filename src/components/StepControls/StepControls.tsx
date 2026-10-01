@@ -7,6 +7,7 @@ const btn = 'grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted hove
 // The scene controls: a slim bar (back, play, forward, the current step), and
 // a drawer with the rest (first/last, speed, the scrubber, the step list, and
 // the screen's own actions: branch, go live…). Clicking the step opens it.
+// nav is a line of the screen's own under the bar (a review's key moments).
 export function StepControls({
   position,
   labels,
@@ -18,6 +19,7 @@ export function StepControls({
   muted,
   onMuted,
   marks,
+  nav,
   children,
 }: {
   position: number
@@ -31,6 +33,7 @@ export function StepControls({
   onMuted?: (muted: boolean) => void
   // Dots along the game at steps worth a look (a review's key moments).
   marks?: { step: number; className: string }[]
+  nav?: ReactNode
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -84,6 +87,7 @@ export function StepControls({
           ))}
         </div>
       )}
+      {nav}
       {open && (
         <div className="space-y-2">
           <div className="flex items-center gap-0.5">

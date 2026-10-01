@@ -17,6 +17,7 @@ import { resolveScenario } from '../../scenarios/resolve'
 import { usePlayerStore } from '../../store/playerStore'
 import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
+import { scrollLogTo } from '../Game/chatScroll'
 import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
@@ -196,10 +197,20 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const review = session?.review
   const steps = result?.ok ? result.scenario.game.steps.length : 0
   // Going to a moment Claude marked shows the table just before the move,
-  // and has Claude take you through it.
+  // and has Claude take you through it, or goes back to where it already did.
+  // While Claude is busy, the ones it hasn't been through are locked, so a run
+  // of clicks doesn't queue them all.
+  const answered = new Set(review?.chat.filter((e) => e.from === 'claude').map((e) => e.moment))
+  const momentLocked = (step: number) => review?.status === 'thinking' && !answered.has(step)
   const goMoment = (step: number) => {
+    if (momentLocked(step)) return
     goTo(step - 1)
-    report(api.reviewMoment(id, step))
+    if (!answered.has(step)) return report(api.reviewMoment(id, step))
+    // After the table has moved, which can change the chat's height under a scroll.
+    requestAnimationFrame(() => {
+      const entry = document.querySelector(`[role=log] [data-moment="${step}"]`)
+      if (entry) scrollLogTo(entry, true)
+    })
   }
   const talking = review ?? game?.claude
 
@@ -216,11 +227,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     }
   }
   const ack = lesson?.queued === 0 && lesson.prompt?.type === 'ack' ? lesson.prompt : undefined
-  // Past the last moment, it goes round to the first.
-  const moments = review?.moments ?? []
-  const nextMoment = moments.find((m) => m.step - 1 > position) ?? moments[0]
+  // A review has its own Next, in the playback bar.
   const quick = review
-    ? nextMoment && { label: nextMoment === moments[0] ? 'First moment ▸' : 'Next moment ▸', run: () => goMoment(nextMoment.step) }
+    ? undefined
     : lesson && lesson.queued > 0
       ? { label: 'Next ▸', run: next }
       : ack
@@ -271,12 +280,6 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const reviewChat = review && {
     log: (
       <>
-        <Moments
-          moments={review.moments}
-          names={{ p1: session.players.p1.name, p2: session.players.p2.name }}
-          position={position}
-          onGo={goMoment}
-        />
         <ClaudeChat
           claude={review}
           empty={
@@ -285,6 +288,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               : 'Claude is going through the game for its key moments. Ask it anything meanwhile.'
           }
           earlier={game?.claude && { chat: game.claude.chat, divider: 'Reviewing with Claude' }}
+          outlines={Object.fromEntries(review.moments.map((m) => [m.step, MOMENT[m.kind].ring]))}
           footer={dock}
           footerKey={dockKey}
         />
@@ -324,6 +328,18 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         }
         quick={quick}
         marks={review?.moments.map((m) => ({ step: m.step, className: MOMENT[m.kind].dot }))}
+        stepNav={
+          review && (
+            <Moments
+              moments={review.moments}
+              names={{ p1: session.players.p1.name, p2: session.players.p2.name }}
+              position={position}
+              onGo={goMoment}
+              locked={(m) => momentLocked(m.step)}
+              busy={review.status === 'thinking'}
+            />
+          )
+        }
         activity={
           game && {
             typing: talking?.status === 'thinking',

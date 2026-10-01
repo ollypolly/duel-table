@@ -31,6 +31,7 @@ export type GameAnswer = z.infer<typeof GameAnswerSchema>
 export const ChatEntrySchema = z.object({
   from: z.enum(['you', 'claude', 'move', 'note']).describe('move: an answer Claude gave; note: from the app'),
   text: z.string(),
+  moment: z.int().optional().describe("In a review: the step of the key moment this is Claude taking you through"),
 })
 export type ChatEntry = z.infer<typeof ChatEntrySchema>
 

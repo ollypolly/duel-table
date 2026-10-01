@@ -4,11 +4,12 @@
 // settings menu: the model, coaching and what to send it (in a game), and the
 // cost so far (what the same tokens would cost on the API; on a Claude plan it
 // comes out of your usage).
-import { Check, Eye, LogOut, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Check, Eye, Loader2, LogOut, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import type { ChatEntry, ClaudeSettings, ClaudeView, ModelChoice } from '../../api/game'
 import { CardMarkdown, CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
+import { scrollLogTo } from './chatScroll'
 
 const STYLE = {
   you: 'ml-8 self-end rounded-lg bg-gold/15 px-2.5 py-1.5',
@@ -25,30 +26,46 @@ const MODELS: [ModelChoice, string][] = [
 // earlier: a chat that came before this one (the game's, above a review), dimmed.
 // footer: what you're being asked, after the last message, so it scrolls away
 // with the chat; footerKey changes when it does, to bring it into view.
+// outlines: in a review, a class per moment step, for Claude's messages on it.
 type ChatProps = {
   claude: Pick<ClaudeView, 'chat'> & { status: ClaudeView['status'] }
   empty?: string
   earlier?: { chat: ChatEntry[]; divider: string }
   footer?: ReactNode
   footerKey?: string
+  outlines?: Record<number, string>
 }
 
-function Entry({ e }: { e: ChatEntry }) {
+function Entry({ e, outline = '', anchor }: { e: ChatEntry; outline?: string; anchor?: Ref<HTMLElement> }) {
   return e.from === 'claude' ? (
-    <div className={`chat-md ${STYLE.claude}`}>
+    <div ref={anchor as Ref<HTMLDivElement>} className={`chat-md ${STYLE.claude} ${outline}`} data-moment={e.moment}>
       <CardMarkdown>{e.text}</CardMarkdown>
     </div>
   ) : (
-    <p className={`whitespace-pre-wrap ${STYLE[e.from]}`}>{e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}</p>
+    <p ref={anchor as Ref<HTMLParagraphElement>} className={`whitespace-pre-wrap ${STYLE[e.from]}`} data-moment={e.moment}>
+      {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.text}
+    </p>
   )
 }
 
-export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier, footer, footerKey }: ChatProps) {
+export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier, footer, footerKey, outlines }: ChatProps) {
   const list = useRef<HTMLDivElement>(null)
   const { chat, status } = claude
+  // A new message from Claude is read from its top, so the chat goes there
+  // (and to a moment's note, with the answer to come under it) and stays put.
+  // Anything else new is followed at the bottom.
+  const last = chat.at(-1)
+  const moment = last?.moment
+  const afterNote = last?.from === 'claude' && !!moment && chat.at(-2)?.from === 'note' && chat.at(-2)?.moment === moment
+  const anchorAt = last?.from === 'claude' ? chat.length - (afterNote ? 2 : 1) : moment ? chat.length - 1 : -1
+  const anchor = useRef<HTMLElement>(null)
+  const seen = useRef(-1)
   useEffect(() => {
-    list.current?.scrollTo({ top: list.current.scrollHeight })
-  }, [chat.length, status, footerKey])
+    const fresh = seen.current !== chat.length
+    seen.current = chat.length
+    if (anchorAt < 0) list.current?.scrollTo({ top: list.current.scrollHeight })
+    else if (fresh && anchor.current) scrollLogTo(anchor.current)
+  }, [chat.length, status, footerKey, anchorAt])
 
   return (
     <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
@@ -64,9 +81,16 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
       )}
       {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">{empty}</p>}
       {chat.map((e, i) => (
-        <Entry key={i} e={e} />
+        <Entry key={i} e={e} outline={e.moment ? outlines?.[e.moment] : undefined} anchor={i === anchorAt ? anchor : undefined} />
       ))}
-      {status === 'thinking' && <p className="animate-pulse text-xs text-muted">Claude is thinking…</p>}
+      {status === 'thinking' &&
+        (moment ? (
+          <p className={`flex animate-pulse items-center gap-2 ${STYLE.claude} ${outlines?.[moment] ?? ''}`}>
+            <Loader2 size={14} className="animate-spin" /> Claude is going through this moment…
+          </p>
+        ) : (
+          <p className="animate-pulse text-xs text-muted">Claude is thinking…</p>
+        ))}
       {status === 'stopped' && <p className="text-xs text-warn">Stopped. Resume, or say something, to carry on.</p>}
       {footer && <div className="mt-1.5 space-y-2.5 border-t border-line pt-2.5">{footer}</div>}
     </div>

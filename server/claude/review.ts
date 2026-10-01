@@ -57,12 +57,23 @@ export type ReviewDeps = {
 
 const fresh = (model: ModelChoice = 'opus'): ReviewRecord => ({ open: true, model, chat: [], costUsd: 0, read: 0, heard: 0, moments: [], scanned: false })
 
+// A chat from before entries carried their moment: Claude's replies after a
+// moment's note, up to the next thing you or the app said, are about it.
+function tagMoments(chat: ChatEntry[]): ChatEntry[] {
+  let moment: number | undefined
+  return chat.map((e) => {
+    if (e.moment) return e
+    if (e.from !== 'claude') moment = e.from === 'note' ? Number(/^Step (\d+), /.exec(e.text)?.[1]) || undefined : undefined
+    return moment ? { ...e, moment } : e
+  })
+}
+
 const KIND: Record<Moment['kind'], string> = { blunder: 'a blunder', mistake: 'a mistake', missed: 'a missed chance', good: 'a good play' }
 
 const SCAN =
-  "Before they ask anything, go through the whole game and find its key moments, for both sides: blunders, mistakes, missed chances and good plays. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one on the step of the move itself, checking the number against the list, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
+  "Before they ask anything, go through the whole game and find its key moments: the person's blunders, mistakes, missed chances and good plays, and the other side's mistakes they could have punished. Don't mark the other side's good plays, least of all your own: mark where the person could have played around it. Look at the table around a step with `tableAt` when the labels aren't enough. `mark` each one on the step of the move itself, checking the number against the list, most games have 3 to 8, then write two or three sentences on how the game was decided. Don't go through the moments here: they'll step through them with you."
 const LEAD =
-  "Take them through it. If the choice was theirs, ask what they'd do here before you say what you'd have done. If it was the other side's, say what happened and why it mattered."
+  "Take them through it. If the choice was theirs, ask what they'd do here before you say what you'd have done. If it was the other side's, say what happened and what the person could have done about it."
 
 const SPEAKER: Record<ChatEntry['from'], string> = { you: 'The person', claude: 'Claude', move: 'Claude played', note: 'The app' }
 
@@ -130,7 +141,7 @@ export class ReviewService {
     const r = this.need(id)
     const m = r.moments.find((m) => m.step === step)
     if (!m) throw new SessionError(409, `Claude didn't mark step ${step}`)
-    r.chat.push({ from: 'note', text: `Step ${m.step}, ${KIND[m.kind]}` })
+    r.chat.push({ from: 'note', text: `Step ${m.step}, ${KIND[m.kind]}`, moment: m.step })
     r.queue.push({ lead: m, position: m.step - 1 })
     this.changed(id, r)
     void this.pump(id, r)
@@ -190,7 +201,7 @@ export class ReviewService {
 
   private load(id: string, rec: ReviewRecord): Review {
     // A review from before moments has none.
-    const r: Review = { ...rec, moments: rec.moments ?? [], scanned: rec.scanned ?? false, status: 'idle', queue: [], position: 0, busy: false }
+    const r: Review = { ...rec, chat: tagMoments(rec.chat), moments: rec.moments ?? [], scanned: rec.scanned ?? false, status: 'idle', queue: [], position: 0, busy: false }
     this.reviews.set(id, r)
     return r
   }
@@ -221,7 +232,7 @@ export class ReviewService {
             'lead' in first
               ? `They've gone to the moment you marked at step ${first.lead.step}, ${KIND[first.lead.kind]} by ${first.lead.player} ("${first.lead.title}"), and are looking at the table just before it. ${LEAD}`
               : asked.map((a) => ('text' in a ? `They ask: ${a.text}` : '')).join('\n')
-          await this.run(id, r, this.message(id, r, ask))
+          await this.run(id, r, this.message(id, r, ask), 'lead' in first ? first.lead.step : undefined)
         }
       }
     } finally {
@@ -284,8 +295,9 @@ export class ReviewService {
     return `Card texts (new to you):\n${fresh.map((n) => cardText(this.db(), n)).join('\n\n')}`
   }
 
-  // Whether it finished without an error or being stopped.
-  private async run(id: string, r: Review, message: string): Promise<boolean> {
+  // Whether it finished without an error or being stopped. moment: the step
+  // of the moment Claude is taking them through, which its replies carry.
+  private async run(id: string, r: Review, message: string, moment?: number): Promise<boolean> {
     r.status = 'thinking'
     this.changed(id, r)
     const run = this.agent({
@@ -305,7 +317,7 @@ export class ReviewService {
     let ok = false
     try {
       for await (const e of run.events) {
-        if (e.type === 'text') chat.push({ from: 'claude', text: e.text })
+        if (e.type === 'text') chat.push({ from: 'claude', text: e.text, ...(moment && { moment }) })
         if (e.type === 'done') {
           if (r.chat === chat) r.sessionId = e.sessionId ?? r.sessionId
           r.costUsd += e.costUsd

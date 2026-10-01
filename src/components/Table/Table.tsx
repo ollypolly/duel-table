@@ -73,6 +73,7 @@ type TableProps = {
   // so it doesn't need opening: pass on a chain, the next phase, Next.
   quick?: { label: string; run: () => void }
   marks?: { step: number; className: string }[]
+  stepNav?: ReactNode // a line under the playback bar (a review's key moments)
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
   // cardActions. Dropping a draggable card on a zone goes to onCardDrop.
@@ -98,6 +99,7 @@ export function Table({
   activity,
   quick,
   marks,
+  stepNav,
   choosable,
   onChoose,
   cardActions,
@@ -315,6 +317,7 @@ export function Table({
                 muted={muted}
                 onMuted={setMuted}
                 marks={marks}
+                nav={stepNav}
               >
                 {!freePlay && onBranch && (
                   <button type="button" className="btn btn-primary" onClick={() => onBranch(position)}>

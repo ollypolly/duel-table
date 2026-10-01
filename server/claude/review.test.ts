@@ -103,6 +103,8 @@ describe.skipIf(!hasData)('reviewing a game with Claude', () => {
     await review.idle(id)
     expect(requests[3].message).toContain("They've gone to the moment you marked at step 4, a blunder by p1")
     expect(requests[3].message).toContain(`They're looking at step 3`)
+    // The note and Claude's replies carry the moment, so the app can find them again.
+    expect(sessions.get(id).review!.chat.filter((e) => e.moment === 4).map((e) => e.from)).toEqual(['note', 'claude'])
     expect(() => review.moment(id, 3)).toThrow(/didn't mark step 3/)
     expect(sessions.get(id).review?.chat.map((e) => e.from)).toEqual(['claude', 'you', 'claude', 'you', 'claude', 'note', 'claude'])
     expect(sessions.get(id).review?.costUsd).toBeCloseTo(0.08)
