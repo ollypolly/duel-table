@@ -270,7 +270,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     ? undefined
     : lesson && lesson.queued > 0
       ? { label: 'Next ▸', run: next }
-      : ack && !ack.quiet
+      : ack
         ? { label: ack.button ?? 'Got it', run: () => report(api.answer(id, { id: ack.id })) }
         : busy || away
           ? undefined

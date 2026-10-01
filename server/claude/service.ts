@@ -147,10 +147,6 @@ export class ClaudeService {
     games.onPersonAnswer = (id, player) => {
       const seat = this.seat(id)
       if (!seat?.lesson) return
-      if (seat.lesson.holds.includes(player)) {
-        this.withdraw(id, seat)
-        seat.notes = [...(seat.notes ?? []), `The person made ${player}'s move themselves instead of pressing Next.`]
-      }
       if (seat.lesson.handed.some((h) => h.player === player && h.until === 'answer')) this.takeBack(id, seat, player)
     }
     games.onUndo = (id) => {
@@ -181,10 +177,9 @@ export class ClaudeService {
       seat.chat.push({ from: 'note', text: 'You forfeited.' })
       this.changed(id, seat)
     }
-    // While Claude waits in a lesson, the person can make p1's move themselves.
     games.claudeHolds = (id) => {
       const s = this.seat(id)
-      return s && (s.lesson && !s.busy ? s.lesson.holds.filter((p) => p !== 'p1') : this.holds(s))
+      return s && this.holds(s)
     }
     sessions.onAnswer.push((id, e) => {
       const seat = this.seat(id)
@@ -361,7 +356,7 @@ export class ClaudeService {
           if (await this.send(id, seat, () => this.lessonMessage(id, seat, prompt))) break
           seat.lesson.waitingOn = (await this.question(id, seat))?.id
           const waiting = await this.question(id, seat)
-          if (waiting && !seat.lesson.asking && !seat.queue.length && !this.stopped(seat)) this.askNext(id, seat, waiting.player)
+          if (waiting && !seat.lesson.asking && !seat.queue.length && !this.stopped(seat)) this.askNext(id, seat)
           continue
         }
         const prompt = seat.watch ? undefined : await this.games.asking(id, seat.player)
@@ -736,13 +731,9 @@ export class ClaudeService {
     ].join(' ')
   }
 
-  // The person's Next, for when they've taken in Claude's last move. On p1's
-  // turn to decide, they can pick the move themselves instead.
-  private askNext(id: string, seat: Seat, player: Player) {
-    const prompt =
-      player === 'p1'
-        ? { type: 'ack' as const, message: 'Your move: play it on the board, or from the options below.', button: 'Show me instead', quiet: true }
-        : { type: 'ack' as const, message: 'Take your time. Ready for the next move?', button: 'Next' }
+  // The person's Next, for when they've taken in Claude's last move.
+  private askNext(id: string, seat: Seat) {
+    const prompt = { type: 'ack' as const, message: 'Take your time. Ready for the next move?', button: 'Next' }
     try {
       const open = this.sessions.ask(id, prompt)
       seat.lesson!.asking = { id: open.id }

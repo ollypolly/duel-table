@@ -76,7 +76,7 @@ function PromptCard({ prompt, onAnswer }: { prompt: OpenPrompt; onAnswer: (answe
         <CardMarkdown>{prompt.message}</CardMarkdown>
       </div>
       {prompt.type === 'ack' && (
-        <button type="button" className={prompt.quiet ? 'btn text-xs' : 'btn btn-primary'} onClick={() => answer()}>
+        <button type="button" className="btn btn-primary" onClick={() => answer()}>
           {prompt.button ?? 'Got it'}
         </button>
       )}

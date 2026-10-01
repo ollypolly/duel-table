@@ -374,10 +374,10 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.state.players.p1.zones.hand.map((i) => s.state.cards[i].cardId)).toContain(ctx().db.byName('Dark Magician')!.id)
     expect(s.state.players.p2.lp).toBe(4000)
     expect(s.file.players?.p1.cards).toEqual(['Dark Magician'])
-    // It stopped to explain. It's p1's move, so the person can let Claude play it or pick it themselves.
+    // It stopped to explain. p1 is Claude's until it hands it over, so the person isn't asked.
     expect(requests.length).toBe(1)
-    expect(s.lesson.prompt).toMatchObject({ type: 'ack', button: 'Show me instead', quiet: true })
-    expect(s.game?.prompt?.player).toBe('p1')
+    expect(s.lesson.prompt).toMatchObject({ type: 'ack', button: 'Next' })
+    expect(s.game?.prompt).toBeUndefined()
 
     await shown()
     sessions.answer(v.id, { id: s.lesson.prompt!.id })
@@ -414,11 +414,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     await claude.idle(v.id)
     expect(requests.length).toBe(5)
 
-    // Making p1's move themselves wakes Claude too.
-    s = sessions.get(v.id)
-    await games.answer(v.id, undefined, { id: s.game!.prompt!.id, choices: [0] })
+    claude.chat(v.id, 'Play on.')
     await claude.idle(v.id)
-    expect(requests[5].message).toContain("The person made p1's move themselves")
     expect(batched).toHaveLength(3)
     for (const r of batched) expect(r).not.toContain('Wait:')
   }, 60_000)
@@ -429,7 +426,10 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const agent: Agent = (req) => {
       requests.push(req)
       async function* run(): AsyncIterable<AgentEvent> {
-        if (requests.length === 1) tried.push(await req.tools.tryLine!([[0]]))
+        if (requests.length === 1) {
+          tried.push(await req.tools.tryLine!([[0]]))
+          await req.tools.handOver!('p1', 'turn')
+        }
         yield { type: 'text', text: 'Right.' }
         yield { type: 'done', sessionId: 'fake-lesson', costUsd: 0.01 }
       }
@@ -440,7 +440,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     await claude.idle(v.id)
     let s = sessions.get(v.id)
     const steps = s.steps
-    // Trying a move played nothing, and Claude's own moves aren't yours to take back.
+    // Trying a move played nothing, and there's no move of yours to take back yet.
     expect(tried[0]).toContain('Nothing was played in the real game')
     expect(s.game?.undos).toBeUndefined()
 
@@ -455,8 +455,6 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.steps).toBe(steps)
     expect(s.game?.prompt?.options.map((o) => o.label)).toEqual(open.options.map((o) => o.label))
     expect(requests.at(-1)!.message).toContain('took back their last move')
-    // The move can be made again, and taken back again: a lesson doesn't count them.
-    expect(s.lesson.prompt).toMatchObject({ type: 'ack', quiet: true })
   }, 60_000)
 
 })

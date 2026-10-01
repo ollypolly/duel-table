@@ -10,7 +10,7 @@ export type Reveal = z.infer<typeof RevealSchema>
 
 const message = z.string().min(1).describe('Markdown')
 export const PromptSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('ack'), message, button: z.string().min(1).optional(), quiet: z.boolean().optional().describe('The button is the lesser choice: something else on screen is what to do') }).strict(),
+  z.object({ type: z.literal('ack'), message, button: z.string().min(1).optional() }).strict(),
   z.object({ type: z.literal('choice'), message, options: z.array(z.string().min(1)).min(2) }).strict(),
   z.object({ type: z.literal('move'), message }).strict(),
   z.object({ type: z.literal('text'), message, placeholder: z.string().optional() }).strict(),
