@@ -55,24 +55,17 @@ Nothing else usable turned up: other projects are stale or have no published wei
 
 **Claude beside you in a bot game** (`prompts/advisor.md`). With a Claude login, a game against a bot has the chat panel with Claude in no seat: it sees what you see, answers nothing, and costs nothing until you ask. "Claude knows the bot's deck" is on by default, on the new game screen and in the chat's settings. Its tools: `table`, `card`, `deck` (your list and what's left in the Deck; the bot's list when it has it), `options` (your open question), `history`, and `tryLine`, which plays your picks on a copy of the game through the engine and reports what happens. Claude as the opponent has `deck` and `history` too.
 
-`tryLine` assumes the bot passes wherever it could respond, and stops at any other decision of the bot's. The copy is the real game, so draws and searches in it are the real next cards: the prompt tells Claude not to say what you'd draw, rather than the copy being reshuffled.
+`tryLine` assumes the bot passes wherever it could respond, and stops at any other decision of the bot's. The copy is the real game, so its draws are the real next cards: the table it reports shows them as hidden.
+
+When you ask, Claude also gets what has happened this turn so far, and at the start of a game your notes on the deck and the misplays past reviews marked with it.
+
+Its other tools: `lethal` (battle sums on stats), `odds` (drawing a card, from the Deck or an opening hand), `searchCards`, `rules` (`prompts/rules.md`, a short reference it quotes from), `point` (highlights cards on your screen), `offerTakeBack`, `flag` (a moment for the review, which is told of them), `note` (appends to `sessions/notes/<deck>.md`), `suggestDeck` (saves a changed list as `<deck>-suggested`), and from the trained bot `botMove` (how sure it was, its own win estimate) and `evaluate` (its estimate of your chances, for decks it knows).
 
 ## Still to do
 
-**Context when you ask.** What has been used up this turn (the Normal Summon, once-per-turn effects, attacks declared), and your notes on the deck (`docs/DECK-NOTES.md`) with the misplays past reviews marked.
-
-**More tools for Claude**, roughly by how much better they'd make the advice:
-- `lethal`: whether there is lethal on board this turn and the attacks that get there, on top of `tryLine`.
-- `offerTakeBack`: offer to rewind to a moment so you can try the better play.
-- `odds`: the chance of drawing or opening a card or combination, from the deck counts.
-- `searchCards`: find cards in the full database by name, archetype or text.
-- `rules`: a short rules reference we write (missing the timing, damage step, chain order), so it quotes the rule rather than recalling it.
-- `point`: highlight a card or an option on your screen while it explains.
-- `mark` and `note`: flag a moment for the review afterwards; save a rule of thumb to your notes on the deck.
-- `suggestDeck`: propose a changed list as a new deck beside the old one.
-- `botMove` and `evaluate`: the trained bot's probabilities and win-rate estimate, to explain its play and as a second opinion on yours.
-
-**A reshuffled copy for `tryLine`**, so a trial can't show the real next draw at all.
+- `lethal` works from stats only; an engine search over attack orders would be exact.
+- `evaluate` gives a win rate, not the bot's preferred move for you.
+- `searchCards` only covers cards the app has downloaded.
 
 ### Maybe later: rules bot
 

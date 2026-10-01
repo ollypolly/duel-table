@@ -83,6 +83,8 @@ export class AgentBot {
   private prev = 0
   // Questions it couldn't take, for the log.
   readonly missed: string[] = []
+  // Its latest prediction: how sure it was of its pick, and its estimate of its chance to win.
+  last?: { question: string; confidence: number; options: number; winRate?: number }
 
   constructor(url: string, codes: Set<number>) {
     this.url = url.replace(/\/$/, '')
@@ -100,6 +102,13 @@ export class AgentBot {
       void this.close()
       return undefined
     }
+  }
+
+  // Its estimate of me's chance to win from here, asked the question me has open.
+  async rate(m: PromptMsg, ctx: AgentContext): Promise<number | undefined> {
+    this.last = undefined
+    await this.respond(m, ctx)
+    return (this.last as AgentBot['last'])?.winRate
   }
 
   async close() {
@@ -293,11 +302,12 @@ export class AgentBot {
         action_msg: { data },
       },
     }
-    const res = (await this.post(`/v0/duels/${this.duelId}/predict`, body)) as { error?: string; index?: number; predict_results?: { action_preds: Pred[] } }
+    const res = (await this.post(`/v0/duels/${this.duelId}/predict`, body)) as { error?: string; index?: number; predict_results?: { action_preds: Pred[]; win_rate?: number } }
     if (res.error || !res.predict_results) throw new Error(res.error ?? 'no prediction')
     this.index = res.index!
     const preds = res.predict_results.action_preds
     this.prev = best(preds)
+    this.last = { question: String(data.msg_type ?? ''), confidence: preds[this.prev].prob, options: preds.length, winRate: res.predict_results.win_rate }
     return preds
   }
 

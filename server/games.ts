@@ -491,6 +491,29 @@ export class GameService {
     for (const a of Object.values(this.games.get(id)?.agents ?? {})) void a.close()
   }
 
+  // The trained bot's latest prediction in a game, for each player it plays.
+  botThinking(id: string): AgentBot['last'][] {
+    return Object.values(this.games.get(id)?.agents ?? {}).flatMap((a) => (a.last ? [a.last] : []))
+  }
+
+  // The trained bot's estimate of player's chance to win, at their open
+  // question. Undefined when it can't say: it isn't set up, the deck has
+  // cards it doesn't know, or nothing is being asked of them.
+  async evaluate(id: string, player: Player): Promise<number | undefined> {
+    const live = await this.live(id)
+    const pending = live.game.duel.pending
+    await this.loadAgent()
+    const deck = this.sessions.export(id).players?.[player].deck
+    if (!this.agent || !pending || live.game.waitingFor !== player || !deck || !this.agentDecks()!.includes(deck)) return undefined
+    const bot = new AgentBot(this.agent.url, this.agent.codes)
+    const { state } = live.game
+    try {
+      return await bot.rate(pending, { ocg: live.ocg, duel: live.game.duel, me: player, turn: state.turn, phase: state.phase, active: state.activePlayer })
+    } finally {
+      void bot.close()
+    }
+  }
+
   // What the trained bot couldn't answer in a game (the random bot did).
   agentMisses(id: string): string[] {
     return Object.values(this.games.get(id)?.agents ?? {}).flatMap((a) => a.missed)

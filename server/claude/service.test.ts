@@ -195,6 +195,10 @@ describe.skipIf(!hasData)('Claude as a player', () => {
         seen.mine = tools.deck!('yours')
         seen.theirs = tools.deck!('opponent')
         seen.history = tools.history!()
+        seen.lethal = tools.lethal!()
+        seen.odds = tools.odds!(['Ojama Yellow'], 5, 'opening')
+        seen.search = tools.searchCards!('ojama yellow')
+        seen.flag = tools.flag!('mistake', 'Passed with plays left')
         yield { type: 'text', text: 'Set a monster and pass.' }
         yield { type: 'done', sessionId: 'fake-session', costUsd: 0.01 }
       }
@@ -229,6 +233,12 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(seen.mine).toMatch(/^Your deck: .*\nMain Deck \(\d+\): .*\nExtra Deck .*\nStill in the Deck \(35/)
     expect(seen.theirs).toMatch(/^Your opponent's deck: .*\nMain Deck .*\nExtra Deck .*\nNot seen yet/)
     expect(sessions.get(v.id).game?.claude?.chat.map((e) => e.from)).toEqual(['you', 'claude'])
+    expect(seen.lethal).toContain('Their LP: 8000. Your attackers: none')
+    expect(seen.odds).toMatch(/1 of the 40 cards in the Main Deck are Ojama Yellow\. At least one in 5 draws: 12\.5%/)
+    expect(seen.search).toContain('- Ojama Yellow (')
+    expect(claude.played(v.id)?.flags).toMatchObject([{ kind: 'mistake', player: 'p1' }])
+    // A trial keeps back what it drew.
+    expect(seen.line).not.toMatch(/Hand \(6\): (?!.*1 hidden)/)
 
     // Without the bot's decklist, only what's on show.
     claude.settings(v.id, { knowsDeck: false })

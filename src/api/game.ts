@@ -51,6 +51,7 @@ export const ClaudeViewSchema = z.object({
   player: PlayerSchema,
   watch: z.boolean().optional().describe("Claude isn't playing: it sits on player's side as their coach, in a game against a bot"),
   knowsDeck: z.boolean().optional().describe("For that coach: it can look at the bot's decklist"),
+  point: z.array(z.string()).optional().describe('Cards (iids) that coach is pointing at, to highlight'),
   model: ModelChoiceSchema,
   coach: z.boolean().describe('Also points out your misplays and explains its plays'),
   share: z.boolean().describe('You show Claude your hidden cards (hand, face-down cards, Extra Deck) and your open question, so it can advise you'),

@@ -22,7 +22,9 @@ import { PLAYERS, type BoardState, type Player } from '../../src/engine'
 import type { GameService } from '../games'
 import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
-import { cardText, describeDeck, describeQuestion, describeTable, knownCards, optionLabel, publicLabel } from './view'
+import type { Moment } from '../../src/api/review'
+import { cardFace } from '../../src/view/boardView'
+import { cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, optionLabel, publicLabel, searchCards, seenBy } from './view'
 
 // watch: Claude isn't playing. It sits on player's side of a game against a
 // bot as their coach: it sees what they see and answers nothing.
@@ -31,6 +33,8 @@ export type ClaudeRecord = {
   player: Player
   watch?: boolean
   knowsDeck?: boolean
+  point?: string[] // cards the coach is pointing at on the person's screen
+  flags?: Moment[] // moments the coach flagged for the review
   model: ModelChoice
   coach: boolean
   share: boolean // the person shows Claude their side
@@ -96,7 +100,14 @@ export type ClaudeDeps = {
   agent: Agent
   system: (seat: Pick<ClaudeRecord, 'coach' | 'character' | 'lesson' | 'watch'>) => string // the system prompt
   store?: ClaudeStore
+  // For the coach: the person's notes on a deck, the rules reference, saving
+  // a deck it suggests (returns its id), and misplays past reviews marked.
+  notes?: { read(deck: string): string; add(deck: string, text: string): void }
+  rules?: () => string
+  saveDeck?: (name: string, main: Entry[], extra: Entry[], from: string) => string
+  misplays?: (deck: string) => string[]
 }
+type Entry = { name: string; count: number }
 
 export class ClaudeService {
   private seats = new Map<string, Seat>()
@@ -106,8 +117,10 @@ export class ClaudeService {
   private agent: Agent
   private system: ClaudeDeps['system']
   private store: ClaudeStore
+  private extras: Pick<ClaudeDeps, 'notes' | 'rules' | 'saveDeck' | 'misplays'>
 
-  constructor({ games, sessions, db, agent, system, store = memoryClaudeStore() }: ClaudeDeps) {
+  constructor({ games, sessions, db, agent, system, store = memoryClaudeStore(), ...extras }: ClaudeDeps) {
+    this.extras = extras
     this.games = games
     this.sessions = sessions
     this.db = db
@@ -179,7 +192,7 @@ export class ClaudeService {
       return (
         s && {
           player: s.player,
-          ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true }),
+          ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true, ...(s.point?.length && { point: s.point }) }),
           model: s.model,
           coach: s.coach,
           share: s.share,
@@ -268,9 +281,9 @@ export class ClaudeService {
   }
 
   // Which side Claude played and what was said, for a review of the game.
-  played(id: string): Pick<ClaudeRecord, 'player' | 'chat' | 'watch'> | undefined {
+  played(id: string): Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined {
     const s = this.seat(id)
-    return s && { player: s.player, chat: s.chat, ...(s.watch && { watch: true }) }
+    return s && { player: s.player, chat: s.chat, ...(s.watch && { watch: true }), ...(s.flags && { flags: s.flags }) }
   }
 
   private seat(id: string): Seat | undefined {
@@ -386,10 +399,22 @@ export class ClaudeService {
     const game = await this.games.get(id)
     const { state } = game
     const parts: string[] = seat.notes?.splice(0) ?? []
+    seat.point = undefined
+    const deck = this.sessions.export(id).players?.[seat.player].deck
+    if (!seat.sessionId && deck) {
+      const notes = this.extras.notes?.read(deck).trim()
+      if (notes) parts.push(`The person's notes on this deck, from earlier games:\n${notes}`)
+      const past = this.extras.misplays?.(deck) ?? []
+      if (past.length) parts.push(`Misplays reviews of their earlier games with this deck marked (watch for the same again):\n${past.map((m) => `- ${m}`).join('\n')}`)
+    }
     for (const text of seat.queue.splice(0)) parts.push(`The person says: ${text}`)
     const events = this.catchUp(id, seat)
     if (events.length) parts.push(`Since you last looked:\n${events.map((e) => `- ${e}`).join('\n')}`)
     parts.push(this.texts(state, seat, false), describeTable(state, seat.player, this.db()))
+    // What has gone this turn already: summons made, effects used, attacks declared.
+    const labels = this.sessions.export(id).steps.flatMap((s) => (s.label ? [s.label] : []))
+    const turn = labels.slice(labels.findLastIndex((l) => /^Turn \d+$/.test(l)) + 1).filter((l) => !/ Phase( \d)?$/.test(l))
+    if (turn.length) parts.push(`This turn so far:\n${turn.map((l) => `- ${publicLabel(l, state, seat.player, this.db())}`).join('\n')}`)
     const theirs = await this.games.asking(id, seat.player)
     const winner = game.duel.result?.player
     if (winner) parts.push(`The duel is over: ${winner === seat.player ? 'the person won' : 'the bot won'}.`)
@@ -475,6 +500,7 @@ export class ClaudeService {
           return q ? describeQuestion(q, state(), seat.player, this.db(), 'The person is being asked') : 'Nothing is being asked of the person right now.'
         },
         tryLine: (picks) => this.tryLine(id, seat, picks),
+        ...this.coachTools(id, seat),
       }
     return {
       ...looking,
@@ -495,18 +521,104 @@ export class ClaudeService {
     }
   }
 
+  // What else the coach can look up or do.
+  private coachTools(id: string, seat: Seat): Partial<DuelTools> {
+    const state = () => this.sessions.get(id).state
+    const file = () => this.sessions.export(id)
+    const deckId = () => file().players?.[seat.player].deck
+    const { notes, rules, saveDeck } = this.extras
+    return {
+      lethal: () => describeLethal(state(), seat.player, this.db()),
+      odds: (cards, draws, from = 'deck') => {
+        const want = new Set(cards.map((c) => this.db().byName(c)?.name ?? c))
+        const list = file().players?.[seat.player].list
+        const opening = from === 'opening' && list
+        const pool = opening ? list.main.flatMap((e) => Array<string>(e.count).fill(e.name)) : state().players[seat.player].zones.deck.map((iid) => cardFace(state(), iid, this.db()).name)
+        const hits = pool.filter((n) => want.has(n)).length
+        const n = draws ?? (opening ? 5 : 1)
+        return `${hits} of the ${pool.length} cards ${opening ? 'in the Main Deck' : 'left in the Deck'} are ${[...want].join(' or ')}. At least one in ${n} draw${n === 1 ? '' : 's'}: ${(drawOdds(pool.length, hits, n) * 100).toFixed(1)}%.`
+      },
+      searchCards: (query) => searchCards(this.db(), query),
+      ...(rules && {
+        rules: (topic) => {
+          const sections = rules().split(/^## /m).slice(1)
+          const found = topic && sections.find((s) => s.split('\n')[0].toLowerCase().includes(topic.toLowerCase()))
+          return found ? `## ${found.trim()}` : `Topics: ${sections.map((s) => s.split('\n')[0]).join('; ')}`
+        },
+      }),
+      point: (cards) => {
+        const want = new Set(cards.map((c) => this.db().byName(c)?.name ?? c))
+        const s = state()
+        seat.point = Object.keys(s.cards).filter((iid) => want.has(cardFace(s, iid, this.db()).name) && seenBy(s, iid, seat.player, this.db()) && !s.players.p1.zones.deck.includes(iid) && !s.players.p2.zones.deck.includes(iid))
+        this.changed(id, seat)
+        return seat.point.length ? `Highlighted ${seat.point.length} card(s) on their screen.` : cards.length ? 'None of those are on show to point at.' : 'Cleared.'
+      },
+      offerTakeBack: (why) => {
+        const left = this.sessions.get(id).game?.undos
+        if (!left) return "They can't take a move back right now (none of theirs to take back, or all take-backs used)."
+        seat.chat.push({ from: 'note', text: `Claude suggests taking back your last move: ${why} (Take back is under the … menu; ${left} left.)` })
+        this.changed(id, seat)
+        return 'Suggested. It is theirs to decide; carry on as if they might not.'
+      },
+      flag: (kind, title) => {
+        const step = file().steps.length
+        seat.flags = [...(seat.flags ?? []).filter((m) => m.step !== step), { step, kind, player: seat.player, title }]
+        this.changed(id, seat)
+        return `Flagged step ${step} for the review.`
+      },
+      ...(notes && {
+        note: (text) => {
+          const deck = deckId()
+          if (!deck) return 'This game has no deck to keep notes on.'
+          notes.add(deck, text)
+          seat.chat.push({ from: 'note', text: `Claude saved a note on this deck: ${text}` })
+          this.changed(id, seat)
+          return 'Saved.'
+        },
+      }),
+      ...(saveDeck && {
+        suggestDeck: (name, main, extra, why) => {
+          try {
+            const saved = saveDeck(name, main, extra, deckId() ?? 'deck')
+            seat.chat.push({ from: 'note', text: `Claude saved a suggested deck, "${name}" (${saved}): ${why}` })
+            this.changed(id, seat)
+            return `Saved as ${saved}. It is in their deck list to try in a new game.`
+          } catch (e) {
+            return `Not saved: ${(e as Error).message}`
+          }
+        },
+      }),
+      botMove: () => {
+        const last = this.games.botThinking(id)
+        if (!last.length) return "Nothing to report: the opponent isn't the trained bot, or it hasn't decided anything yet. The simple bot picks at random."
+        return last.map((l) => `Its last decision had ${l!.options} option(s); it picked one with probability ${(l!.confidence * 100).toFixed(0)}%.${l!.winRate === undefined ? '' : ` It puts its own chance of winning at ${(l!.winRate * 100).toFixed(0)}%.`}`).join('\n')
+      },
+      evaluate: async () => {
+        const rate = await this.games.evaluate(id, seat.player).catch(() => undefined)
+        return rate === undefined
+          ? "No estimate: it only rates positions for decks made of cards it knows, when the person has a question open."
+          : `The trained bot puts the person's chance of winning from here at ${(rate * 100).toFixed(0)}%. It knows nothing of cards outside its training, so weigh it, don't quote it as fact.`
+      },
+    }
+  }
+
   // A line of the person's played on a copy of the game, for the coach.
   private async tryLine(id: string, seat: Seat, picks: number[][]): Promise<string> {
+    const before = this.sessions.get(id).state
     const t = await this.games.trial(id, seat.player, picks)
+    // Cards the trial drew are the real next cards: kept back, unless the line
+    // itself named them (a search).
+    const said = t.steps.map((s) => s.label ?? '').join('\n')
+    const drawn = new Set(t.state.players[seat.player].zones.hand.filter((iid) => before.players[seat.player].zones.deck.includes(iid) && !said.includes(cardFace(t.state, iid, this.db()).name)))
     const events = t.steps.flatMap((s) => (s.label ? [publicLabel(s.label, t.state, seat.player, this.db())] : []))
     const parts = [
       t.refused ? `Pick ${t.played + 1} wasn't accepted (a wrong number of options, an option that isn't there, or the engine turned it down). Up to there:` : '',
       events.length ? `What would happen:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Nothing would happen yet.',
-      `The table after it:\n${describeTable(t.state, seat.player, this.db())}`,
+      `The table after it:\n${describeTable(t.state, seat.player, this.db(), false, drawn)}`,
       t.winner ? `The duel would be over: ${t.winner === seat.player ? 'the person wins' : 'the bot wins'}.` : '',
       t.next ? describeQuestion(t.next, t.state, seat.player, this.db(), `Then the person would be asked (add a pick for it to go on)`) : '',
       t.theirs ? "It stops here: the next decision is the bot's." : '',
-      "Nothing was played in the real game. This assumes the bot passes wherever it could respond. Cards drawn or added from a Deck here are the real next cards: don't tell the person what they would draw.",
+      `Nothing was played in the real game. This assumes the bot passes wherever it could respond.${drawn.size ? ' Cards drawn in this line are shown as hidden: nobody knows them yet.' : ''}`,
     ]
     return parts.filter(Boolean).join('\n\n')
   }

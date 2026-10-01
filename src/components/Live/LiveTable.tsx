@@ -26,6 +26,13 @@ import { LessonPanel } from './LessonPanel'
 import { MOMENT } from './moment'
 import { Moments } from './Moments'
 
+// The scenario with the cards Claude is pointing at highlighted on the latest table.
+function pointed<S extends { timeline: { state: { highlights: string[] } }[] }>(scenario: S, point?: string[]): S {
+  if (!point?.length) return scenario
+  const last = scenario.timeline.at(-1)!
+  return { ...scenario, timeline: [...scenario.timeline.slice(0, -1), { ...last, state: { ...last.state, highlights: [...new Set([...last.state.highlights, ...point])] } }] }
+}
+
 export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [session, setSession] = useState<SessionUpdate>()
   const [connection, setConnection] = useState('')
@@ -324,7 +331,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   if (result?.ok)
     return (
       <Table
-        scenario={result.scenario}
+        scenario={pointed(result.scenario, game?.claude?.point)}
         nav={liveNav}
         chat={
           reviewChat ||

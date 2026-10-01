@@ -34,9 +34,10 @@ export function seenBy(state: BoardState, iid: Iid, viewer: Player, db: CardDb):
 
 // The table from viewer's side. shown: the opponent is showing viewer their
 // hidden cards (to get advice), so those are named too.
-export function describeTable(state: BoardState, viewer: Player, db: CardDb, shown = false): string {
+// conceal: cards viewer mustn't be told of even so (a trial's draws).
+export function describeTable(state: BoardState, viewer: Player, db: CardDb, shown = false, conceal?: Set<Iid>): string {
   const name = (iid: Iid) => cardFace(state, iid, db).name
-  const known = (iid: Iid) => seenBy(state, iid, viewer, db) || (shown && seenBy(state, iid, other(viewer), db))
+  const known = (iid: Iid) => !conceal?.has(iid) && (seenBy(state, iid, viewer, db) || (shown && seenBy(state, iid, other(viewer), db)))
   const card = (iid: Iid) => (known(iid) ? `${name(iid)}${state.cards[iid].faceUp ? '' : ' (face-down)'}` : 'face-down card')
   const monster = (iid: Iid) => {
     const f = cardFace(state, iid, db)
@@ -120,6 +121,69 @@ export function describeDeck(state: BoardState, player: Player, viewer: Player, 
   if (player === viewer) lines.push(`Still in the Deck (${state.players[player].zones.deck.length}, in an order nobody knows): ${tally(state.players[player].zones.deck.map(name))}`)
   else lines.push(`Not seen yet (in their Deck, hand, Extra Deck or face-down): ${tally(owned.filter((iid) => !seenBy(state, iid, viewer, db)).map(name))}`)
   return lines.join('\n')
+}
+
+// The battle sums for viewer's turn: what their Attack Position monsters add
+// up to against the other side's monsters and LP. Stats only, no effects.
+export function describeLethal(state: BoardState, viewer: Player, db: CardDb): string {
+  const mine = (p: Player) =>
+    [...state.players[p].zones.monster, ...state.extraMonster].flatMap((iid) => {
+      if (!iid) return []
+      const f = cardFace(state, iid, db)
+      return f.controller === p ? [f] : []
+    })
+  const attackers = mine(viewer).filter((f) => f.faceUp && f.position !== 'def' && f.atk !== undefined)
+  const theirs = mine(other(viewer))
+  const lp = state.players[other(viewer)].lp
+  const total = attackers.reduce((n, f) => n + (f.atk ?? 0), 0)
+  const lines = [
+    `Their LP: ${lp}. Your attackers: ${attackers.map((f) => `${f.name} (${f.atk})`).join(', ') || 'none'}, ${total} in all.`,
+    `Their monsters: ${theirs.map((f) => (f.faceUp ? `${f.name} (${f.position === 'def' ? `DEF ${f.def}` : `ATK ${f.atk}`})` : 'a face-down monster')).join(', ') || 'none'}.`,
+  ]
+  if (!theirs.length) lines.push(total >= lp ? `Lethal on stats: ${total} direct damage against ${lp} LP.` : `Not lethal on stats: ${lp - total} short.`)
+  else {
+    // Biggest attackers clear the monsters they beat; the rest go direct.
+    const left = [...attackers].sort((a, b) => (b.atk ?? 0) - (a.atk ?? 0))
+    let damage = 0
+    let walls = 0
+    for (const t of [...theirs].sort((a, b) => (b.atk ?? 0) - (a.atk ?? 0))) {
+      const need = !t.faceUp ? undefined : t.position === 'def' ? t.def : t.atk
+      const i = need === undefined ? -1 : left.findLastIndex((a) => (a.atk ?? 0) > need)
+      if (i < 0) walls++
+      else {
+        if (t.position !== 'def') damage += (left[i].atk ?? 0) - need!
+        left.splice(i, 1)
+      }
+    }
+    if (walls) lines.push(`${walls} of their monsters can't be attacked over on stats (or are face-down), so no direct attacks: not lethal by battle alone.`)
+    else {
+      damage += left.reduce((n, f) => n + (f.atk ?? 0), 0)
+      lines.push(damage >= lp ? `Lethal on stats: clearing their monsters and attacking directly comes to ${damage} against ${lp} LP.` : `Not lethal on stats: about ${damage} damage, ${lp - damage} short.`)
+    }
+  }
+  lines.push('This counts printed and current stats only: no effects, no summons still to make, no responses. Check the line with tryLine.')
+  return lines.join('\n')
+}
+
+// The chance that at least one of `hits` cards is among `draws` drawn from `size`.
+export function drawOdds(size: number, hits: number, draws: number): number {
+  if (hits <= 0 || draws <= 0 || size <= 0) return 0
+  let miss = 1
+  for (let i = 0; i < Math.min(draws, size); i++) miss *= Math.max(0, size - hits - i) / (size - i)
+  return 1 - miss
+}
+
+// Cards in the database matching every word of query, in the name first, then the text.
+export function searchCards(db: CardDb, query: string, limit = 15): string {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return 'Give some words to search for.'
+  const has = (text: string) => words.every((w) => text.toLowerCase().includes(w))
+  const byName = db.all().filter((c) => has(c.name))
+  const byText = db.all().filter((c) => !has(c.name) && has(`${c.type} ${c.race} ${c.attribute ?? ''} ${c.desc}`))
+  const found = [...byName, ...byText]
+  if (!found.length) return `Nothing matches "${query}" among the cards this app has (only cards in its decks are downloaded).`
+  const line = (c: (typeof found)[number]) => `- ${c.name} (${c.type}): ${c.desc.replace(/\s+/g, ' ').slice(0, 160)}${c.desc.length > 160 ? '…' : ''}`
+  return [`${found.length} match${found.length === 1 ? '' : 'es'}${found.length > limit ? `, the first ${limit}` : ''}:`, ...found.slice(0, limit).map(line)].join('\n')
 }
 
 export function cardText(db: CardDb, name: string): string {

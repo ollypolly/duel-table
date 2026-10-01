@@ -51,7 +51,7 @@ export type ReviewDeps = {
   agent: Agent
   system: () => string
   // The side Claude played and the game's chat, when Claude played or ran a lesson.
-  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch'> | undefined
+  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined
   store?: RecordStore<ReviewRecord>
 }
 
@@ -111,6 +111,11 @@ export class ReviewService {
       this.reviews.delete(id)
       this.store.remove(id)
     })
+  }
+
+  // The misplays a game's review marked, for the coach in a later game.
+  misplays(id: string): string[] {
+    return (this.find(id)?.moments ?? []).filter((m) => m.kind !== 'good' && m.player === 'p1').map((m) => m.title)
   }
 
   // Open the review (a new one, or the one you had), in place of the game's chat.
@@ -288,7 +293,8 @@ export class ReviewService {
           ? `The person played p1 against a trained bot (a neural network that plays its own deck well).${claude ? ' You sat beside them as their coach.' : ''}`
           : `The person played p1 against a bot picking random legal moves.${claude ? ' You sat beside them as their coach.' : ''}`
     const result = v.winner ? `${v.players[v.winner].name} (${v.winner}) won, on turn ${v.turn}.` : `It stopped on turn ${v.turn} without a winner.`
-    return [`The game: ${v.title}. p1 is the person, ${seat('p1')}; p2 is ${seat('p2')}.`, how, result].join(' ')
+    const flags = claude?.flags?.length ? `\nMoments you flagged during the game, to check and mark if they hold up:\n${claude.flags.map((m) => `- Step ${m.step} (${m.kind}): ${m.title}`).join('\n')}` : ''
+    return [`The game: ${v.title}. p1 is the person, ${seat('p1')}; p2 is ${seat('p2')}.`, how, result].join(' ') + flags
   }
 
   private state(id: string, r: Review): BoardState {
