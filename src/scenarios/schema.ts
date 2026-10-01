@@ -205,6 +205,7 @@ export const ScenarioSchema = z
         shuffled: z.boolean().optional().describe('The Decks were shuffled from the seed (games saved before that replay unshuffled)'),
         winner: PlayerSchema.optional().describe('Who won, once the duel is over'),
         undone: z.int().optional().describe('Moves taken back so far'),
+        forfeit: PlayerSchema.optional().describe('The player who gave up, if the duel ended that way'),
       })
       .strict()
       .optional()

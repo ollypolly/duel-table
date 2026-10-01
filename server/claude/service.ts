@@ -128,6 +128,13 @@ export class ClaudeService {
       seat.chat.push({ from: 'note', text: 'You took back your last move.' })
       this.changed(id, seat)
     }
+    games.onForfeit = (id) => {
+      const seat = this.seat(id)
+      if (!seat) return
+      seat.notes = [...(seat.notes ?? []), 'Your opponent forfeited the game, so you won. Nothing more can be played.']
+      seat.chat.push({ from: 'note', text: 'You forfeited.' })
+      this.changed(id, seat)
+    }
     // While Claude waits in a lesson, the person can make p1's move themselves.
     games.claudeHolds = (id) => {
       const s = this.seat(id)

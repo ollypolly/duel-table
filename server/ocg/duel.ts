@@ -63,6 +63,9 @@ function fromDecks(p: Player, setup: Extract<DuelSetup, { decks: unknown }>, rng
 
 const MAX_BATCHES = 10_000 // a duel stuck processing without asking anything
 
+// YGOPro's win reason for a surrender.
+const SURRENDERED = 0
+
 export class OcgDuel {
   readonly responses: Uint8Array[] = []
   private duel
@@ -101,6 +104,11 @@ export class OcgDuel {
 
   get result() {
     return this.winner
+  }
+
+  // The player gives up: the other one wins, and the core isn't run again.
+  surrender(player: Player) {
+    this.winner ??= { player: player === 'p1' ? 'p2' : 'p1', reason: SURRENDERED }
   }
 
   // Run until the core needs an answer or the duel ends.

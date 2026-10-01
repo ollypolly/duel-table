@@ -282,6 +282,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               setBusy(true)
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
+            onForfeit={claudeLesson ? undefined : () => report(api.forfeitGame(id))}
             busy={busy}
           />
         )}

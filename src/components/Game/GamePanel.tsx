@@ -1,12 +1,13 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Lightbulb, Search, Undo2 } from 'lucide-react'
+import { Lightbulb, MoreHorizontal, Search, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
 import { cardFace, VIEWER } from '../../view/boardView'
+import { Menu, MenuItem } from '../Menu/Menu'
 
 export type GameChoice = {
   focused?: Iid // single-choice prompts: the card whose options are shown
@@ -23,10 +24,12 @@ type Props = {
   onReview?: () => void // go through the finished game with Claude
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move
+  onForfeit?: () => void // give the game up
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, onForfeit, busy }: Props) {
+  const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
     const f = cardFace(state, iid, cardDb)
@@ -62,8 +65,48 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </div>
     )
   }
+  // What you rarely need mid-game, in a menu; giving up asks first.
+  const more = forfeiting ? (
+    <span className="flex items-center gap-1.5 text-xs">
+      Give up this game?
+      <button
+        type="button"
+        className="btn text-xs text-danger"
+        disabled={busy}
+        onClick={() => {
+          setForfeiting(false)
+          onForfeit?.()
+        }}
+      >
+        Forfeit
+      </button>
+      <button type="button" className="btn text-xs" onClick={() => setForfeiting(false)}>
+        Keep playing
+      </button>
+    </span>
+  ) : (
+    (onForfeit || (onUndo && !!game.undos)) && (
+      <Menu label={<MoreHorizontal size={14} />} title="More" side="top" className="btn text-xs">
+        {onUndo && !!game.undos && (
+          <MenuItem disabled={busy} onClick={onUndo} title="Go back to before your last move">
+            Take back ({game.undos} left)
+          </MenuItem>
+        )}
+        {onForfeit && (
+          <MenuItem danger onClick={() => setForfeiting(true)}>
+            Forfeit
+          </MenuItem>
+        )}
+      </Menu>
+    )
+  )
   if (!prompt) {
-    return <p className="text-sm text-muted">{waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}</p>
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted">{waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}</p>
+        {more}
+      </div>
+    )
   }
 
   const multi = prompt.max > 1
@@ -102,7 +145,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
             Ask Claude for a hint
           </button>
         )}
-        {undo}
+        {more}
       </div>
     </div>
   )

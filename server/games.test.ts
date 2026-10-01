@@ -78,6 +78,27 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(kinds.has('idle')).toBe(true)
   }, 60_000)
 
+  it('is given up with a forfeit, which a rebuilt game remembers', async () => {
+    const store = saving()
+    const sessions = new SessionService(ctx, store)
+    const games = new GameService(sessions, ctx)
+    const start = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1 })
+    expect(start.game?.prompt).toBeDefined()
+
+    const v = await games.forfeit(start.id)
+    expect(v.game).toMatchObject({ winner: { player: 'p2', reason: 0 } })
+    expect(v.game?.prompt).toBeUndefined()
+    expect(v.steps).toBe(start.steps)
+    expect(sessions.export(v.id).duel).toMatchObject({ forfeit: 'p1', winner: 'p2' })
+    expect(sessions.list().find((t) => t.id === v.id)?.winner).toBe('p2')
+    await expect(games.forfeit(v.id)).rejects.toThrow(/already over/)
+    await expect(games.answer(v.id, undefined, { id: start.game!.prompt!.id, choices: [0] })).rejects.toThrow(/nothing is being asked/)
+
+    const again = new GameService(new SessionService(ctx, store), ctx)
+    expect((await again.get(v.id)).duel.result).toEqual({ player: 'p2', reason: 0 })
+    await expect(again.forfeit(v.id)).rejects.toThrow(/already over/)
+  }, 60_000)
+
   it('takes back a move, a few times a game', async () => {
     const store = saving()
     const sessions = new SessionService(ctx, store)

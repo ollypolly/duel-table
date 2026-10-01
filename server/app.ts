@@ -767,6 +767,21 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(
     createRoute({
       method: 'post',
+      path: '/sessions/{id}/game/forfeit',
+      summary: 'Give up the game',
+      description: "The viewer gives up a game that's still going, whoever's move it is: the other side wins (game.winner, with reason 0). A lesson can't be forfeited.",
+      request: { params: IdParam },
+      responses: { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, 'Already over, or a lesson'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.forfeit(c.req.valid('param').id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
       path: '/sessions/{id}/game/undo',
       summary: "Take back the viewer's last move",
       description:

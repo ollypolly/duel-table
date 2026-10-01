@@ -77,6 +77,7 @@ export const api = {
     call<SessionSummary>('POST', '/games', opts),
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
   undoGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/undo`),
+  forfeitGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/forfeit`),
   // Whether this server has a Claude login to play with.
   claude: () => call<ClaudeStatus>('GET', '/claude').catch((): ClaudeStatus => ({ available: false })),
   chat: (id: string, text: string, show?: boolean) => call<unknown>('POST', `/sessions/${id}/claude/chat`, { text, ...(show && { show }) }),

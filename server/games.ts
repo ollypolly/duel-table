@@ -2,7 +2,7 @@
 // the core, plus the answers given to the core so far (saved in the session
 // file as duel.responses). After a restart a game is rebuilt by replaying
 // those answers the first time it's needed.
-import type { BoardState, Player, Step } from '../src/engine'
+import { PLAYERS, type BoardState, type Player, type Step } from '../src/engine'
 import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
@@ -60,6 +60,8 @@ export class GameService {
   onPersonAnswer?: (id: string, player: Player) => void
   // A move was taken back, so the steps after it never happened.
   onUndo?: (id: string) => void
+  // The person gave up.
+  onForfeit?: (id: string) => void
 
   constructor(sessions: SessionService, ctx: () => ResolveContext, ocg: () => Promise<Ocg> = () => loadOcg(ocgDataDir())) {
     this.sessions = sessions
@@ -184,8 +186,24 @@ export class GameService {
     live.moves = old.moves.slice(0, -1)
     const q = last.prompt && this.ask(live, last)
     if (q && 'prompt' in q) live.asked = q
-    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, undone: (duel.undone ?? 0) + 1 })
+    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, undone: (duel.undone ?? 0) + 1 })
     this.onUndo?.(id)
+    this.onChange?.(id)
+    return this.sessions.get(id)
+  }
+
+  // The person gives up a game that's still going, at any point: the other
+  // side wins. Whatever was being asked is dropped.
+  async forfeit(id: string): Promise<SessionView> {
+    const live = await this.live(id)
+    if (live.lesson) throw new SessionError(409, "a lesson can't be forfeited")
+    if (live.game.duel.result) throw new SessionError(409, 'the game is already over')
+    const player = PLAYERS.find((p) => !live.bots.includes(p) && p !== live.claude)
+    if (!player) throw new SessionError(409, 'nobody is playing this game')
+    live.game.duel.surrender(player)
+    live.asked = undefined
+    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, forfeit: player, winner: live.game.duel.result!.player })
+    this.onForfeit?.(id)
     this.onChange?.(id)
     return this.sessions.get(id)
   }
@@ -262,10 +280,11 @@ export class GameService {
       }
       p = live.game.respond(response)
     }
-    const undone = this.sessions.export(id).duel?.undone
+    const { undone, forfeit } = this.sessions.export(id).duel ?? {}
     const duel = {
       responses: live.game.duel.responses.map(encodeResponse),
       ...(undone && { undone }),
+      ...(forfeit && { forfeit }),
       bots: live.bots,
       ...(live.claude && { claude: live.claude }),
       ...(live.lesson && { lesson: true }),
@@ -318,7 +337,8 @@ export class GameService {
     // in the log.
     const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, claude, lesson, shuffled: !!shuffled })
     live.moves = moves
-    if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
+    if (file.duel.forfeit) game.duel.surrender(file.duel.forfeit)
+    else if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
       const q = this.ask(live, last)
       if ('prompt' in q) live.asked = q
     }
