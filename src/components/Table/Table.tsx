@@ -74,7 +74,8 @@ type TableProps = {
   // so it doesn't need opening: pass on a chain, the next phase, Next.
   quick?: { label: string; run: () => void }
   clock?: { startedAt: number; endedAt?: number } // a game's timer
-  marks?: { step: number; className: string }[]
+  marks?: { step: number; className: string; mark?: string; title?: string; disabled?: boolean }[]
+  onMark?: (step: number) => void
   stepNav?: ReactNode // a line under the playback bar (a review's key moments)
   // A game on the rules engine: cards you can pick now, lit up. onChoose
   // returns whether a click on one answered; otherwise it opens with
@@ -105,6 +106,7 @@ export function Table({
   quick,
   clock,
   marks,
+  onMark,
   stepNav,
   choosable,
   onChoose,
@@ -344,6 +346,7 @@ export function Table({
                 muted={muted}
                 onMuted={setMuted}
                 marks={marks}
+                onMark={onMark}
                 nav={stepNav}
               >
                 {!freePlay && onBranch && (

@@ -388,7 +388,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         }
         quick={quick}
         clock={game?.startedAt ? { startedAt: game.startedAt, endedAt: game.endedAt } : undefined}
-        marks={review?.moments.map((m) => ({ step: m.step, className: MOMENT[m.kind].dot }))}
+        marks={review?.moments.map((m) => ({ step: m.step, className: MOMENT[m.kind].dot, mark: MOMENT[m.kind].mark, title: `${MOMENT[m.kind].label}, step ${m.step}: ${m.title}`, disabled: momentLocked(m.step) }))}
+        onMark={review ? goMoment : undefined}
         stepNav={
           review && (
             <Moments

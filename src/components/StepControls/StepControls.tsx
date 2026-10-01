@@ -4,6 +4,10 @@ import { SPEEDS } from '../../store/playerStore'
 
 const btn = 'grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent'
 
+// A touch screen has no hover, so there the line is always grown.
+const TOUCH_OPEN = '[@media(pointer:coarse)]:my-1 [@media(pointer:coarse)]:h-5'
+const TOUCH_MARK = '[@media(pointer:coarse)]:h-4.5 [@media(pointer:coarse)]:w-4.5 [@media(pointer:coarse)]:text-[9px]'
+
 // The scene controls: a slim bar (back, play, forward, the current step), and
 // a drawer with the rest (first/last, speed, the scrubber, the step list, and
 // the screen's own actions: branch, go live…). Clicking the step opens it.
@@ -19,6 +23,7 @@ export function StepControls({
   muted,
   onMuted,
   marks,
+  onMark,
   nav,
   children,
 }: {
@@ -32,11 +37,15 @@ export function StepControls({
   muted?: boolean
   onMuted?: (muted: boolean) => void
   // Dots along the game at steps worth a look (a review's key moments).
-  marks?: { step: number; className: string }[]
+  // On the line they're buttons: mark is a symbol shown when the line grows,
+  // title says what it is, and onMark is where a click goes (default: the step).
+  marks?: { step: number; className: string; mark?: string; title?: string; disabled?: boolean }[]
+  onMark?: (step: number) => void
   nav?: ReactNode
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const [hint, setHint] = useState<string>()
   const last = labels.length
   return (
     <div className="space-y-2" data-testid="step-controls">
@@ -76,15 +85,40 @@ export function StepControls({
         )}
       </div>
       {!!marks?.length && last > 0 && (
-        <div className="relative mx-2 h-1.5 rounded-full bg-line/60" aria-hidden>
-          <span className="absolute inset-y-0 left-0 rounded-full bg-gold/30" style={{ width: `${(position / last) * 100}%` }} />
-          {marks.map((m) => (
-            <span
-              key={m.step}
-              className={`absolute top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${m.className}`}
-              style={{ left: `${(m.step / last) * 100}%` }}
-            />
-          ))}
+        // The game as a line with its marks. Under the pointer (and always on
+        // a touch screen) it grows: a mark is a button that goes to it, and
+        // anywhere else on the line goes to that step.
+        <div className="group/line mx-2" onMouseLeave={() => setHint(undefined)} data-testid="timeline">
+          <div
+            className={`relative h-1.5 cursor-pointer rounded-full bg-line/60 transition-[height,margin] group-hover/line:my-1 group-hover/line:h-5 group-focus-within/line:my-1 group-focus-within/line:h-5 ${TOUCH_OPEN}`}
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect()
+              onGoTo(Math.round(Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)) * last))
+            }}
+          >
+            <span className="absolute inset-y-0 left-0 rounded-full bg-gold/30" style={{ width: `${(position / last) * 100}%` }} />
+            {marks.map((m) => (
+              <button
+                key={m.step}
+                type="button"
+                disabled={m.disabled}
+                aria-label={m.title ?? `Step ${m.step}`}
+                aria-current={position === m.step || position === m.step - 1}
+                className={`absolute top-1/2 grid h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[0px] font-bold leading-none text-bg transition-[height,width,font-size] hover:brightness-125 disabled:opacity-40 aria-[current=true]:ring-2 aria-[current=true]:ring-ink group-hover/line:h-4.5 group-hover/line:w-4.5 group-hover/line:text-[9px] group-focus-within/line:h-4.5 group-focus-within/line:w-4.5 group-focus-within/line:text-[9px] ${TOUCH_MARK} ${m.className}`}
+                style={{ left: `${(m.step / last) * 100}%` }}
+                onMouseEnter={() => setHint(m.title)}
+                onFocus={() => setHint(m.title)}
+                onBlur={() => setHint(undefined)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  ;(onMark ?? onGoTo)(m.step)
+                }}
+              >
+                {m.mark}
+              </button>
+            ))}
+          </div>
+          {hint && <p className="mt-1 truncate text-center text-[11px] text-muted">{hint}</p>}
         </div>
       )}
       {nav}
