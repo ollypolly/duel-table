@@ -288,7 +288,8 @@ export class SessionService {
   }
 
   private newLesson(id: string, r: ResolvedScenario) {
-    return new Lesson(r.game.steps.length, () => this.notify(id))
+    // A paced step can come due after the session was deleted.
+    return new Lesson(r.game.steps.length, () => void (this.sessions.has(id) && this.notify(id)))
   }
 
   private resolve(file: unknown) {
