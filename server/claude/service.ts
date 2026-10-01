@@ -16,7 +16,7 @@
 import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ChatEntry, ClaudeSettings, ClaudeView, GamePrompt, ModelChoice } from '../../src/api/game'
-import type { CardDb } from '../../src/data/cardDb'
+import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
 import { PLAYERS, type BoardState, type Player } from '../../src/engine'
 import type { GameService } from '../games'
@@ -24,7 +24,7 @@ import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
 import type { Moment } from '../../src/api/review'
 import { cardFace } from '../../src/view/boardView'
-import { cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, optionLabel, publicLabel, searchCards, seenBy } from './view'
+import { cardLines, cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, matchCards, optionLabel, publicLabel, seenBy } from './view'
 
 // watch: Claude isn't playing. It sits on player's side of a game against a
 // bot as their coach: it sees what they see and answers nothing.
@@ -106,6 +106,7 @@ export type ClaudeDeps = {
   rules?: () => string
   saveDeck?: (name: string, main: Entry[], extra: Entry[], from: string) => string
   misplays?: (deck: string) => string[]
+  findCards?: (query: string) => Promise<CardData[]> // by name, among every card printed
 }
 type Entry = { name: string; count: number }
 
@@ -117,7 +118,7 @@ export class ClaudeService {
   private agent: Agent
   private system: ClaudeDeps['system']
   private store: ClaudeStore
-  private extras: Pick<ClaudeDeps, 'notes' | 'rules' | 'saveDeck' | 'misplays'>
+  private extras: Pick<ClaudeDeps, 'notes' | 'rules' | 'saveDeck' | 'misplays' | 'findCards'>
 
   constructor({ games, sessions, db, agent, system, store = memoryClaudeStore(), ...extras }: ClaudeDeps) {
     this.extras = extras
@@ -528,7 +529,7 @@ export class ClaudeService {
     const state = () => this.sessions.get(id).state
     const file = () => this.sessions.export(id)
     const deckId = () => file().players?.[seat.player].deck
-    const { notes, rules, saveDeck } = this.extras
+    const { notes, rules, saveDeck, findCards } = this.extras
     return {
       lethal: () => describeLethal(state(), seat.player, this.db()),
       odds: (cards, draws, from = 'deck') => {
@@ -540,7 +541,13 @@ export class ClaudeService {
         const n = draws ?? (opening ? 5 : 1)
         return `${hits} of the ${pool.length} cards ${opening ? 'in the Main Deck' : 'left in the Deck'} are ${[...want].join(' or ')}. At least one in ${n} draw${n === 1 ? '' : 's'}: ${(drawOdds(pool.length, hits, n) * 100).toFixed(1)}%.`
       },
-      searchCards: (query) => searchCards(this.db(), query),
+      // The app's own cards first; the full card list only when it has none.
+      searchCards: async (query) => {
+        const here = matchCards(this.db(), query)
+        if (here.length) return cardLines(here)
+        const all = (await findCards?.(query).catch(() => [])) ?? []
+        return all.length ? `None among the cards this app has downloaded. By name, from every card printed:\n${cardLines(all)}` : `Nothing matches "${query}".`
+      },
       ...(rules && {
         rules: (topic) => {
           const sections = rules().split(/^## /m).slice(1)

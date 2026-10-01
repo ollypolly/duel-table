@@ -27,7 +27,7 @@ export type DuelTools = {
   tryLine?(picks: number[][]): Promise<string>
   lethal?(): string
   odds?(cards: string[], draws?: number, from?: 'deck' | 'opening'): string
-  searchCards?(query: string): string
+  searchCards?(query: string): Promise<string>
   rules?(topic?: string): string
   point?(cards: string[]): string
   offerTakeBack?(why: string): string
@@ -73,7 +73,7 @@ export const sdkAgent: Agent = (req) => {
         { cards: z.array(z.string()).min(1), draws: z.int().min(1).max(40).optional().describe('How many cards drawn (default 1 from the Deck, 5 for an opening hand)'), from: z.enum(['deck', 'opening']).optional() },
         async (i) => text(t.odds!(i.cards, i.draws, i.from)),
       ),
-    t.searchCards && tool('searchCards', "Find cards by words in their name or text, among the cards this app has.", { query: z.string() }, async (i) => text(t.searchCards!(i.query))),
+    t.searchCards && tool('searchCards', "Find cards by words in their name or text among the cards this app has, or by name among every card printed when it has none.", { query: z.string() }, async (i) => text(await t.searchCards!(i.query))),
     t.rules && tool('rules', 'A short rules reference: with no topic, the list of topics; with one, that section.', { topic: z.string().optional() }, async (i) => text(t.rules!(i.topic))),
     t.point && tool('point', "Highlight cards on the person's screen by name while you explain (only ones they can see). An empty list clears it.", { cards: z.array(z.string()) }, async (i) => text(t.point!(i.cards))),
     t.offerTakeBack && tool('offerTakeBack', 'Suggest the person takes back their last move, with a one-line reason. They decide.', { why: z.string() }, async (i) => text(t.offerTakeBack!(i.why))),

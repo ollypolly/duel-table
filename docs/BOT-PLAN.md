@@ -59,13 +59,11 @@ Nothing else usable turned up: other projects are stale or have no published wei
 
 When you ask, Claude also gets what has happened this turn so far, and at the start of a game your notes on the deck and the misplays past reviews marked with it.
 
-Its other tools: `lethal` (battle sums on stats), `odds` (drawing a card, from the Deck or an opening hand), `searchCards`, `rules` (`prompts/rules.md`, a short reference it quotes from), `point` (highlights cards on your screen), `offerTakeBack`, `flag` (a moment for the review, which is told of them), `note` (appends to `sessions/notes/<deck>.md`), `suggestDeck` (saves a changed list as `<deck>-suggested`), and from the trained bot `botMove` (how sure it was, its own win estimate) and `evaluate` (its estimate of your chances, for decks it knows).
+Its other tools: `lethal` (battle sums on stats), `odds` (drawing a card, from the Deck or an opening hand), `searchCards` (the app's cards, then every card printed by name, from YGOPRODeck), `rules` (`prompts/rules.md`, a short reference it quotes from), `point` (highlights cards on your screen), `offerTakeBack`, `flag` (a moment for the review, which is told of them), `note` (appends to `sessions/notes/<deck>.md`), `suggestDeck` (saves a changed list as `<deck>-suggested`), and from the trained bot `botMove` (how sure it was, its own win estimate) and `evaluate` (its estimate of your chances and the move it would pick for you, for decks it knows).
 
 ## Still to do
 
 - `lethal` works from stats only; an engine search over attack orders would be exact.
-- `evaluate` gives a win rate, not the bot's preferred move for you.
-- `searchCards` only covers cards the app has downloaded.
 
 ### Maybe later: rules bot
 

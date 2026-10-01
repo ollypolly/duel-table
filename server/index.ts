@@ -15,7 +15,7 @@ import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './f
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
-import { addCards } from './ygoprodeck'
+import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
 const ctx = repoContext()
@@ -57,6 +57,7 @@ const service: ClaudeService = new ClaudeService({
     writeRepoFile()('decks', built.file, false)
     return id
   },
+  findCards: (query) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=15&offset=0`).then((r) => (r.data ?? []).map(trim)),
   // The latest misplays reviews marked in your games with a deck.
   misplays: (deck): string[] =>
     sessions

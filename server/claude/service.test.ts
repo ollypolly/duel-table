@@ -197,7 +197,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
         seen.history = tools.history!()
         seen.lethal = tools.lethal!()
         seen.odds = tools.odds!(['Ojama Yellow'], 5, 'opening')
-        seen.search = tools.searchCards!('ojama yellow')
+        seen.search = await tools.searchCards!('ojama yellow')
         seen.flag = tools.flag!('mistake', 'Passed with plays left')
         yield { type: 'text', text: 'Set a monster and pass.' }
         yield { type: 'done', sessionId: 'fake-session', costUsd: 0.01 }

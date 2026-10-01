@@ -3,7 +3,7 @@
 // never mention an iid (iids spell out card names) or a card hidden from the
 // viewer.
 import { PICK_KINDS, type GamePrompt } from '../../src/api/game'
-import type { CardDb } from '../../src/data/cardDb'
+import type { CardData, CardDb } from '../../src/data/cardDb'
 import { locate, type BoardState, type Iid, type Player } from '../../src/engine'
 import { cardFace } from '../../src/view/boardView'
 
@@ -174,15 +174,14 @@ export function drawOdds(size: number, hits: number, draws: number): number {
 }
 
 // Cards in the database matching every word of query, in the name first, then the text.
-export function searchCards(db: CardDb, query: string, limit = 15): string {
+export function matchCards(db: CardDb, query: string): CardData[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
-  if (!words.length) return 'Give some words to search for.'
-  const has = (text: string) => words.every((w) => text.toLowerCase().includes(w))
-  const byName = db.all().filter((c) => has(c.name))
-  const byText = db.all().filter((c) => !has(c.name) && has(`${c.type} ${c.race} ${c.attribute ?? ''} ${c.desc}`))
-  const found = [...byName, ...byText]
-  if (!found.length) return `Nothing matches "${query}" among the cards this app has (only cards in its decks are downloaded).`
-  const line = (c: (typeof found)[number]) => `- ${c.name} (${c.type}): ${c.desc.replace(/\s+/g, ' ').slice(0, 160)}${c.desc.length > 160 ? '…' : ''}`
+  const has = (text: string) => words.length > 0 && words.every((w) => text.toLowerCase().includes(w))
+  return [...db.all().filter((c) => has(c.name)), ...db.all().filter((c) => !has(c.name) && has(`${c.type} ${c.race} ${c.attribute ?? ''} ${c.desc}`))]
+}
+
+export function cardLines(found: CardData[], limit = 15): string {
+  const line = (c: CardData) => `- ${c.name} (${c.type}): ${c.desc.replace(/\s+/g, ' ').slice(0, 160)}${c.desc.length > 160 ? '…' : ''}`
   return [`${found.length} match${found.length === 1 ? '' : 'es'}${found.length > limit ? `, the first ${limit}` : ''}:`, ...found.slice(0, limit).map(line)].join('\n')
 }
 
