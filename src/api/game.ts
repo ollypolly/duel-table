@@ -89,6 +89,7 @@ export const SkippedSchema = z.object({
   to: z.string().optional().describe('What you could have responded to'),
   by: z.enum(['rules', 'claude']),
   why: z.string().optional(),
+  turn: z.int().optional().describe('The turn it was passed in'),
 })
 export type Skipped = z.infer<typeof SkippedSchema>
 

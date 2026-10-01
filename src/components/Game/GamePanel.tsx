@@ -128,7 +128,8 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
     )
   )
   // The latest chance to respond that was passed for you, with a way back to it.
-  const last = game.skipped?.at(-1)
+  // It goes once the turn has moved on.
+  const last = game.skipped?.findLast((s) => s.turn === undefined || s.turn === state.turn)
   const passed = last && (
     <div className="flex items-start justify-between gap-2 rounded-md border border-line bg-raised/50 px-2 py-1.5 text-xs text-muted" data-testid="passed">
       <p className="min-w-0">

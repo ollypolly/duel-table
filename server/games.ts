@@ -58,7 +58,7 @@ type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean;
 export type ChainAdvice = { stop: boolean; why: string }
 // moves: for each move a person began, how many answers had been given.
 // agents: the trained bot's side of the conversation, for each player it plays.
-type Live = Seats & { deciding?: boolean; game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; agents?: Partial<Record<Player, AgentBot>> }
+type Live = Seats & { deciding?: boolean; game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; answered?: number; agents?: Partial<Record<Player, AgentBot>> }
 
 // A line tried on a copy of the game: what happened, the table after it, how
 // many of the picks were played, and why it stopped (the next question for the
@@ -207,6 +207,7 @@ export class GameService {
     const p = live.game.respond(response)
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
     if (!live.bots.includes(player) && player !== live.claude && startsMove(before, response)) live.moves.push(at)
+    if (person) live.answered = at
     if (person) this.onPersonAnswer?.(id, player)
     return this.advance(id, live, p)
   }
@@ -394,12 +395,14 @@ export class GameService {
     const { game, bots, asked } = live
     const winner = game.duel.result
     const { startedAt, endedAt } = this.sessions.export(id).duel ?? {}
+    // Passed chances are shown until the person has answered something since.
+    const fresh = (live.skipped ?? []).filter((s) => s.at > (live.answered ?? -1)).slice(-3)
     const claude = this.claudeView?.(id)
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
     const undos = this.undos(id, live)
     const person = !live.lesson && PLAYERS.some((p) => !bots.includes(p) && p !== live.claude)
-    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(startedAt && { startedAt }), ...(endedAt && { endedAt }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && live.skipped?.length && { skipped: live.skipped.slice(-3) }), ...(live.deciding && { deciding: true }) }
+    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(startedAt && { startedAt }), ...(endedAt && { endedAt }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && fresh.length && { skipped: fresh }), ...(live.deciding && { deciding: true }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -487,7 +490,7 @@ export class GameService {
     const names = [...new Set(prompt.options.flatMap((o) => (o.card ? [live.ocg.card(state.cards[o.card]?.cardId ?? 0)?.name ?? 'a card'] : [])))]
     const top = state.chain.at(-1)
     const to = top && live.ocg.card(state.cards[top.card]?.cardId ?? 0)?.name
-    const skip = (by: Skipped['by'], why?: string): Skipped => ({ at: prompt.id, cards: names, ...(to && { to }), by, ...(why && { why }) })
+    const skip = (by: Skipped['by'], why?: string): Skipped => ({ at: prompt.id, cards: names, ...(to && { to }), by, ...(why && { why }), turn: state.turn })
     // The engine counts the responses that answer what just happened (and
     // your trigger effects); the rest are cards that could be used at any time.
     // After your own summon or activation, with nothing of theirs on the chain, those aren't asked.
@@ -539,15 +542,18 @@ export class GameService {
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const moves: number[] = []
+    let answered: number | undefined
     const { bots = [], bot, claude, lesson, shuffled, respond, skipped, asked: forced } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
       if (!bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
+      if (!bots.includes(p) && p !== claude && !skipped?.some((s) => s.at === i)) answered = i
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
     const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, skipped, forced })
     live.moves = moves
+    live.answered = answered
     if (file.duel.forfeit) game.duel.surrender(file.duel.forfeit)
     else if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
       const q = this.ask(live, last)

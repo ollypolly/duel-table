@@ -211,7 +211,7 @@ export const ScenarioSchema = z
         endedAt: z.number().optional().describe('When it ended'),
         respond: z.enum(['all', 'auto', 'advise', 'claude']).optional().describe('When the person is asked to respond with a chain (default auto)'),
         skipped: z
-          .array(z.object({ at: z.int(), cards: z.array(z.string()), to: z.string().optional(), by: z.enum(['rules', 'claude']), why: z.string().optional() }))
+          .array(z.object({ at: z.int(), cards: z.array(z.string()), to: z.string().optional(), by: z.enum(['rules', 'claude']), why: z.string().optional(), turn: z.int().optional() }))
           .optional()
           .describe('Chances to respond that were passed for the person'),
         asked: z.int().optional().describe('An answer index where the person asked to be given a passed chance after all'),
