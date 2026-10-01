@@ -485,7 +485,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       path: '/games',
       summary: 'Start a game on the YGOPro rules engine',
       description:
-        'A session whose steps come from the rules engine. Players in bots (default ["p2"]) are answered by a random bot, its steps paced so they can be watched. Its steps can\'t be posted or undone.',
+        'A session whose steps come from the rules engine. Players in bots (default ["p2"]) are answered by a random bot, its steps paced so they can be watched. Its steps can\'t be posted; a move is taken back with /sessions/{id}/game/undo.',
       request: body(
         z
           .object({
@@ -756,6 +756,22 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       return c.json(await games.answer(c.req.valid('param').id, undefined, c.req.valid('json')), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/undo',
+      summary: "Take back the viewer's last move",
+      description:
+        "The game goes back to the question their last move began with (a choice in the Main or Battle Phase, or a response they chose to make), and what followed is dropped. Draws and shuffles repeat. Allowed a few times a game (game.undos is how many are left), when it's their move or the game is over.",
+      request: { params: IdParam },
+      responses: { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, 'Nothing to take back, or none left'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      return c.json(await games.undo(c.req.valid('param').id), 200)
     },
   )
 

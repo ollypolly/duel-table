@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { ScenarioFile } from '../src/scenarios/schema'
 import { repoContext, ROOT } from './files'
-import { GameService } from './games'
+import { GameService, UNDOS } from './games'
 import { ocgDataDir } from './ocg/lib'
 import { seededRng } from './ocg/bot'
 import { SessionError, SessionService, type SessionStore } from './sessions'
@@ -36,7 +36,7 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     const v = await games.create({ deck: 'chazz-armed-ojama', seed: 1 })
     expect(v.game).toMatchObject({ bots: ['p2'], waitingFor: 'p1' })
     expect(() => sessions.apply(v.id, { actions: [{ type: 'nextTurn' }] })).toThrow(/rules engine/)
-    expect(() => sessions.undo(v.id)).toThrow(/can't be undone/)
+    expect(() => sessions.undo(v.id)).toThrow(/takes a move back instead/)
   }, 60_000)
 
   it("starts from a scenario's setup, and rebuilds after a restart", async () => {
@@ -76,6 +76,36 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     }
     expect(v.game?.winner).toBeDefined()
     expect(kinds.has('idle')).toBe(true)
+  }, 60_000)
+
+  it('takes back a move, a few times a game', async () => {
+    const store = saving()
+    const sessions = new SessionService(ctx, store)
+    const games = new GameService(sessions, ctx)
+    const start = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1, bots: [] })
+    expect(start.game?.undos).toBeUndefined()
+    await expect(games.undo(start.id)).rejects.toThrow(/no move of yours/)
+    const endTurn = (v: typeof start) => games.answer(v.id, undefined, { id: v.game!.prompt!.id, choices: [v.game!.prompt!.options.findIndex((o) => o.label === 'End turn')] })
+
+    let v = await endTurn(start)
+    expect(v.state.activePlayer).toBe('p2')
+    expect(v.game?.undos).toBe(UNDOS)
+    v = await games.undo(v.id)
+    expect(v.state).toEqual(start.state)
+    expect(v.steps).toBe(start.steps)
+    expect(v.game).toMatchObject({ prompt: start.game!.prompt })
+    expect(v.game?.undos).toBeUndefined()
+
+    // A rebuilt game knows its moves and how many were taken back.
+    v = await endTurn(v)
+    const again = new GameService(new SessionService(ctx, store), ctx)
+    await again.get(v.id)
+    for (let left = UNDOS - 1; left > 0; left--) {
+      v = await again.undo(v.id)
+      expect(v.state).toEqual(start.state)
+      v = await again.answer(v.id, undefined, { id: v.game!.prompt!.id, choices: [v.game!.prompt!.options.findIndex((o) => o.label === 'End turn')] })
+    }
+    await expect(again.undo(v.id)).rejects.toThrow(/take-backs are used/)
   }, 60_000)
 
   it('shuffles each Deck from the seed', async () => {

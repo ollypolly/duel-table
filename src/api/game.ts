@@ -59,5 +59,6 @@ export const GameViewSchema = z.object({
   bots: z.array(PlayerSchema).describe('Players the random bot answers for'),
   prompt: GamePromptSchema.optional().describe("The open question, when it's for a person"),
   claude: ClaudeViewSchema.optional().describe('Claude, when it plays one side'),
+  undos: z.int().optional().describe('Moves you can still take back, when there is one to take back now'),
 })
 export type GameView = z.infer<typeof GameViewSchema>

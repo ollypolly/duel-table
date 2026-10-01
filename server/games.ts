@@ -7,9 +7,9 @@ import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
-import { decodeResponse, encodeResponse } from './ocg/duel'
+import { decodeResponse, encodeResponse, playerOf } from './ocg/duel'
 import { OcgGame, type Progress } from './ocg/game'
-import { loadOcg, M, ocgDataDir, type Ocg } from './ocg/lib'
+import { loadOcg, M, ocgDataDir, type Ocg, type PromptMsg } from './ocg/lib'
 import { question, type Question } from './ocg/prompt'
 import { SessionError, type SessionService, type SessionView } from './sessions'
 
@@ -34,10 +34,13 @@ export type CreateGameOptions = {
 
 // How long each bot (or Claude) step stays on screen before the next.
 export const BOT_STEP_MS = 700
+// Moves a person can take back in one game.
+export const UNDOS = 3
 
 type Asked = Extract<Question, { prompt: unknown }>
 type Seats = { bots: Player[]; claude?: Player; lesson?: boolean; shuffled: boolean }
-type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked }
+// moves: for each move a person began, how many answers had been given.
+type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[] }
 
 export class GameService {
   private games = new Map<string, Live>()
@@ -55,6 +58,8 @@ export class GameService {
   // A person answered for player (a lesson takes back a player handed over
   // for one question).
   onPersonAnswer?: (id: string, player: Player) => void
+  // A move was taken back, so the steps after it never happened.
+  onUndo?: (id: string) => void
 
   constructor(sessions: SessionService, ctx: () => ResolveContext, ocg: () => Promise<Ocg> = () => loadOcg(ocgDataDir())) {
     this.sessions = sessions
@@ -113,8 +118,12 @@ export class GameService {
     if (a.choices.length < min || a.choices.length > max) throw new SessionError(400, min === max ? `pick ${min}` : `pick ${min}-${max}`)
     if (new Set(a.choices).size !== a.choices.length || a.choices.some((c) => c >= options.length))
       throw new SessionError(400, `choices must be distinct, 0-${options.length - 1}`)
-    const p = live.game.respond(asked.answer(a.choices))
+    const at = live.game.duel.responses.length
+    const before = live.game.duel.pending
+    const response = asked.answer(a.choices)
+    const p = live.game.respond(response)
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
+    if (!live.bots.includes(player) && player !== live.claude && startsMove(before, response)) live.moves.push(at)
     if (person) this.onPersonAnswer?.(id, player)
     return this.advance(id, live, p)
   }
@@ -153,6 +162,42 @@ export class GameService {
     return this.advance(id, live, game.start())
   }
 
+  // Take back the person's last move: the game goes back to the question it
+  // began with, by replaying the answers before it. A move is a choice in the
+  // Main or Battle Phase, or a response they chose to make; what it led to
+  // (costs, targets, the other side's replies) goes with it. Draws and
+  // shuffles come out the same, as they follow from the seed.
+  async undo(id: string): Promise<SessionView> {
+    const old = await this.live(id)
+    const file = this.sessions.export(id)
+    const duel = file.duel!
+    if (this.undos(id, old) === undefined) {
+      if (duel.lesson) throw new SessionError(409, "a lesson's moves can't be taken back")
+      if ((duel.undone ?? 0) >= UNDOS) throw new SessionError(409, `all ${UNDOS} take-backs are used`)
+      throw new SessionError(409, old.moves.length ? "a move can be taken back when it's your move" : 'no move of yours to take back')
+    }
+    const to = old.moves.at(-1)!
+    const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
+    const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
+    const { bots, claude, lesson, shuffled } = old
+    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, claude, lesson, shuffled })
+    live.moves = old.moves.slice(0, -1)
+    const q = last.prompt && this.ask(live, last)
+    if (q && 'prompt' in q) live.asked = q
+    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, undone: (duel.undone ?? 0) + 1 })
+    this.onUndo?.(id)
+    this.onChange?.(id)
+    return this.sessions.get(id)
+  }
+
+  // Take-backs left, when there's a move to take back now: at a person's
+  // question, or once the game is over.
+  private undos(id: string, live: Live): number | undefined {
+    const left = UNDOS - (this.sessions.export(id).duel?.undone ?? 0)
+    const yours = live.asked && !this.held(id, live).includes(live.asked.prompt.player)
+    return !live.lesson && left > 0 && live.moves.length && (yours || live.game.duel.result) ? left : undefined
+  }
+
   async get(id: string): Promise<OcgGame> {
     return (await this.live(id)).game
   }
@@ -181,7 +226,8 @@ export class GameService {
     const claude = this.claudeView?.(id)
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
-    return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }) }
+    const undos = this.undos(id, live)
+    return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -216,8 +262,10 @@ export class GameService {
       }
       p = live.game.respond(response)
     }
+    const undone = this.sessions.export(id).duel?.undone
     const duel = {
       responses: live.game.duel.responses.map(encodeResponse),
+      ...(undone && { undone }),
       bots: live.bots,
       ...(live.claude && { claude: live.claude }),
       ...(live.lesson && { lesson: true }),
@@ -260,11 +308,16 @@ export class GameService {
     const ocg = await this.ocg()
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
-    const last = game.replay(file.duel.responses.map(decodeResponse))
+    const moves: number[] = []
+    const { bots = [], claude, lesson, shuffled } = file.duel
+    const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
+      const p = playerOf(prompt.responsePlayer())
+      if (!bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
+    })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const { bots = [], claude, lesson, shuffled } = file.duel
     const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, claude, lesson, shuffled: !!shuffled })
+    live.moves = moves
     if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
       const q = this.ask(live, last)
       if ('prompt' in q) live.asked = q
@@ -281,7 +334,7 @@ export class GameService {
 
   private track(id: string, game: OcgGame, ocg: Ocg, seed: number, seats: Seats): Live {
     const codes = [...new Set(Object.values(game.state.cards).flatMap((c) => (c.cardId === undefined ? [] : [c.cardId])))]
-    const live = { ...seats, game, ocg, rng: seededRng(seed), codes }
+    const live: Live = { ...seats, game, ocg, rng: seededRng(seed), codes, moves: [] }
     this.games.set(id, live)
     return live
   }
@@ -302,6 +355,15 @@ function quietChance(p: Progress, state: BoardState): boolean {
   if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced) || state.chain.length) return false
   const loud = new Set(['activate', 'normalSummon', 'tributeSummon', 'specialSummon', 'attack'])
   return !p.steps.some((s) => s.intent && loud.has(s.intent.type))
+}
+
+// An answer that begins a move: a choice in the Main or Battle Phase, or a
+// response that isn't a pass.
+function startsMove(prompt: PromptMsg | undefined, response: Uint8Array): boolean {
+  if (prompt instanceof M.YGOProMsgSelectIdleCmd || prompt instanceof M.YGOProMsgSelectBattleCmd) return true
+  if (!(prompt instanceof M.YGOProMsgSelectChain)) return false
+  const pass = prompt.defaultResponse()
+  return !!pass && encodeResponse(response) !== encodeResponse(pass)
 }
 
 // Every card a setup places for player, materials included.

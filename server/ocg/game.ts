@@ -54,9 +54,11 @@ export class OcgGame {
   }
 
   // Rebuild from saved answers. Returns every step, as start + respond would.
-  replay(responses: Uint8Array[]): Progress {
+  // each sees every question with the answer it got.
+  replay(responses: Uint8Array[], each?: (prompt: PromptMsg, response: Uint8Array, index: number) => void): Progress {
     const all = this.start()
-    for (const r of responses) {
+    for (const [i, r] of responses.entries()) {
+      if (this.duel.pending) each?.(this.duel.pending, r, i)
       const next = this.respond(r)
       if (next.retried) throw new Error('a saved answer was rejected on replay')
       all.steps.push(...next.steps)

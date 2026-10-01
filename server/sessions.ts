@@ -146,7 +146,7 @@ export class SessionService {
 
   undo(id: string, { byUser = false } = {}): SessionView {
     const s = this.live(id)
-    if (s.file.duel) throw new SessionError(409, "games on the rules engine can't be undone")
+    if (s.file.duel) throw new SessionError(409, "a game on the rules engine takes a move back instead (POST /sessions/:id/game/undo)")
     if (s.file.steps.length === 0) throw new SessionError(409, 'nothing to undo: the session has no steps of its own')
     this.commit({ ...s.file, steps: s.file.steps.slice(0, -1) })
     s.lesson.removed(byUser)
@@ -197,12 +197,20 @@ export class SessionService {
   restartGame(id: string, from: Pick<ScenarioFile, 'players' | 'setup' | 'start'>): SessionView {
     const s = this.live(id)
     if (!s.file.duel) throw new SessionError(409, `session ${id} isn't a game on the rules engine`)
-    const file: ScenarioFile = { ...s.file, ...from, steps: [], duel: { ...s.file.duel, responses: [], winner: undefined } }
+    return this.replaceGame({ ...s.file, ...from, steps: [], duel: { ...s.file.duel, responses: [], winner: undefined } }, "that setup doesn't work")
+  }
+
+  // A game taken back to an earlier answer: the steps up to it, all shown.
+  rewindGame(id: string, steps: Step[], duel: Duel): SessionView {
+    return this.replaceGame({ ...this.live(id).file, steps, duel }, "the game doesn't replay to there")
+  }
+
+  private replaceGame(file: ScenarioFile, problem: string): SessionView {
     const r = this.resolve(file)
-    if (!r.ok) throw new SessionError(422, "that setup doesn't work", r.errors)
-    this.sessions.set(id, { file, resolved: r.scenario, lesson: this.newLesson(id, r.scenario), updatedAt: Date.now() })
+    if (!r.ok) throw new SessionError(422, problem, r.errors)
+    this.sessions.set(file.id, { file, resolved: r.scenario, lesson: this.newLesson(file.id, r.scenario), updatedAt: Date.now() })
     this.store.save(file)
-    return this.notify(id)
+    return this.notify(file.id)
   }
 
   // Tell listeners something outside the file changed (a game's prompt).

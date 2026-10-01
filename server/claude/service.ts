@@ -74,7 +74,7 @@ export const diskClaudeStore = <R = ClaudeRecord>(dir: string): RecordStore<R> =
 const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
 
 // showOnce: the person asked for a hint, so the next message shows their side.
-// notes: what else to tell Claude in a lesson (Next pressed, an answer).
+// notes: what else to tell Claude (in a lesson, Next pressed or an answer; a move taken back).
 type Seat = ClaudeRecord & { status: ClaudeView['status']; queue: string[]; notes?: string[]; showOnce?: boolean; run?: AgentRun; busy: boolean }
 
 // Moves Claude can play in a row in a lesson before it has to stop.
@@ -119,6 +119,14 @@ export class ClaudeService {
         seat.notes = [...(seat.notes ?? []), `The person made ${player}'s move themselves instead of pressing Next.`]
       }
       if (seat.lesson.handed.some((h) => h.player === player && h.until === 'answer')) this.takeBack(id, seat, player)
+    }
+    games.onUndo = (id) => {
+      const seat = this.seat(id)
+      if (!seat) return
+      seat.seen = Math.min(seat.seen, this.sessions.export(id).steps.length)
+      seat.notes = [...(seat.notes ?? []), 'Your opponent took back their last move, which the app allows a few times a game. The table below is the game now: what came after that move, your answers included, never happened.']
+      seat.chat.push({ from: 'note', text: 'You took back your last move.' })
+      this.changed(id, seat)
     }
     // While Claude waits in a lesson, the person can make p1's move themselves.
     games.claudeHolds = (id) => {
@@ -310,6 +318,7 @@ export class ClaudeService {
   private async message(id: string, seat: Seat, prompt: GamePrompt | undefined, nudge: boolean): Promise<string> {
     const { state } = await this.games.get(id)
     const parts: string[] = []
+    parts.push(...(seat.notes?.splice(0) ?? []))
     const said = seat.queue.splice(0)
     for (const text of said) parts.push(`Your opponent says: ${text}`)
     const events = this.catchUp(id, seat)

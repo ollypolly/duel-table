@@ -1,7 +1,7 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Lightbulb } from 'lucide-react'
+import { Lightbulb, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
@@ -21,27 +21,37 @@ type Props = {
   onAnswer: (choices: number[]) => void
   onRematch?: () => void // once it's over
   onHint?: () => void // ask Claude, showing it your cards
+  onUndo?: () => void // take back your last move
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onHint, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onHint, onUndo, busy }: Props) {
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
     const f = cardFace(state, iid, cardDb)
     return f.visible || f.owner === VIEWER ? f.name : 'Face-down card'
   }
   const { prompt, winner, waitingFor } = game
+  const undo = onUndo && !!game.undos && (
+    <button type="button" className="btn flex items-center gap-1.5 text-xs" disabled={busy} onClick={onUndo} title="Go back to before your last move">
+      <Undo2 size={14} aria-hidden />
+      Take back ({game.undos} left)
+    </button>
+  )
 
   if (winner) {
     const who = winner.player === 'p1' ? 'You win!' : `${state.players[winner.player].name} wins`
     return (
       <div className="flex items-center justify-between gap-3">
         <p className="font-display text-lg font-semibold text-gold">{who}</p>
-        {onRematch && (
-          <button type="button" className="btn btn-primary" onClick={onRematch}>
-            Rematch
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {undo}
+          {onRematch && (
+            <button type="button" className="btn btn-primary" onClick={onRematch}>
+              Rematch
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -78,12 +88,15 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       ) : (
         <SingleChoice prompt={prompt} withCard={withCard} general={general} name={name} onFocus={(focused) => onChoice({ ...choice, focused })} onAnswer={onAnswer} busy={busy} />
       )}
-      {onHint && (
-        <button type="button" className="btn flex items-center gap-1.5 text-xs" onClick={onHint} title="Claude sees your hidden cards for this question only">
-          <Lightbulb size={14} className="text-gold" aria-hidden />
-          Ask Claude for a hint
-        </button>
-      )}
+      <div className="flex flex-wrap gap-1.5 empty:hidden">
+        {onHint && (
+          <button type="button" className="btn flex items-center gap-1.5 text-xs" onClick={onHint} title="Claude sees your hidden cards for this question only">
+            <Lightbulb size={14} className="text-gold" aria-hidden />
+            Ask Claude for a hint
+          </button>
+        )}
+        {undo}
+      </div>
     </div>
   )
 }
