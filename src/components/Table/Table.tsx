@@ -220,6 +220,14 @@ export function Table({
   const intentIid = intentCardOf(step)
   const focus = !followFocus ? 'free' : freePlay ? 'all' : stepFocus(entry.state, step, entry.events)
   const stepWarnings = scenario.warnings.filter((w) => w.startsWith(`Step ${position},`))
+  // The toolbar strip stays through the moment a new step lands (when the
+  // position is briefly behind the end), so the board under it doesn't jump.
+  const [gone, setGone] = useState(!freePlay)
+  useEffect(() => {
+    const t = setTimeout(() => setGone(!freePlay), freePlay ? 0 : 800)
+    return () => clearTimeout(t)
+  }, [freePlay])
+  const barShown = freePlay || !gone
   const closeInspector = useCallback(() => inspect(undefined), [inspect])
   const { p1, p2 } = scenario.game.setup.players
   const seatDecks = useMemo(() => ({ p1: p1.deck, p2: p2.deck }), [p1.deck, p2.deck])
@@ -236,8 +244,8 @@ export function Table({
         status={<StatusBar view={view} lpChanges={lpChanges} clock={clock} onPhase={freePlay ? (phase) => fp.act({ type: 'phase', phase }) : undefined} />}
       />
 
-      {freePlay && (
-        <div className="relative z-30 flex justify-center border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur">
+      {barShown && (
+        <div className={`relative z-30 flex justify-center border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur ${freePlay ? '' : 'pointer-events-none'}`}>
           <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
         </div>
       )}
