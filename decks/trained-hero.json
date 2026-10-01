@@ -1,0 +1,156 @@
+{
+  "id": "trained-hero",
+  "name": "HERO (trained)",
+  "main": [
+    {
+      "name": "Vision HERO Faris",
+      "count": 3
+    },
+    {
+      "name": "Vision HERO Increase",
+      "count": 2
+    },
+    {
+      "name": "Vision HERO Vyon",
+      "count": 2
+    },
+    {
+      "name": "Elemental HERO Stratos",
+      "count": 2
+    },
+    {
+      "name": "Destiny HERO - Malicious",
+      "count": 2
+    },
+    {
+      "name": "Elemental HERO Neos",
+      "count": 1
+    },
+    {
+      "name": "Destiny HERO - Denier",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Shadow Mist",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Liquid Soldier",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Honest Neos",
+      "count": 1
+    },
+    {
+      "name": "Destiny HERO - Plasma",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 2
+    },
+    {
+      "name": "A Hero Lives",
+      "count": 3
+    },
+    {
+      "name": "Mask Change",
+      "count": 3
+    },
+    {
+      "name": "Miracle Fusion",
+      "count": 1
+    },
+    {
+      "name": "Fusion Destiny",
+      "count": 1
+    },
+    {
+      "name": "Polymerization",
+      "count": 2
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Foolish Burial",
+      "count": 1
+    },
+    {
+      "name": "Reinforcement of the Army",
+      "count": 1
+    },
+    {
+      "name": "Favorite Contact",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Destiny HERO - Dangerous",
+      "count": 1
+    },
+    {
+      "name": "Masked HERO Blast",
+      "count": 1
+    },
+    {
+      "name": "Masked HERO Dark Law",
+      "count": 2
+    },
+    {
+      "name": "Elemental HERO Sunrise",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Flame Wingman - Infernal Rage",
+      "count": 1
+    },
+    {
+      "name": "Vision HERO Trinity",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Absolute Zero",
+      "count": 1
+    },
+    {
+      "name": "Destiny HERO - Destroyer Phoenix Enforcer",
+      "count": 1
+    },
+    {
+      "name": "Elemental HERO Shining Neos Wingman",
+      "count": 1
+    },
+    {
+      "name": "Wake Up Your Elemental HERO",
+      "count": 1
+    },
+    {
+      "name": "Number 41: Bagooska the Terribly Tired Tapir",
+      "count": 1
+    },
+    {
+      "name": "Xtra HERO Cross Crusader",
+      "count": 1
+    },
+    {
+      "name": "Xtra HERO Infernal Devicer",
+      "count": 1
+    },
+    {
+      "name": "Xtra HERO Wonder Driver",
+      "count": 1
+    }
+  ]
+}

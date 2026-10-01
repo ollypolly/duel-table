@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b",
     "fetch-cards": "tsx scripts/fetch-cards.ts",
-    "fetch-ocg": "bash scripts/fetch-ocg.sh"
+    "fetch-ocg": "bash scripts/fetch-ocg.sh",
+    "import-agent-decks": "tsx scripts/import-agent-decks.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.285",

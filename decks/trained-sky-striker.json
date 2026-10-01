@@ -1,0 +1,132 @@
+{
+  "id": "trained-sky-striker",
+  "name": "Sky Striker (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Ace - Raye",
+      "count": 3
+    },
+    {
+      "name": "Sky Striker Ace - Roze",
+      "count": 1
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Pillar of the Future - Cyanos",
+      "count": 2
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 2
+    },
+    {
+      "name": "Metalfoes Fusion",
+      "count": 1
+    },
+    {
+      "name": "Foolish Burial Goods",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Maneuver - Afterburners!",
+      "count": 1
+    },
+    {
+      "name": "Pot of Desires",
+      "count": 1
+    },
+    {
+      "name": "Upstart Goblin",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Reinforcement of the Army",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Mobilize - Engage!",
+      "count": 3
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Mecha - Hornet Drones",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Mecha - Widow Anchor",
+      "count": 3
+    },
+    {
+      "name": "Sky Striker Mecha - Shark Cannon",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Mobilize - Linkage!",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Mecha Modules - Multirole",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Airspace - Area Zero",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Accesscode Talker",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Ace - Zeke",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Ace - Azalea",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Ace - Camellia",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Ace - Kagari",
+      "count": 3
+    },
+    {
+      "name": "Sky Striker Ace - Shizuku",
+      "count": 3
+    },
+    {
+      "name": "Sky Striker Ace - Hayate",
+      "count": 3
+    },
+    {
+      "name": "Sky Striker Ace - Kaina",
+      "count": 1
+    }
+  ]
+}

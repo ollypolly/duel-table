@@ -1,0 +1,128 @@
+{
+  "id": "trained-tenyi-swordsoul",
+  "name": "Tenyi Swordsoul (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Archnemeses Protos",
+      "count": 1
+    },
+    {
+      "name": "Tenyi Spirit - Ashuna",
+      "count": 2
+    },
+    {
+      "name": "Tenyi Spirit - Vishuda",
+      "count": 1
+    },
+    {
+      "name": "Swordsoul Strategist Longyuan",
+      "count": 3
+    },
+    {
+      "name": "Swordsoul of Taia",
+      "count": 3
+    },
+    {
+      "name": "Swordsoul of Mo Ye",
+      "count": 3
+    },
+    {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 3
+    },
+    {
+      "name": "Tenyi Spirit - Adhara",
+      "count": 1
+    },
+    {
+      "name": "Pot of Desires",
+      "count": 2
+    },
+    {
+      "name": "Swordsoul Emergence",
+      "count": 3
+    },
+    {
+      "name": "Swordsoul Sacred Summit",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Swordsoul Blackout",
+      "count": 2
+    }
+  ],
+  "extra": [
+    {
+      "name": "Geomathmech Final Sigma",
+      "count": 1
+    },
+    {
+      "name": "Psychic End Punisher",
+      "count": 1
+    },
+    {
+      "name": "Swordsoul Supreme Sovereign - Chengying",
+      "count": 1
+    },
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Swordsoul Sinister Sovereign - Qixing Longyuan",
+      "count": 1
+    },
+    {
+      "name": "Adamancipator Risen - Dragite",
+      "count": 1
+    },
+    {
+      "name": "Draco Berserker of the Tenyi",
+      "count": 1
+    },
+    {
+      "name": "Swordsoul Grandmaster - Chixiao",
+      "count": 2
+    },
+    {
+      "name": "Baxia, Brightness of the Yang Zing",
+      "count": 1
+    },
+    {
+      "name": "Yazi, Evil of the Yang Zing",
+      "count": 1
+    },
+    {
+      "name": "Monk of the Tenyi",
+      "count": 3
+    },
+    {
+      "name": "Shaman of the Tenyi",
+      "count": 1
+    }
+  ]
+}

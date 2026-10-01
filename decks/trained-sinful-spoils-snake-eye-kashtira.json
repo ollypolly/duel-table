@@ -1,0 +1,152 @@
+{
+  "id": "trained-sinful-spoils-snake-eye-kashtira",
+  "name": "Sinful Spoils Snake-Eye Kashtira (trained)",
+  "main": [
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "Snake-Eye Ash",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eye Oak",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eyes Poplar",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Bystial Druiswurm",
+      "count": 1
+    },
+    {
+      "name": "Kashtira Fenrir",
+      "count": 1
+    },
+    {
+      "name": "Kashtira Unicorn",
+      "count": 2
+    },
+    {
+      "name": "Diabellstar the Black Witch",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eyes Flamberge Dragon",
+      "count": 2
+    },
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Original Sinful Spoils - Snake-Eye",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Sinful Spoils of Subversion - Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Divine Temple of the Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Kashtira Birth",
+      "count": 1
+    },
+    {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "count": 3
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Forbidden Droplet",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    },
+    {
+      "name": "Relinquished Anima",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Phoenix",
+      "count": 1
+    },
+    {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Sunlight Wolf",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "Dharc the Dark Charmer, Gloomy",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Unicorn",
+      "count": 1
+    },
+    {
+      "name": "Selene, Queen of the Master Magicians",
+      "count": 1
+    },
+    {
+      "name": "Amphibious Swarmship Amblowhale",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Accesscode Talker",
+      "count": 1
+    },
+    {
+      "name": "Worldsea Dragon Zealantis",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    }
+  ]
+}

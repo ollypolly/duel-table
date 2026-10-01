@@ -1,0 +1,144 @@
+{
+  "id": "trained-bystial-dragon-link-2",
+  "name": "Bystial Dragon Link 2 (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Blaster, Dragon Ruler of Infernos",
+      "count": 1
+    },
+    {
+      "name": "Tenpai Dragon Chundra",
+      "count": 3
+    },
+    {
+      "name": "Tenpai Dragon Paidra",
+      "count": 3
+    },
+    {
+      "name": "Tenpai Dragon Fadra",
+      "count": 2
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Lightning Storm",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Terraforming",
+      "count": 1
+    },
+    {
+      "name": "Gold Sarcophagus",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Forbidden Droplet",
+      "count": 2
+    },
+    {
+      "name": "Harpie's Feather Duster",
+      "count": 1
+    },
+    {
+      "name": "Sangen Kaimen",
+      "count": 3
+    },
+    {
+      "name": "Sangen Summoning",
+      "count": 3
+    },
+    {
+      "name": "Necrovalley",
+      "count": 1
+    },
+    {
+      "name": "Way Where There's a Will",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Red Reboot",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Black-Winged Assault Dragon",
+      "count": 1
+    },
+    {
+      "name": "Ruddy Rose Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sangenpai Transcendent Dragion",
+      "count": 1
+    },
+    {
+      "name": "Trident Dragion",
+      "count": 1
+    },
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Crystal Wing Synchro Dragon",
+      "count": 1
+    },
+    {
+      "name": "Black-Winged Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sangenpai Bident Dragion",
+      "count": 2
+    },
+    {
+      "name": "Black Rose Moonlight Dragon",
+      "count": 1
+    },
+    {
+      "name": "Ancient Fairy Dragon",
+      "count": 1
+    },
+    {
+      "name": "Shooting Riser Dragon",
+      "count": 1
+    },
+    {
+      "name": "Ultimaya Tzolkin",
+      "count": 1
+    },
+    {
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "count": 1
+    }
+  ]
+}

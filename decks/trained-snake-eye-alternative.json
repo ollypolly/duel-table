@@ -1,0 +1,172 @@
+{
+  "id": "trained-snake-eye-alternative",
+  "name": "Snake-Eye Alternative (trained)",
+  "main": [
+    {
+      "name": "Snake-Eyes Flamberge Dragon",
+      "count": 1
+    },
+    {
+      "name": "Diabellstar the Black Witch",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Marionetter",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Malwisp",
+      "count": 2
+    },
+    {
+      "name": "Altergeist Multifaker",
+      "count": 1
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Altergeist Silquitous",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eye Ash",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eyes Poplar",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Meluseek",
+      "count": 3
+    },
+    {
+      "name": "Altergeist Peritrator",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Pookuery",
+      "count": 2
+    },
+    {
+      "name": "D.D. Crow",
+      "count": 1
+    },
+    {
+      "name": "One for One",
+      "count": 1
+    },
+    {
+      "name": "Where Arf Thou?",
+      "count": 1
+    },
+    {
+      "name": "Pot of Prosperity",
+      "count": 1
+    },
+    {
+      "name": "Original Sinful Spoils - Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Dramatic Snake-Eye Chase",
+      "count": 1
+    },
+    {
+      "name": "Sky Striker Mecha - Hornet Drones",
+      "count": 1
+    },
+    {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "count": 3
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Altergeist Revitalization",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Manifestation",
+      "count": 1
+    },
+    {
+      "name": "Sinful Spoils of Slumber - Morrian",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Protocol",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Adminia",
+      "count": 1
+    },
+    {
+      "name": "Amphibious Swarmship Amblowhale",
+      "count": 1
+    },
+    {
+      "name": "Accesscode Talker",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Primebanshee",
+      "count": 1
+    },
+    {
+      "name": "Selene, Queen of the Master Magicians",
+      "count": 1
+    },
+    {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "Altergeist Hexstia",
+      "count": 2
+    },
+    {
+      "name": "Sky Striker Ace - Camellia",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    },
+    {
+      "name": "Relinquished Anima",
+      "count": 1
+    }
+  ]
+}

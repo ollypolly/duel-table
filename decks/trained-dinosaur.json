@@ -1,0 +1,132 @@
+{
+  "id": "trained-dinosaur",
+  "name": "Dinosaur (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 2
+    },
+    {
+      "name": "Kashtira Fenrir",
+      "count": 1
+    },
+    {
+      "name": "Kashtira Unicorn",
+      "count": 3
+    },
+    {
+      "name": "Dimension Shifter",
+      "count": 2
+    },
+    {
+      "name": "Dogmatika Ecclesia, the Virtuous",
+      "count": 1
+    },
+    {
+      "name": "Barrier Statue of the Inferno",
+      "count": 1
+    },
+    {
+      "name": "Barrier Statue of the Torrent",
+      "count": 3
+    },
+    {
+      "name": "Fossil Dyna Pachycephalo",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Nadir Servant",
+      "count": 2
+    },
+    {
+      "name": "Pot of Desires",
+      "count": 1
+    },
+    {
+      "name": "Pot of Prosperity",
+      "count": 1
+    },
+    {
+      "name": "Pot of Extravagance",
+      "count": 1
+    },
+    {
+      "name": "Clockwork Night",
+      "count": 2
+    },
+    {
+      "name": "Kashtira Birth",
+      "count": 1
+    },
+    {
+      "name": "Pressured Planet Wraitsoth",
+      "count": 1
+    },
+    {
+      "name": "Dogmatika Punishment",
+      "count": 2
+    },
+    {
+      "name": "Crackdown",
+      "count": 3
+    },
+    {
+      "name": "Solemn Judgment",
+      "count": 3
+    },
+    {
+      "name": "Solemn Warning",
+      "count": 2
+    }
+  ],
+  "extra": [
+    {
+      "name": "Garura, Wings of Resonant Life",
+      "count": 2
+    },
+    {
+      "name": "Elder Entity N'tss",
+      "count": 2
+    },
+    {
+      "name": "Swordsoul Supreme Sovereign - Chengying",
+      "count": 1
+    },
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Wind Pegasus @Ignister",
+      "count": 1
+    },
+    {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "count": 1
+    },
+    {
+      "name": "Kashtira Arise-Heart",
+      "count": 2
+    },
+    {
+      "name": "Number 11: Big Eye",
+      "count": 2
+    },
+    {
+      "name": "Tri-Brigade Arms Bucephalus II",
+      "count": 1
+    },
+    {
+      "name": "Artemis, the Magistus Moon Maiden",
+      "count": 2
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "id": "trained-blackwing",
+  "name": "Blackwing (trained)",
+  "main": [
+    {
+      "name": "Blackwing - Sirocco the Dawn",
+      "count": 1
+    },
+    {
+      "name": "Blackwing - Kris the Crack of Dawn",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Shura the Blue Flame",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Bora the Spear",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Zephyros the Elite",
+      "count": 1
+    },
+    {
+      "name": "Blackwing - Kalut the Moon Shadow",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Gale the Whirlwind",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Blizzard the Far North",
+      "count": 3
+    },
+    {
+      "name": "Blackwing - Oroshi the Squall",
+      "count": 1
+    },
+    {
+      "name": "Allure of Darkness",
+      "count": 2
+    },
+    {
+      "name": "Dark Hole",
+      "count": 1
+    },
+    {
+      "name": "Mystical Space Typhoon",
+      "count": 2
+    },
+    {
+      "name": "Book of Moon",
+      "count": 1
+    },
+    {
+      "name": "Forbidden Lance",
+      "count": 2
+    },
+    {
+      "name": "Black Whirlwind",
+      "count": 3
+    },
+    {
+      "name": "Icarus Attack",
+      "count": 3
+    },
+    {
+      "name": "Torrential Tribute",
+      "count": 1
+    },
+    {
+      "name": "Delta Crow - Anti Reverse",
+      "count": 1
+    },
+    {
+      "name": "Black Sonic",
+      "count": 2
+    },
+    {
+      "name": "Solemn Warning",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Trishula, Dragon of the Ice Barrier",
+      "count": 1
+    },
+    {
+      "name": "Blackwing - Silverwind the Ascendant",
+      "count": 1
+    },
+    {
+      "name": "Assault Blackwing - Raikiri the Rain Shower",
+      "count": 1
+    },
+    {
+      "name": "Assault Blackwing - Chidori the Rain Sprinkling",
+      "count": 1
+    },
+    {
+      "name": "Blackwing Tamer - Obsidian Hawk Joe",
+      "count": 1
+    },
+    {
+      "name": "Blackwing Armor Master",
+      "count": 1
+    },
+    {
+      "name": "Black Rose Dragon",
+      "count": 1
+    },
+    {
+      "name": "Blackwing - Nothung the Starlight",
+      "count": 1
+    },
+    {
+      "name": "Blackwing Armed Wing",
+      "count": 1
+    },
+    {
+      "name": "Blackwing - Gram the Shining Star",
+      "count": 1
+    },
+    {
+      "name": "Dark Rebellion Xyz Dragon",
+      "count": 1
+    },
+    {
+      "name": "Ice Beast Zerofyne",
+      "count": 1
+    },
+    {
+      "name": "Castel, the Skyblaster Musketeer",
+      "count": 1
+    },
+    {
+      "name": "Raidraptor - Force Strix",
+      "count": 1
+    },
+    {
+      "name": "Wind-Up Zenmaines",
+      "count": 1
+    }
+  ]
+}

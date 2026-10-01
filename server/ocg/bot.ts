@@ -56,6 +56,17 @@ export function botResponse(m: PromptMsg, rng: Rng, attempt = 0, codes: number[]
     const order = shuffled([...m.cards.keys()], int)
     return m.prepareResponse(order.slice(0, Math.max(1, m.min + (attempt % Math.max(1, m.cards.length)))).map((i) => M.IndexResponse(i)))
   }
+  if (m instanceof M.YGOProMsgSelectCounter) {
+    // Take them off the cards in order until there are enough.
+    let left = m.counterCount
+    return m.prepareResponse(
+      m.cards.map((c, i) => {
+        const count = Math.min(left, c.counterCount)
+        left -= count
+        return { card: M.IndexResponse(i), count }
+      }),
+    )
+  }
   if (m instanceof M.YGOProMsgAnnounceCard && codes.length) return m.prepareResponse(codes[(attempt + int(codes.length)) % codes.length])
   if (m instanceof M.YGOProMsgAnnounceNumber) return m.prepareResponse(M.IndexResponse(int(m.numbers.length)))
   if (m instanceof M.YGOProMsgAnnounceRace) return m.prepareResponse(1)

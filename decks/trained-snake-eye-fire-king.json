@@ -1,0 +1,152 @@
+{
+  "id": "trained-snake-eye-fire-king",
+  "name": "Snake-Eye Fire King (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eyes Flamberge Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sacred Fire King Garunix",
+      "count": 1
+    },
+    {
+      "name": "Fire King High Avatar Kirin",
+      "count": 3
+    },
+    {
+      "name": "Diabellstar the Black Witch",
+      "count": 1
+    },
+    {
+      "name": "Fire King Avatar Arvata",
+      "count": 1
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eye Ash",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eyes Poplar",
+      "count": 3
+    },
+    {
+      "name": "Legendary Fire King Ponix",
+      "count": 1
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 1
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "Sinful Spoils of Subversion - Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Bonfire",
+      "count": 3
+    },
+    {
+      "name": "Original Sinful Spoils - Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "count": 3
+    },
+    {
+      "name": "Fire King Sky Burn",
+      "count": 1
+    },
+    {
+      "name": "Fire King Sanctuary",
+      "count": 1
+    },
+    {
+      "name": "Fire King Island",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "Garunix Eternity, Hyang of the Fire Kings",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Raging Phoenix",
+      "count": 1
+    },
+    {
+      "name": "Amphibious Swarmship Amblowhale",
+      "count": 1
+    },
+    {
+      "name": "Worldsea Dragon Zealantis",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 2
+    },
+    {
+      "name": "Decode Talker Heatsoul",
+      "count": 1
+    },
+    {
+      "name": "Dharc the Dark Charmer, Gloomy",
+      "count": 1
+    },
+    {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Sunlight Wolf",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    }
+  ]
+}

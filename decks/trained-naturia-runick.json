@@ -1,0 +1,132 @@
+{
+  "id": "trained-naturia-runick",
+  "name": "Naturia Runick (trained)",
+  "main": [
+    {
+      "name": "Naturia Mole Cricket",
+      "count": 3
+    },
+    {
+      "name": "Naturia Sunflower",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Naturia Camellia",
+      "count": 3
+    },
+    {
+      "name": "Foolish Burial Goods",
+      "count": 1
+    },
+    {
+      "name": "Runick Fountain",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 1
+    },
+    {
+      "name": "Forbidden Droplet",
+      "count": 1
+    },
+    {
+      "name": "Runick Destruction",
+      "count": 1
+    },
+    {
+      "name": "Runick Dispelling",
+      "count": 2
+    },
+    {
+      "name": "Runick Flashing Fire",
+      "count": 3
+    },
+    {
+      "name": "Runick Freezing Curses",
+      "count": 2
+    },
+    {
+      "name": "Runick Golden Droplet",
+      "count": 2
+    },
+    {
+      "name": "Runick Slumber",
+      "count": 2
+    },
+    {
+      "name": "Runick Smiting Storm",
+      "count": 3
+    },
+    {
+      "name": "Runick Tip",
+      "count": 2
+    },
+    {
+      "name": "Naturia Blessing",
+      "count": 3
+    },
+    {
+      "name": "Naturia Sacred Tree",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Hugin the Runick Wings",
+      "count": 3
+    },
+    {
+      "name": "Geri the Runick Fangs",
+      "count": 2
+    },
+    {
+      "name": "Naturia Beast",
+      "count": 1
+    },
+    {
+      "name": "Coral Dragon",
+      "count": 1
+    },
+    {
+      "name": "Tri-Edge Master",
+      "count": 1
+    },
+    {
+      "name": "Scarlight Red Dragon Archfiend",
+      "count": 1
+    },
+    {
+      "name": "Ravenous Crocodragon Archethys",
+      "count": 1
+    },
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Swordsoul Supreme Sovereign - Chengying",
+      "count": 1
+    },
+    {
+      "name": "Number 60: Dugares the Timeless",
+      "count": 1
+    },
+    {
+      "name": "Number 41: Bagooska the Terribly Tired Tapir",
+      "count": 1
+    },
+    {
+      "name": "Donner, Dagger Fur Hire",
+      "count": 1
+    }
+  ]
+}

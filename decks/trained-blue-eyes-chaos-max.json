@@ -1,0 +1,124 @@
+{
+  "id": "trained-blue-eyes-chaos-max",
+  "name": "Blue-Eyes Chaos MAX (trained)",
+  "main": [
+    {
+      "name": "Blue-Eyes White Dragon",
+      "count": 2
+    },
+    {
+      "name": "Blue-Eyes Chaos MAX Dragon",
+      "count": 3
+    },
+    {
+      "name": "Impcantation Talismandra",
+      "count": 3
+    },
+    {
+      "name": "Creature Swap",
+      "count": 3
+    },
+    {
+      "name": "Blue-Eyes Alternative White Dragon",
+      "count": 1
+    },
+    {
+      "name": "Manju of the Ten Thousand Hands",
+      "count": 3
+    },
+    {
+      "name": "Impcantation Candoll",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 1
+    },
+    {
+      "name": "The Melody of Awakening Dragon",
+      "count": 3
+    },
+    {
+      "name": "Upstart Goblin",
+      "count": 3
+    },
+    {
+      "name": "Chaos Form",
+      "count": 1
+    },
+    {
+      "name": "Advanced Ritual Art",
+      "count": 3
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 3
+    },
+    {
+      "name": "Scapegoat",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 2
+    },
+    {
+      "name": "Reckless Greed",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Borreload Dragon",
+      "count": 1
+    },
+    {
+      "name": "Borrelsword Dragon",
+      "count": 1
+    },
+    {
+      "name": "Saryuja Skull Dread",
+      "count": 1
+    },
+    {
+      "name": "Firewall Dragon",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Gryphon",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Unicorn",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Phoenix",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Cerberus",
+      "count": 1
+    },
+    {
+      "name": "Missus Radiant",
+      "count": 2
+    },
+    {
+      "name": "Security Dragon",
+      "count": 1
+    },
+    {
+      "name": "Link Spider",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 2
+    }
+  ]
+}

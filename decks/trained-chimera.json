@@ -1,0 +1,132 @@
+{
+  "id": "trained-chimera",
+  "name": "Chimera (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 3
+    },
+    {
+      "name": "Nightmare Apprentice",
+      "count": 3
+    },
+    {
+      "name": "Big-Winged Berfomet",
+      "count": 2
+    },
+    {
+      "name": "Mirror Swordknight",
+      "count": 3
+    },
+    {
+      "name": "Gazelle the King of Mythical Claws",
+      "count": 3
+    },
+    {
+      "name": "Edge Imp Chain",
+      "count": 2
+    },
+    {
+      "name": "Barrier Statue of the Abyss",
+      "count": 1
+    },
+    {
+      "name": "Cornfield Coatl",
+      "count": 3
+    },
+    {
+      "name": "Master Tao the Chanter",
+      "count": 1
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 2
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "Polymerization",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 2
+    },
+    {
+      "name": "Frightfur Patchwork",
+      "count": 3
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Chimera Fusion",
+      "count": 3
+    },
+    {
+      "name": "Sinful Spoils of Slumber - Morrian",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Guardian Chimera",
+      "count": 2
+    },
+    {
+      "name": "Chimera the Illusion Beast",
+      "count": 1
+    },
+    {
+      "name": "Magnum the Reliever",
+      "count": 1
+    },
+    {
+      "name": "Predaplant Dragostapelia",
+      "count": 1
+    },
+    {
+      "name": "Berfomet the Mythical King of Phantom Beasts",
+      "count": 2
+    },
+    {
+      "name": "Chimera the King of Phantom Beasts",
+      "count": 2
+    },
+    {
+      "name": "Garura, Wings of Resonant Life",
+      "count": 1
+    },
+    {
+      "name": "Chaos Angel",
+      "count": 1
+    },
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "Beatrice, Lady of the Eternal",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "Muckraker From the Underworld",
+      "count": 1
+    }
+  ]
+}

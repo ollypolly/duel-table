@@ -6,16 +6,20 @@ import { PLAYERS, type BoardState, type Player, type Step } from '../src/engine'
 import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
+import { AgentBot, agentCodes, agentUrl } from './ocg/agentBot'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
 import { decodeResponse, encodeResponse, playerOf } from './ocg/duel'
 import { OcgGame, type Progress } from './ocg/game'
 import { loadOcg, M, ocgDataDir, type Ocg, type PromptMsg } from './ocg/lib'
 import { question, type Question } from './ocg/prompt'
+import { ROOT } from './files'
 import { SessionError, type SessionService, type SessionView } from './sessions'
 
 // claude: the player Claude answers for, with its model and coach setting.
 // lesson: Claude runs the game as a lesson on topic, answering for whichever
 // players it holds (both, to begin with).
+// bot: which bot answers for the players in bots: the trained one (ygo-agent)
+// or, by default, the random one.
 // scenario: start from that scenario's setup (hands, fields, LP) instead of
 // two decks and opening hands.
 export type CreateGameOptions = {
@@ -24,6 +28,7 @@ export type CreateGameOptions = {
   opponentDeck?: string
   seed?: number
   bots?: Player[]
+  bot?: BotKind
   claude?: Player
   lesson?: boolean
   topic?: string
@@ -38,15 +43,21 @@ export const BOT_STEP_MS = 700
 export const UNDOS = 3
 
 type Asked = Extract<Question, { prompt: unknown }>
-type Seats = { bots: Player[]; claude?: Player; lesson?: boolean; shuffled: boolean }
+export type BotKind = 'random' | 'agent'
+type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean }
 // moves: for each move a person began, how many answers had been given.
-type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[] }
+// agents: the trained bot's side of the conversation, for each player it plays.
+type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; agents?: Partial<Record<Player, AgentBot>> }
+
+// Where the trained bot is served, and the cards it knows.
+export type AgentConfig = { url: string; codes: Set<number> }
 
 export class GameService {
   private games = new Map<string, Live>()
   private sessions: SessionService
   private ctx: () => ResolveContext
   private ocg: () => Promise<Ocg>
+  private agent?: AgentConfig
   // Called when a game is created, before its first move, and whenever it
   // moves on or asks something (Claude listens).
   onCreate?: (id: string, opts: CreateGameOptions) => void
@@ -63,17 +74,59 @@ export class GameService {
   // The person gave up.
   onForfeit?: (id: string) => void
 
-  constructor(sessions: SessionService, ctx: () => ResolveContext, ocg: () => Promise<Ocg> = () => loadOcg(ocgDataDir())) {
+  constructor(
+    sessions: SessionService,
+    ctx: () => ResolveContext,
+    ocg: () => Promise<Ocg> = () => loadOcg(ocgDataDir()),
+    agent: AgentConfig | undefined = agentUrl() ? { url: agentUrl()!, codes: agentCodes(ROOT) } : undefined,
+  ) {
     this.sessions = sessions
     this.ctx = ctx
     this.ocg = ocg
+    this.agent = agent
     sessions.gameView = (id) => this.view(id)
-    sessions.onRemove.push((id) => this.games.delete(id))
+    sessions.onRemove.push((id) => {
+      this.hangUp(id)
+      this.games.delete(id)
+    })
+  }
+
+  // The decks the trained bot can play: those made only of cards it knows.
+  // Undefined when it isn't set up.
+  agentDecks(): string[] | undefined {
+    if (!this.agent) return undefined
+    const { db, decks } = this.ctx()
+    const { codes } = this.agent
+    const knows = (name: string) => {
+      const id = db.byName(name)?.id
+      return id !== undefined && (codes.has(id) || this.aliases?.get(id) !== undefined)
+    }
+    return Object.values(decks as Record<string, DeckFile>)
+      .filter((d) => [...d.main, ...d.extra].every((e) => knows(e.name)))
+      .map((d) => d.id)
+  }
+
+  // Printings the trained bot knows under another code, once the engine's
+  // card data is loaded.
+  private aliases?: Map<number, number>
+  async loadAgent() {
+    if (!this.agent || this.aliases) return
+    const ocg = await this.ocg()
+    const aliases = new Map<number, number>()
+    for (const c of ocg.cards()) if (c.alias && this.agent.codes.has(c.alias)) aliases.set(c.code, c.alias)
+    this.aliases = aliases
   }
 
   async create(opts: CreateGameOptions): Promise<SessionView> {
     const ocg = await this.ocg()
     const bots = opts.claude || opts.lesson ? [] : (opts.bots ?? ['p2'])
+    const bot = bots.length && opts.bot === 'agent' ? 'agent' : undefined
+    if (bot) {
+      await this.loadAgent()
+      const deck = opts.opponentDeck ?? opts.deck ?? ''
+      if (!this.agent) throw new SessionError(501, "the trained bot isn't set up (YGO_AGENT_URL)")
+      if (opts.scenario || !this.agentDecks()!.includes(deck)) throw new SessionError(422, `the trained bot can't play ${opts.scenario ? 'from a position' : deck}: it only knows its own decks`)
+    }
     const { id } = this.sessions.create({
       ...(opts.scenario
         ? {
@@ -87,7 +140,7 @@ export class GameService {
             seed: opts.seed,
             title: opts.title ?? `${opts.lesson ? 'Lesson' : 'Game'}: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
           }),
-      ...(bots.includes('p2') && { opponentName: 'Bot' }),
+      ...(bots.includes('p2') && { opponentName: bot ? 'Trained bot' : 'Bot' }),
       // Claude plays as the character its deck belongs to, if it has one.
       ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck ?? ''] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
     })
@@ -98,7 +151,7 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, file.seed!, { bots, claude: opts.claude, lesson: opts.lesson, shuffled: true })
+    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
@@ -159,8 +212,8 @@ export class GameService {
       throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
     this.sessions.restartGame(id, from)
-    const { bots, claude, lesson, shuffled } = old
-    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, claude, lesson, shuffled })
+    const { bots, bot, claude, lesson, shuffled } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled })
     return this.advance(id, live, game.start())
   }
 
@@ -181,8 +234,8 @@ export class GameService {
     const to = old.moves.at(-1)!
     const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
     const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
-    const { bots, claude, lesson, shuffled } = old
-    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, claude, lesson, shuffled })
+    const { bots, bot, claude, lesson, shuffled } = old
+    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled })
     live.moves = old.moves.slice(0, -1)
     const q = last.prompt && this.ask(live, last)
     if (q && 'prompt' in q) live.asked = q
@@ -251,7 +304,7 @@ export class GameService {
   // Save what happened, then answer for bots, and for people where there's
   // nothing to decide, until a person has a real question (or the duel ends).
   // Bot steps are paced so they can be watched.
-  private advance(id: string, live: Live, first: Progress): SessionView {
+  private async advance(id: string, live: Live, first: Progress): Promise<SessionView> {
     const steps: Step[] = []
     const paced = new Set<Step>()
     let p = first
@@ -268,7 +321,14 @@ export class GameService {
       attempt = p.retried ? attempt + 1 : 0
       actor = p.waitingFor
       let response: Uint8Array
-      if (live.bots.includes(actor)) response = botResponse(p.prompt, live.rng, attempt, live.codes)
+      if (live.bots.includes(actor)) {
+        // The trained bot's pick, or the random bot's when it has none (or
+        // the core turned its pick down).
+        const { state } = live.game
+        const picked = attempt === 0 ? await live.agents?.[actor]?.respond(p.prompt, { ocg: live.ocg, duel: live.game.duel, me: actor, turn: state.turn, phase: state.phase, active: state.activePlayer }) : undefined
+        if (live.game.duel.result) break // given up while it was thinking
+        response = picked ?? botResponse(p.prompt, live.rng, attempt, live.codes)
+      }
       else if (quietChance(p, live.game.state)) response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
       else {
         const q = this.ask(live, p)
@@ -286,6 +346,7 @@ export class GameService {
       ...(undone && { undone }),
       ...(forfeit && { forfeit }),
       bots: live.bots,
+      ...(live.bot && { bot: live.bot }),
       ...(live.claude && { claude: live.claude }),
       ...(live.lesson && { lesson: true }),
       ...(live.shuffled && { shuffled: true }),
@@ -328,14 +389,14 @@ export class GameService {
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const moves: number[] = []
-    const { bots = [], claude, lesson, shuffled } = file.duel
+    const { bots = [], bot, claude, lesson, shuffled } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
       if (!bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, claude, lesson, shuffled: !!shuffled })
+    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled })
     live.moves = moves
     if (file.duel.forfeit) game.duel.surrender(file.duel.forfeit)
     else if (last.prompt && last.waitingFor && !live.bots.includes(last.waitingFor)) {
@@ -354,9 +415,23 @@ export class GameService {
 
   private track(id: string, game: OcgGame, ocg: Ocg, seed: number, seats: Seats): Live {
     const codes = [...new Set(Object.values(game.state.cards).flatMap((c) => (c.cardId === undefined ? [] : [c.cardId])))]
-    const live: Live = { ...seats, game, ocg, rng: seededRng(seed), codes, moves: [] }
+    // A game of the trained bot's starts a fresh conversation with it: after
+    // a take-back or a restart it has the table, but not its memory of the duel.
+    this.hangUp(id)
+    const { agent } = this
+    const agents = seats.bot === 'agent' && agent ? Object.fromEntries(seats.bots.map((p) => [p, new AgentBot(agent.url, agent.codes)])) : undefined
+    const live: Live = { ...seats, game, ocg, rng: seededRng(seed), codes, moves: [], ...(agents && { agents }) }
     this.games.set(id, live)
     return live
+  }
+
+  private hangUp(id: string) {
+    for (const a of Object.values(this.games.get(id)?.agents ?? {})) void a.close()
+  }
+
+  // What the trained bot couldn't answer in a game (the random bot did).
+  agentMisses(id: string): string[] {
+    return Object.values(this.games.get(id)?.agents ?? {}).flatMap((a) => a.missed)
   }
 
   // The game's setup, without its steps: translation starts from there.

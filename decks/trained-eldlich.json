@@ -1,0 +1,128 @@
+{
+  "id": "trained-eldlich",
+  "name": "Eldlich (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "The Winged Dragon of Ra - Sphere Mode",
+      "count": 3
+    },
+    {
+      "name": "Eldlich the Golden Lord",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Eldlixir of Black Awakening",
+      "count": 2
+    },
+    {
+      "name": "Eldlixir of White Destiny",
+      "count": 1
+    },
+    {
+      "name": "Cursed Eldland",
+      "count": 3
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 2
+    },
+    {
+      "name": "Eldlixir of Scarlet Sanguine",
+      "count": 3
+    },
+    {
+      "name": "Anti-Spell Fragrance",
+      "count": 2
+    },
+    {
+      "name": "Gozen Match",
+      "count": 2
+    },
+    {
+      "name": "Rivalry of Warlords",
+      "count": 2
+    },
+    {
+      "name": "Summon Limit",
+      "count": 2
+    },
+    {
+      "name": "Skill Drain",
+      "count": 1
+    },
+    {
+      "name": "Guardian of the Golden Land",
+      "count": 1
+    },
+    {
+      "name": "Huaquero of the Golden Land",
+      "count": 2
+    },
+    {
+      "name": "Conquistador of the Golden Land",
+      "count": 3
+    },
+    {
+      "name": "Golden Land Forever!",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Eldlich the Mad Golden Lord",
+      "count": 1
+    },
+    {
+      "name": "Number 77: The Seven Sins",
+      "count": 1
+    },
+    {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "count": 1
+    },
+    {
+      "name": "Number 84: Pain Gainer",
+      "count": 1
+    },
+    {
+      "name": "Superdreadnought Rail Cannon Juggernaut Liebe",
+      "count": 1
+    },
+    {
+      "name": "Number 81: Superdreadnought Rail Cannon Super Dora",
+      "count": 1
+    },
+    {
+      "name": "Superdreadnought Rail Cannon Gustav Max",
+      "count": 3
+    },
+    {
+      "name": "The Zombie Vampire",
+      "count": 1
+    },
+    {
+      "name": "Vampire Sucker",
+      "count": 1
+    },
+    {
+      "name": "Skypalace Gangaridai",
+      "count": 1
+    },
+    {
+      "name": "Vampire Fascinator",
+      "count": 1
+    }
+  ]
+}

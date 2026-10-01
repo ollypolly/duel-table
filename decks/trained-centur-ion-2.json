@@ -1,0 +1,120 @@
+{
+  "id": "trained-centur-ion-2",
+  "name": "Centur-Ion 2 (trained)",
+  "main": [
+    {
+      "name": "Centur-Ion Trudea",
+      "count": 3
+    },
+    {
+      "name": "Centur-Ion Primera",
+      "count": 3
+    },
+    {
+      "name": "Centur-Ion Gargoyle II",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 2
+    },
+    {
+      "name": "Stand Up Centur-Ion!",
+      "count": 3
+    },
+    {
+      "name": "Emblema Oath",
+      "count": 3
+    },
+    {
+      "name": "Wake Up Centur-Ion!",
+      "count": 1
+    },
+    {
+      "name": "Dimensional Fissure",
+      "count": 3
+    },
+    {
+      "name": "Kaiser Colosseum",
+      "count": 3
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Pot of Prosperity",
+      "count": 1
+    },
+    {
+      "name": "Terraforming",
+      "count": 1
+    },
+    {
+      "name": "Centur-Ion Phalanx",
+      "count": 2
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Skill Drain",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Enigmaster Packbit",
+      "count": 1
+    },
+    {
+      "name": "Crimson Dragon",
+      "count": 2
+    },
+    {
+      "name": "Centur-Ion Auxila",
+      "count": 3
+    },
+    {
+      "name": "Centur-Ion Legatia",
+      "count": 2
+    },
+    {
+      "name": "Cosmic Blazar Dragon",
+      "count": 2
+    },
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "Artemis, the Magistus Moon Maiden",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Phoenix",
+      "count": 1
+    }
+  ]
+}

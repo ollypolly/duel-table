@@ -1,0 +1,124 @@
+{
+  "id": "trained-blue-eyes",
+  "name": "Blue-Eyes (trained)",
+  "main": [
+    {
+      "name": "Blue-Eyes White Dragon",
+      "count": 3
+    },
+    {
+      "name": "Blue-Eyes Alternative White Dragon",
+      "count": 3
+    },
+    {
+      "name": "Dragon Spirit of White",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "The White Stone of Ancients",
+      "count": 3
+    },
+    {
+      "name": "Master with Eyes of Blue",
+      "count": 2
+    },
+    {
+      "name": "The White Stone of Legend",
+      "count": 1
+    },
+    {
+      "name": "Sage with Eyes of Blue",
+      "count": 3
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 2
+    },
+    {
+      "name": "One for One",
+      "count": 1
+    },
+    {
+      "name": "Return of the Dragon Lords",
+      "count": 3
+    },
+    {
+      "name": "Trade-In",
+      "count": 3
+    },
+    {
+      "name": "Cards of Consonance",
+      "count": 2
+    },
+    {
+      "name": "Dragon Shrine",
+      "count": 3
+    },
+    {
+      "name": "The Melody of Awakening Dragon",
+      "count": 3
+    },
+    {
+      "name": "Twin Twisters",
+      "count": 2
+    },
+    {
+      "name": "Phoenix Wing Wind Blast",
+      "count": 2
+    }
+  ],
+  "extra": [
+    {
+      "name": "Azure-Eyes Silver Dragon",
+      "count": 2
+    },
+    {
+      "name": "Blue-Eyes Spirit Dragon",
+      "count": 2
+    },
+    {
+      "name": "Crystal Wing Synchro Dragon",
+      "count": 1
+    },
+    {
+      "name": "Stardust Spark Dragon",
+      "count": 1
+    },
+    {
+      "name": "Black Rose Moonlight Dragon",
+      "count": 1
+    },
+    {
+      "name": "Galaxy-Eyes Full Armor Photon Dragon",
+      "count": 1
+    },
+    {
+      "name": "Number 62: Galaxy-Eyes Prime Photon Dragon",
+      "count": 1
+    },
+    {
+      "name": "Number 46: Dragluon",
+      "count": 1
+    },
+    {
+      "name": "Number 38: Hope Harbinger Dragon Titanic Galaxy",
+      "count": 1
+    },
+    {
+      "name": "Hieratic Sun Dragon Overlord of Heliopolis",
+      "count": 1
+    },
+    {
+      "name": "Cyber Dragon Infinity",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    }
+  ]
+}

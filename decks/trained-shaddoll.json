@@ -1,0 +1,156 @@
+{
+  "id": "trained-shaddoll",
+  "name": "Shaddoll (trained)",
+  "main": [
+    {
+      "name": "Shaddoll Beast",
+      "count": 3
+    },
+    {
+      "name": "Shaddoll Dragon",
+      "count": 2
+    },
+    {
+      "name": "Shaddoll Squamata",
+      "count": 2
+    },
+    {
+      "name": "Juragedo",
+      "count": 1
+    },
+    {
+      "name": "Naelshaddoll Ariel",
+      "count": 1
+    },
+    {
+      "name": "Electromagnetic Turtle",
+      "count": 1
+    },
+    {
+      "name": "Reeshaddoll Wendi",
+      "count": 2
+    },
+    {
+      "name": "Shaddoll Hedgehog",
+      "count": 3
+    },
+    {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "count": 2
+    },
+    {
+      "name": "Peropero Cerperus",
+      "count": 1
+    },
+    {
+      "name": "Qadshaddoll Keios",
+      "count": 1
+    },
+    {
+      "name": "Shaddoll Falco",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 2
+    },
+    {
+      "name": "Allure of Darkness",
+      "count": 1
+    },
+    {
+      "name": "Magicalized Fusion",
+      "count": 1
+    },
+    {
+      "name": "Shaddoll Fusion",
+      "count": 3
+    },
+    {
+      "name": "Dark Hole",
+      "count": 1
+    },
+    {
+      "name": "Foolish Burial",
+      "count": 1
+    },
+    {
+      "name": "El Shaddoll Fusion",
+      "count": 2
+    },
+    {
+      "name": "Super Polymerization",
+      "count": 1
+    },
+    {
+      "name": "Resh Shaddoll Incarnation",
+      "count": 2
+    },
+    {
+      "name": "Sinister Shadow Games",
+      "count": 3
+    },
+    {
+      "name": "Shaddoll Core",
+      "count": 1
+    },
+    {
+      "name": "Solemn Strike",
+      "count": 2
+    },
+    {
+      "name": "Solemn Warning",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Quintet Magician",
+      "count": 1
+    },
+    {
+      "name": "El Shaddoll Shekhinaga",
+      "count": 2
+    },
+    {
+      "name": "El Shaddoll Anoyatyllis",
+      "count": 1
+    },
+    {
+      "name": "El Shaddoll Construct",
+      "count": 1
+    },
+    {
+      "name": "El Shaddoll Grysta",
+      "count": 1
+    },
+    {
+      "name": "El Shaddoll Apkallone",
+      "count": 2
+    },
+    {
+      "name": "El Shaddoll Winda",
+      "count": 1
+    },
+    {
+      "name": "Trishula, Dragon of the Ice Barrier",
+      "count": 1
+    },
+    {
+      "name": "Black Rose Dragon",
+      "count": 1
+    },
+    {
+      "name": "Number S39: Utopia the Lightning",
+      "count": 1
+    },
+    {
+      "name": "Number 39: Utopia",
+      "count": 1
+    },
+    {
+      "name": "Castel, the Skyblaster Musketeer",
+      "count": 1
+    }
+  ]
+}

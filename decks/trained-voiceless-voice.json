@@ -1,0 +1,132 @@
+{
+  "id": "trained-voiceless-voice",
+  "name": "Voiceless Voice (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 3
+    },
+    {
+      "name": "Trias Hierarchia",
+      "count": 1
+    },
+    {
+      "name": "Sauravis, Dragon Sage of the Voiceless Voice",
+      "count": 1
+    },
+    {
+      "name": "Saffira, Dragon Queen of the Voiceless Voice",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Diviner of the Herald",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Lo, the Prayers of the Voiceless Voice",
+      "count": 3
+    },
+    {
+      "name": "Sauravis, the Ancient and Ascended",
+      "count": 1
+    },
+    {
+      "name": "Saffira, Divine Dragon of the Voiceless Voice",
+      "count": 1
+    },
+    {
+      "name": "Skull Guardian, Protector of the Voiceless Voice",
+      "count": 2
+    },
+    {
+      "name": "Pre-Preparation of Rites",
+      "count": 3
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Pot of Extravagance",
+      "count": 2
+    },
+    {
+      "name": "Prayers of the Voiceless Voice",
+      "count": 2
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Blessing of the Voiceless Voice",
+      "count": 1
+    },
+    {
+      "name": "Barrier of the Voiceless Voice",
+      "count": 3
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 2
+    },
+    {
+      "name": "Radiance of the Voiceless Voice",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Elder Entity N'tss",
+      "count": 1
+    },
+    {
+      "name": "Chaos Angel",
+      "count": 2
+    },
+    {
+      "name": "Herald of the Arc Light",
+      "count": 1
+    },
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    },
+    {
+      "name": "Dyna Mondo",
+      "count": 2
+    },
+    {
+      "name": "Lyna the Light Charmer, Lustrous",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 3
+    },
+    {
+      "name": "Moon of the Closed Heaven",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    },
+    {
+      "name": "Relinquished Anima",
+      "count": 1
+    }
+  ]
+}

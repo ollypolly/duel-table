@@ -1,0 +1,176 @@
+{
+  "id": "trained-branded",
+  "name": "Branded (trained)",
+  "main": [
+    {
+      "name": "Albion the Shrouded Dragon",
+      "count": 2
+    },
+    {
+      "name": "The Bystial Lubellion",
+      "count": 1
+    },
+    {
+      "name": "Ido the Supreme Magical Force",
+      "count": 1
+    },
+    {
+      "name": "Bystial Saronir",
+      "count": 2
+    },
+    {
+      "name": "Keeper of Dragon Magic",
+      "count": 1
+    },
+    {
+      "name": "Aluber the Jester of Despia",
+      "count": 3
+    },
+    {
+      "name": "Fallen of Albaz",
+      "count": 3
+    },
+    {
+      "name": "Springans Kitt",
+      "count": 1
+    },
+    {
+      "name": "Tri-Brigade Mercourier",
+      "count": 1
+    },
+    {
+      "name": "Blazing Cartesia, the Virtuous",
+      "count": 1
+    },
+    {
+      "name": "Guiding Quem, the Virtuous",
+      "count": 1
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Despian Tragedy",
+      "count": 1
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Triple Tactics Thrust",
+      "count": 1
+    },
+    {
+      "name": "Branded Fusion",
+      "count": 1
+    },
+    {
+      "name": "Fusion Deployment",
+      "count": 3
+    },
+    {
+      "name": "Nadir Servant",
+      "count": 2
+    },
+    {
+      "name": "Gold Sarcophagus",
+      "count": 1
+    },
+    {
+      "name": "Foolish Burial",
+      "count": 1
+    },
+    {
+      "name": "Branded in Red",
+      "count": 1
+    },
+    {
+      "name": "Branded in High Spirits",
+      "count": 1
+    },
+    {
+      "name": "Branded Opening",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Branded Lost",
+      "count": 1
+    },
+    {
+      "name": "Branded Expulsion",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Branded Retribution",
+      "count": 2
+    }
+  ],
+  "extra": [
+    {
+      "name": "Guardian Chimera",
+      "count": 1
+    },
+    {
+      "name": "Alba-Lenatus the Abyss Dragon",
+      "count": 1
+    },
+    {
+      "name": "Despian Quaeritis",
+      "count": 1
+    },
+    {
+      "name": "Albion the Branded Dragon",
+      "count": 2
+    },
+    {
+      "name": "Titaniklad the Ash Dragon",
+      "count": 1
+    },
+    {
+      "name": "Rindbrumm the Striking Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sprind the Irondash Dragon",
+      "count": 1
+    },
+    {
+      "name": "Granguignol the Dusk Dragon",
+      "count": 1
+    },
+    {
+      "name": "Lubellion the Searing Dragon",
+      "count": 1
+    },
+    {
+      "name": "Mirrorjade the Iceblade Dragon",
+      "count": 2
+    },
+    {
+      "name": "Borreload Furious Dragon",
+      "count": 1
+    },
+    {
+      "name": "Albion the Sanctifire Dragon",
+      "count": 1
+    },
+    {
+      "name": "Despian Luluwalilith",
+      "count": 1
+    }
+  ]
+}

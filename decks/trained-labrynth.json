@@ -1,0 +1,152 @@
+{
+  "id": "trained-labrynth",
+  "name": "Labrynth (trained)",
+  "main": [
+    {
+      "name": "Lovely Labrynth of the Silver Castle",
+      "count": 1
+    },
+    {
+      "name": "Lady Labrynth of the Silver Castle",
+      "count": 2
+    },
+    {
+      "name": "Ariane the Labrynth Servant",
+      "count": 1
+    },
+    {
+      "name": "Arianna the Labrynth Servant",
+      "count": 3
+    },
+    {
+      "name": "Ghost Belle & Haunted Mansion",
+      "count": 1
+    },
+    {
+      "name": "Ghost Reaper & Winter Cherries",
+      "count": 2
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Labrynth Chandraglier",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Labrynth Stovie Torbie",
+      "count": 2
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 1
+    },
+    {
+      "name": "Labrynth Cooclock",
+      "count": 2
+    },
+    {
+      "name": "Pot of Prosperity",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Labrynth Labyrinth",
+      "count": 1
+    },
+    {
+      "name": "Full Force Virus",
+      "count": 1
+    },
+    {
+      "name": "Dimensional Barrier",
+      "count": 1
+    },
+    {
+      "name": "Transaction Rollback",
+      "count": 1
+    },
+    {
+      "name": "Destructive Daruma Karma Cannon",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    },
+    {
+      "name": "Welcome Labrynth",
+      "count": 2
+    },
+    {
+      "name": "Big Welcome Labrynth",
+      "count": 3
+    },
+    {
+      "name": "Skill Drain",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Albion the Branded Dragon",
+      "count": 1
+    },
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Chaos Angel",
+      "count": 2
+    },
+    {
+      "name": "Number 41: Bagooska the Terribly Tired Tapir",
+      "count": 1
+    },
+    {
+      "name": "Gigantic Spright",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "Dharc the Dark Charmer, Gloomy",
+      "count": 1
+    },
+    {
+      "name": "Spright Elf",
+      "count": 1
+    },
+    {
+      "name": "Muckraker From the Underworld",
+      "count": 2
+    },
+    {
+      "name": "Relinquished Anima",
+      "count": 1
+    }
+  ]
+}

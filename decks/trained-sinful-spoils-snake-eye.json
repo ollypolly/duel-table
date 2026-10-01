@@ -1,0 +1,156 @@
+{
+  "id": "trained-sinful-spoils-snake-eye",
+  "name": "Sinful Spoils Snake-Eye (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eyes Flamberge Dragon",
+      "count": 2
+    },
+    {
+      "name": "Diabellstar the Black Witch",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Kurikara Divincarnate",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eye Oak",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eye Ash",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eyes Poplar",
+      "count": 2
+    },
+    {
+      "name": "Jet Synchron",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eye Birch",
+      "count": 1
+    },
+    {
+      "name": "Droll & Lock Bird",
+      "count": 2
+    },
+    {
+      "name": "Effect Veiler",
+      "count": 3
+    },
+    {
+      "name": "One for One",
+      "count": 1
+    },
+    {
+      "name": "Sinful Spoils of Subversion - Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Original Sinful Spoils - Snake-Eye",
+      "count": 2
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Dramatic Snake-Eye Chase",
+      "count": 1
+    },
+    {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "count": 3
+    },
+    {
+      "name": "Divine Temple of the Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 2
+    },
+    {
+      "name": "Sinful Spoils of Betrayal - Silvera",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Borreload Savage Dragon",
+      "count": 1
+    },
+    {
+      "name": "Herald of the Arc Light",
+      "count": 1
+    },
+    {
+      "name": "Formula Synchron",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    },
+    {
+      "name": "Amphibious Swarmship Amblowhale",
+      "count": 1
+    },
+    {
+      "name": "Worldsea Dragon Zealantis",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "Decode Talker Heatsoul",
+      "count": 1
+    },
+    {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Sunlight Wolf",
+      "count": 1
+    },
+    {
+      "name": "Spright Elf",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    }
+  ]
+}

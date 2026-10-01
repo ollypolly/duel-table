@@ -1,0 +1,136 @@
+{
+  "id": "trained-floowandereeze",
+  "name": "Floowandereeze (trained)",
+  "main": [
+    {
+      "name": "D.D. Crow",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze & Eglen",
+      "count": 3
+    },
+    {
+      "name": "Floowandereeze & Robina",
+      "count": 3
+    },
+    {
+      "name": "Floowandereeze & Stri",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze & Toccan",
+      "count": 2
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Dimension Shifter",
+      "count": 2
+    },
+    {
+      "name": "Mist Valley Apex Avian",
+      "count": 1
+    },
+    {
+      "name": "Raiza the Mega Monarch",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze & Empen",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze & Snowl",
+      "count": 1
+    },
+    {
+      "name": "Gold Sarcophagus",
+      "count": 1
+    },
+    {
+      "name": "Pot of Duality",
+      "count": 1
+    },
+    {
+      "name": "Pot of Extravagance",
+      "count": 1
+    },
+    {
+      "name": "Jack-In-The-Hand",
+      "count": 3
+    },
+    {
+      "name": "Pot of Prosperity",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze and the Magnificent Map",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze and the Unexplored Winds",
+      "count": 1
+    },
+    {
+      "name": "Called by the Grave",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Talent",
+      "count": 1
+    },
+    {
+      "name": "Floowandereeze and the Advent of Adventure",
+      "count": 3
+    },
+    {
+      "name": "Harpie's Feather Storm",
+      "count": 2
+    },
+    {
+      "name": "Floowandereeze and the Dreaming Town",
+      "count": 1
+    }
+  ],
+  "extra": [
+    {
+      "name": "Elemental HERO Flame Wingman",
+      "count": 2
+    },
+    {
+      "name": "Elemental HERO Necroid Shaman",
+      "count": 3
+    },
+    {
+      "name": "Blackwing Armed Wing",
+      "count": 3
+    },
+    {
+      "name": "Lyrilusc - Assembled Nightingale",
+      "count": 3
+    },
+    {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "count": 1
+    },
+    {
+      "name": "Relinquished Anima",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    }
+  ]
+}

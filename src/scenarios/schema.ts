@@ -199,7 +199,8 @@ export const ScenarioSchema = z
     duel: z
       .object({
         responses: z.array(z.string()).describe('Answers given to the rules engine so far (base64); the steps are derived from them'),
-        bots: z.array(PlayerSchema).optional().describe('Players the random bot answers for'),
+        bots: z.array(PlayerSchema).optional().describe('Players a bot answers for'),
+        bot: z.enum(['random', 'agent']).optional().describe('Which bot: the trained one (ygo-agent) or, by default, the random one'),
         claude: PlayerSchema.optional().describe('The player Claude answers for'),
         lesson: z.boolean().optional().describe('Claude runs the game as a lesson, answering for whichever players it holds'),
         shuffled: z.boolean().optional().describe('The Decks were shuffled from the seed (games saved before that replay unshuffled)'),

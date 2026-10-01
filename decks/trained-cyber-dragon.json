@@ -1,0 +1,144 @@
+{
+  "id": "trained-cyber-dragon",
+  "name": "Cyber Dragon (trained)",
+  "main": [
+    {
+      "name": "Jizukiru, the Star Destroying Kaiju",
+      "count": 2
+    },
+    {
+      "name": "Therion \"King\" Regulus",
+      "count": 1
+    },
+    {
+      "name": "Galaxy Soldier",
+      "count": 2
+    },
+    {
+      "name": "Cyber Dragon",
+      "count": 3
+    },
+    {
+      "name": "Cyberdark Chimera",
+      "count": 1
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Cyber Dragon Core",
+      "count": 3
+    },
+    {
+      "name": "Cyber Dragon Nachster",
+      "count": 2
+    },
+    {
+      "name": "Cyber Dragon Herz",
+      "count": 3
+    },
+    {
+      "name": "Lightning Storm",
+      "count": 2
+    },
+    {
+      "name": "Cyber Repair Plant",
+      "count": 1
+    },
+    {
+      "name": "Cyber Emergency",
+      "count": 3
+    },
+    {
+      "name": "Harpie's Feather Duster",
+      "count": 1
+    },
+    {
+      "name": "Raigeki",
+      "count": 1
+    },
+    {
+      "name": "Machine Duplication",
+      "count": 2
+    },
+    {
+      "name": "Overload Fusion",
+      "count": 1
+    },
+    {
+      "name": "Power Bond",
+      "count": 1
+    },
+    {
+      "name": "Duality",
+      "count": 1
+    },
+    {
+      "name": "Clockwork Night",
+      "count": 3
+    },
+    {
+      "name": "Cyberdark Realm",
+      "count": 1
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Cyber End Dragon",
+      "count": 1
+    },
+    {
+      "name": "Chimeratech Megafleet Dragon",
+      "count": 1
+    },
+    {
+      "name": "Cyber Twin Dragon",
+      "count": 1
+    },
+    {
+      "name": "Chimeratech Fortress Dragon",
+      "count": 2
+    },
+    {
+      "name": "Chimeratech Rampage Dragon",
+      "count": 2
+    },
+    {
+      "name": "Chaos Angel",
+      "count": 1
+    },
+    {
+      "name": "Divine Arsenal AA-ZEUS - Sky Thunder",
+      "count": 1
+    },
+    {
+      "name": "Cyber Dragon Infinity",
+      "count": 1
+    },
+    {
+      "name": "Constellar Pleiades",
+      "count": 1
+    },
+    {
+      "name": "Cyber Dragon Nova",
+      "count": 1
+    },
+    {
+      "name": "Predaplant Verte Anaconda",
+      "count": 1
+    },
+    {
+      "name": "Cyber Dragon Sieger",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Almiraj",
+      "count": 1
+    }
+  ]
+}

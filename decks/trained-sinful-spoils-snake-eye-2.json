@@ -1,0 +1,140 @@
+{
+  "id": "trained-sinful-spoils-snake-eye-2",
+  "name": "Sinful Spoils Snake-Eye 2 (trained)",
+  "main": [
+    {
+      "name": "Effect Veiler",
+      "count": 3
+    },
+    {
+      "name": "Jet Synchron",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eye Ash",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eye Oak",
+      "count": 1
+    },
+    {
+      "name": "Snake-Eyes Poplar",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Ghost Mourner & Moonlit Chill",
+      "count": 3
+    },
+    {
+      "name": "Bystial Druiswurm",
+      "count": 1
+    },
+    {
+      "name": "Bystial Magnamhut",
+      "count": 1
+    },
+    {
+      "name": "Diabellstar the Black Witch",
+      "count": 3
+    },
+    {
+      "name": "Snake-Eyes Flamberge Dragon",
+      "count": 2
+    },
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 3
+    },
+    {
+      "name": "Original Sinful Spoils - Snake-Eye",
+      "count": 2
+    },
+    {
+      "name": "One for One",
+      "count": 1
+    },
+    {
+      "name": "Divine Temple of the Snake-Eye",
+      "count": 1
+    },
+    {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "count": 3
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Borreload Savage Dragon",
+      "count": 1
+    },
+    {
+      "name": "Promethean Princess, Bestower of Flames",
+      "count": 1
+    },
+    {
+      "name": "Linkuriboh",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Phoenix",
+      "count": 1
+    },
+    {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "count": 1
+    },
+    {
+      "name": "Salamangreat Sunlight Wolf",
+      "count": 1
+    },
+    {
+      "name": "I:P Masquerena",
+      "count": 1
+    },
+    {
+      "name": "Dharc the Dark Charmer, Gloomy",
+      "count": 1
+    },
+    {
+      "name": "Knightmare Unicorn",
+      "count": 1
+    },
+    {
+      "name": "Decode Talker Heatsoul",
+      "count": 1
+    },
+    {
+      "name": "Amphibious Swarmship Amblowhale",
+      "count": 1
+    },
+    {
+      "name": "Apollousa, Bow of the Goddess",
+      "count": 1
+    },
+    {
+      "name": "Accesscode Talker",
+      "count": 1
+    },
+    {
+      "name": "Worldsea Dragon Zealantis",
+      "count": 1
+    },
+    {
+      "name": "Underworld Goddess of the Closed World",
+      "count": 1
+    }
+  ]
+}

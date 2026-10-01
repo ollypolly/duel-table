@@ -1,0 +1,144 @@
+{
+  "id": "trained-bystial-dragon-link",
+  "name": "Bystial Dragon Link (trained)",
+  "main": [
+    {
+      "name": "Nibiru, the Primal Being",
+      "count": 1
+    },
+    {
+      "name": "Santa Claws",
+      "count": 2
+    },
+    {
+      "name": "Dimension Shifter",
+      "count": 2
+    },
+    {
+      "name": "Bystial Magnamhut",
+      "count": 1
+    },
+    {
+      "name": "Tenpai Dragon Chundra",
+      "count": 3
+    },
+    {
+      "name": "Tenpai Dragon Paidra",
+      "count": 3
+    },
+    {
+      "name": "Tenpai Dragon Fadra",
+      "count": 2
+    },
+    {
+      "name": "Ash Blossom & Joyous Spring",
+      "count": 3
+    },
+    {
+      "name": "Maxx \"C\"",
+      "count": 3
+    },
+    {
+      "name": "Harpie's Feather Duster",
+      "count": 1
+    },
+    {
+      "name": "Lightning Storm",
+      "count": 2
+    },
+    {
+      "name": "Raigeki",
+      "count": 2
+    },
+    {
+      "name": "Triple Tactics Thrust",
+      "count": 1
+    },
+    {
+      "name": "Way Where There's a Will",
+      "count": 1
+    },
+    {
+      "name": "Terraforming",
+      "count": 1
+    },
+    {
+      "name": "Forbidden Droplet",
+      "count": 2
+    },
+    {
+      "name": "Sangen Kaimen",
+      "count": 3
+    },
+    {
+      "name": "Necrovalley",
+      "count": 1
+    },
+    {
+      "name": "Sangen Summoning",
+      "count": 3
+    },
+    {
+      "name": "Infinite Impermanence",
+      "count": 3
+    }
+  ],
+  "extra": [
+    {
+      "name": "Baronne de Fleur",
+      "count": 1
+    },
+    {
+      "name": "Trident Dragion",
+      "count": 1
+    },
+    {
+      "name": "Black-Winged Assault Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sangenpai Transcendent Dragion",
+      "count": 1
+    },
+    {
+      "name": "Crystal Wing Synchro Dragon",
+      "count": 1
+    },
+    {
+      "name": "Black-Winged Dragon",
+      "count": 1
+    },
+    {
+      "name": "Black Rose Dragon",
+      "count": 1
+    },
+    {
+      "name": "Ancient Fairy Dragon",
+      "count": 1
+    },
+    {
+      "name": "Sangenpai Bident Dragion",
+      "count": 2
+    },
+    {
+      "name": "Ultimaya Tzolkin",
+      "count": 1
+    },
+    {
+      "name": "Super Starslayer TY-PHON - Sky Crisis",
+      "count": 1
+    },
+    {
+      "name": "S:P Little Knight",
+      "count": 1
+    },
+    {
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "count": 1
+    },
+    {
+      "name": "Striker Dragon",
+      "count": 1
+    }
+  ]
+}
