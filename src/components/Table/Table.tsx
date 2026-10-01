@@ -273,16 +273,12 @@ export function Table({
               ? (iid, to) => {
                   if (!multi.includes(iid)) return void fp.place(to, iid)
                   fp.placeMany(to, [iid, ...multi.filter((m) => m !== iid)])
-                  setMulti([])
                 }
               : onCardDrop
           }
           onZoneClick={(ref) => {
             if (freePlay && selected) fp.place(ref)
-            else if (freePlay && multi.length) {
-              fp.placeMany(ref, multi)
-              setMulti([])
-            }
+            else if (freePlay && multi.length) fp.placeMany(ref, multi)
             else if (!freePlay && choosableZones?.some((z) => z.ref.zone === ref.zone && z.ref.player === ref.player && z.ref.slot === ref.slot)) onChooseZone?.(ref)
             else if (view.zones.some((z) => z.kind === 'pile' && z.ref.zone === ref.zone)) openPileViewer(ref)
           }}
