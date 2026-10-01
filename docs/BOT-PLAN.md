@@ -12,12 +12,13 @@ No single bot plays every deck well, so there are several, and the opponent you 
 
 | Opponent | Plays | How |
 |---|---|---|
-| **Rules bot** | any deck | our own bot, with WindBot's generic heuristics ported to TypeScript |
+| **Simple bot** | any deck | today's random legal moves |
 | **Trained bot** (ygo-agent) | its own 30 lists | HTTP call to a container |
 | **Claude** | any deck | as today |
+| Rules bot, later | any deck | our own bot, with WindBot's generic heuristics ported to TypeScript |
 | WindBot, later if wanted | its 73 scripted decks | joins as a network player |
 
-The random bot stays for tests. The rules bot is also the fallback when another bot can't answer a question or is down.
+The simple bot is the fallback when the trained bot can't answer a question or is down.
 
 ## What the research found
 
@@ -45,46 +46,38 @@ Nothing else usable turned up: other projects are stale or have no published wei
 
 ## Plan
 
-### 1. Rules bot
+The trained bot first. The rules bot and WindBot are left for later.
 
-The one that plays the decks we have, and everyone's fallback.
+### 1. Which bot, per game
 
-- Read `DefaultExecutor.cs` and `LuckyExecutor.cs` and list which heuristics need only the question and the table, and which lean on state WindBot tracks itself (what was summoned this turn, chain history). Port the first kind; decide per item on the second.
-- `server/ocg/rulesBot.ts`: same signature as `botResponse`, plus the board state. Anything it has no rule for goes to the random pick.
-- First rules, by how silly the random bot looks without them: attack only when it's safe or lethal, and pick the target; don't pass with lethal on board; summon the strongest it can and set the rest; destroy/banish/target the opponent's cards, not its own; pay costs with its weakest cards; chain staples only when they have something to hit; don't activate an effect with no legal use.
-- Tests: fixed positions with one right answer (lethal on board, a safe attack, a bad one), and whole games against the random bot from seeds, where it should win most.
-- Unknown: how much of `DefaultExecutor` is usable without mirroring WindBot's duel state.
-
-### 2. Which bot, per game
-
-- `duel.bots` (which players are bots) gains which bot each is: `random`, `rules`, `agent`. Saved with the game, so resume and rematch keep it. Replays don't change, since answers are already recorded.
+- `duel.bots` (which players are bots) gains which bot each is: `random` or `agent` (and `rules` later). Saved with the game, so resume and rematch keep it. Replays don't change, since answers are already recorded.
 - `GameService` asks a bot through one interface: given the question and the state, return a response, or nothing to fall through to the next bot.
 - An opponents endpoint (alongside the Claude status) says which are available and which decks each can play.
 
-**Decks say who can play them.** The rules bot and Claude play any deck. A bot with its own lists plays only those, so each of its lists is added to `decks/` as a deck of ours, marked with the bot it belongs to (a field on the deck file, say `bot: "agent"`). A marked deck is still an ordinary deck: you, the rules bot and Claude can play it too. Adding one means its cards go into `data/cards.json` and its images are fetched, so a script imports a list from the bot's own format (`.ydk`) rather than typing it out.
+**Decks say who can play them.** Claude and the simple bot play any deck. A bot with its own lists plays only those, so each of its lists is added to `decks/` as a deck of ours, marked with the bot it belongs to (a field on the deck file, say `bot: "agent"`). A marked deck is still an ordinary deck: you, the simple bot and Claude can play it too. Adding one means its cards go into `data/cards.json` and its images are fetched, so a script imports a list from the bot's own format (`.ydk`) rather than typing it out.
 
-### 3. New game screen
-
-- **Opponent dropdown** in place of the radios, with a line under it that changes with the choice: Rules bot (free, plays sensibly), Trained bot (free, plays to win with its own decks), Claude (plays to win, chats and coaches, uses your plan). An unavailable one stays listed but disabled, with the reason.
-- **Three groups:** Opponent, Decks, Options. Claude's model and coach toggle show only for Claude; Start from moves into Options.
-- **Deck pickers:** the opponent's list narrows to what that opponent can play: every deck for the rules bot and Claude, only its own for the trained bot.
-- Lessons keep the same dialog and layout, without the opponent picker.
-
-Doesn't depend on the bots beyond step 2, so it can ship with Rules bot and Claude and gain Trained bot later.
-
-### 4. Trained bot
+### 2. Trained bot
 
 - `server/ocg/agentBot.ts`: translate the question and the table from its side to the agent's JSON, post it, play the most probable option. Cards outside its list go as code 0. Start with idle command, battle command, chain and select card, then the rest.
 - A duel on the agent per game, dropped when the game ends; rebuilt by replaying its answers after a take-back or a server restart.
-- `YGO_AGENT_URL` in the environment; unset or unreachable means the option is unavailable, and a failure mid-game falls back to the rules bot.
+- `YGO_AGENT_URL` in the environment; unset or unreachable means the option is unavailable, and a question it can't answer, or a failure mid-game, falls back to the random pick.
 - Decks: import its lists from `assets/deck` as decks of ours, marked as the trained bot's. Blue-Eyes, Hero and Cyber Dragon first, then the rest of the 30.
 - Check before building the rest: a bot-vs-bot game with its Blue-Eyes list finishes, falling back on only a small share of questions; then one game against it with the Pink Chazz deck to judge how it copes with cards it can't see.
 
-### 5. In-game Claude improvements
+### 3. New game screen
+
+- **Opponent dropdown** in place of the radios, with a line under it that changes with the choice: Simple bot (random legal moves, instant), Trained bot (free, plays to win with its own decks), Claude (plays to win, chats and coaches, uses your plan). An unavailable one stays listed but disabled, with the reason.
+- **Three groups:** Opponent, Decks, Options. Claude's model and coach toggle show only for Claude; Start from moves into Options.
+- **Deck pickers:** the opponent's list narrows to what that opponent can play: every deck for the simple bot and Claude, only its own for the trained bot.
+- Lessons keep the same dialog and layout, without the opponent picker.
+
+Doesn't depend on the trained bot beyond step 1, so it could ship first with today's two opponents.
+
+### 4. In-game Claude improvements
 
 Claude is worth having at the table even when it isn't the opponent, and its advice is only as good as what it can look up. Today it has three tools in a game (`table`, `card`, and `answer` when it's playing), and it only sees your hidden cards and your open question when you talk to it or turn sharing on.
 
-**Claude as coach in a bot game.** A game against the rules bot or the trained bot can have Claude beside you: the same chat panel, with no seat. It answers when you ask and costs nothing while you don't. It's on your side, so it sees what you see (your hand, your face-downs, your Extra Deck, your open question) and never the bot's hidden cards. It does know the bot's full decklist, as a player who knows the matchup would: a checkbox, "Claude knows the opponent's deck", on by default on the new game screen and in the chat's settings. Off, it knows only what has been played. Against Claude as the opponent nothing changes: it sees your side only when you show it.
+**Claude as coach in a bot game.** A game against a bot can have Claude beside you: the same chat panel, with no seat. It answers when you ask and costs nothing while you don't. It's on your side, so it sees what you see (your hand, your face-downs, your Extra Deck, your open question) and never the bot's hidden cards. It does know the bot's full decklist, as a player who knows the matchup would: a checkbox, "Claude knows the opponent's deck", on by default on the new game screen and in the chat's settings. Off, it knows only what has been played. Against Claude as the opponent nothing changes: it sees your side only when you show it.
 
 **Context it should always have when you ask.** Mostly there today for the table; the rest is new.
 - Your open question as you see it: what it's for, which effect is asking, whether it costs you, and every option.
@@ -92,7 +85,7 @@ Claude is worth having at the table even when it isn't the opponent, and its adv
 - The chain as it stands and what just resolved.
 - The last few moves by both sides, not only those since it last looked.
 - Your decklist and what's left in the Deck, so it stops guessing what you can still search.
-- Who the opponent is (rules bot, trained bot, itself) and, for a bot, its decklist when the checkbox is on.
+- Who the opponent is (simple bot, trained bot, itself) and, for a bot, its decklist when the checkbox is on.
 - What you're trying to learn: your notes on this deck (`docs/DECK-NOTES.md` is the start of this) and the misplays past reviews marked with it.
 
 **Tools to add.** Roughly in order of how much better they'd make the advice.
@@ -117,12 +110,21 @@ Claude is worth having at the table even when it isn't the opponent, and its adv
 
 **Order.** Coach seat in bot games and the always-there context first, with `deck`, `options` and `history`. Then `tryLine`, which `lethal`, `ruling` and `offerTakeBack` build on. The rest as they come up.
 
-### 6. Real WindBot, only if its decks are wanted
+### Later: rules bot
+
+A free opponent for the decks the trained bot can't play, and a better fallback than the random pick.
+
+- Read `DefaultExecutor.cs` and `LuckyExecutor.cs` and list which heuristics need only the question and the table, and which lean on state WindBot tracks itself (what was summoned this turn, chain history). Port the first kind; decide per item on the second.
+- `server/ocg/rulesBot.ts`: same signature as `botResponse`, plus the board state. Anything it has no rule for goes to the random pick.
+- First rules, by how silly the random bot looks without them: attack only when it's safe or lethal, and pick the target; don't pass with lethal on board; summon the strongest it can and set the rest; destroy/banish/target the opponent's cards, not its own; pay costs with its weakest cards; chain staples only when they have something to hit; don't activate an effect with no legal use.
+- Tests: fixed positions with one right answer (lethal on board, a safe attack, a bad one), and whole games against the random bot from seeds, where it should win most.
+- Unknown: how much of `DefaultExecutor` is usable without mirroring WindBot's duel state.
+
+### Later: real WindBot, only if its decks are wanted
 
 A minimal room copied from srvpro2, with WindBot in a container, and each executor's list (`Decks/*.ydk`) imported as a deck of ours marked as WindBot's. One to two weeks. Unknown: Mono's memory use, whether its card database and protocol version match ours, and take-back with a connected player.
 
 ## Open decisions
 
-- Order: this plan goes rules bot, picker, screen, trained bot. The screen could go first with today's two opponents.
 - What the opponents are called in the picker.
 - Whether a fallback is silent or leaves a line in the feed.
