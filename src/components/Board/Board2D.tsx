@@ -158,8 +158,7 @@ export function Board2D({
           {focus === 'free' && (
             <button
               type="button"
-              className="btn absolute right-3 z-10"
-              style={{ bottom: `calc(${fan}px + 0.75rem)` }}
+              className="panel absolute right-3 top-[4.25rem] z-10 flex h-11 items-center px-3.5 text-sm text-muted hover:text-ink sm:top-[6.25rem] sm:h-9 sm:px-2.5 sm:text-xs"
               onClick={cam.reset}
               onPointerDown={(e) => e.stopPropagation()}
             >

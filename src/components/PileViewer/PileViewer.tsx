@@ -17,12 +17,14 @@ export function PileViewer({
   onCardClick,
   cardActions,
   onToHand,
+  onPickAll,
 }: {
   zone: ZoneView
   playerName: string
   onClose: () => void
   onCardClick?: (iid: Iid) => boolean // whether it took the click
   cardActions?: (iid: Iid, close: () => void) => ReactNode
+  onPickAll?: (iids: Iid[]) => void // free play: a grouped tile picks up all its copies to place together
   onToHand?: (iid: Iid) => void // free play: a quick way to pull a card, with the pile left open
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -77,7 +79,7 @@ export function PileViewer({
           {zone.count === 0 && <p className="col-span-full text-sm text-muted">Empty.</p>}
           {tiles.map(({ c, copies, iids, i }) => (
             <div key={c.iid} className="group relative text-left">
-              <button type="button" className="block w-full text-left" onClick={() => onCardClick?.(c.iid) || setPinned(c.iid)}>
+              <button type="button" className="block w-full text-left" onClick={() => (onPickAll && copies > 1 ? onPickAll(iids) : onCardClick?.(c.iid) || setPinned(c.iid))}>
                 <div className={`relative aspect-[1/1.46] text-base transition group-hover:scale-105 ${copies > 1 ? 'rounded-md shadow-[4px_4px_0_var(--color-line),8px_8px_0_var(--color-line)]' : ''}`}>
                   <CardView card={c} showFace={!hidden || c.visible} />
                   {copies > 1 && <span className="absolute right-1 top-1 rounded-full bg-gold px-1.5 py-0.5 font-display text-xs font-bold text-bg">×{copies}</span>}

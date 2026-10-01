@@ -99,7 +99,7 @@ export function FreePlayStatus({ fp }: { fp: FreePlay }) {
       {selected && state.cards[selected] && (
         <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="moving">
           <span className="text-accent">
-            {fp.attaching ? 'Attaching' : 'Moving'} <b className="text-ink">{cardFace(state, selected, cardDb).name}</b>: {fp.attaching ? 'click the Xyz monster' : 'click a zone'}
+            {fp.attaching ? 'Attaching' : 'Moving'} <b className="text-ink">{cardFace(state, selected, cardDb).name}</b>{fp.more.length > 0 && ` and ${fp.more.length} more ${fp.more.length === 1 ? 'copy' : 'copies'}`}: {fp.attaching ? 'click the Xyz monster' : 'click a zone'}
           </span>
           {!fp.attaching && (
             <span className="flex items-center gap-2 text-muted">
@@ -167,6 +167,27 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
       setAdding(false)
     }
   }
+  // Everything back where it started: materials detached, every card to its
+  // owner's Deck or Extra Deck, added cards taken off, Decks shuffled, LP 8000.
+  const away = Object.keys(state.cards).filter((iid) => {
+    const loc = locate(state, iid)
+    return !(loc && 'zone' in loc && (loc.zone.zone === 'deck' || loc.zone.zone === 'extraDeck'))
+  })
+  const clear = () => {
+    const home = (iid: Iid) => {
+      const card = state.cards[iid]
+      const extra = EXTRA.has(card.cardId !== undefined ? (cardDb.byId(card.cardId)?.frameType ?? '') : '')
+      return { player: card.owner, zone: extra ? ('extraDeck' as const) : ('deck' as const) }
+    }
+    const materials = away.filter((iid) => isMaterial(state, iid))
+    const rest = away.filter((iid) => !materials.includes(iid))
+    fp.actAll('Clear the board', [
+      ...materials.map((iid) => ({ type: 'detach' as const, card: iid, to: home(iid) })),
+      ...rest.filter((iid) => !iid.includes('-added-')).map((iid) => ({ type: 'move' as const, card: iid, to: home(iid) })),
+      ...away.filter((iid) => iid.includes('-added-')).map((iid) => ({ type: 'remove' as const, card: iid })),
+      ...PLAYERS.flatMap((p) => [{ type: 'shuffle' as const, player: p, zone: 'deck' as const }, { type: 'lp' as const, player: p, set: 8000 }]),
+    ])
+  }
   return (
     <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs" data-testid="free-bar">
       <span className="flex overflow-hidden rounded-md border border-line" role="group" aria-label="Act for">
@@ -218,6 +239,9 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
         <input type="checkbox" className="accent-gold" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} />
         Both hands
       </label>
+      <button type="button" className="btn text-xs" disabled={!away.length} onClick={clear} title="Every card back to its Deck, shuffled, and life points back to 8000. Undo brings it back">
+        Clear the board
+      </button>
       {onRulesOn && (
         <button type="button" className="btn text-xs" onClick={onRulesOn} title="Start a game with these decks on the rules engine, against the simple bot">
           Restart with rules

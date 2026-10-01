@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { tryAction } from '../branches/branches'
 import { cardDb } from '../data/cards'
-import type { Action, BoardState, Iid, Step, SummonMethod, ZoneRef } from '../engine'
+import { isSlotZone, zoneArray, type Action, type BoardState, type Iid, type Step, type SummonMethod, type ZoneRef } from '../engine'
 import { useUiStore } from '../store/uiStore'
 
 export type FreePlay = ReturnType<typeof useFreePlay>
@@ -16,6 +16,15 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
   const [faceDown, setFaceDown] = useState(false)
   const [attaching, setAttaching] = useState(false)
   const { selected, select } = useUiStore()
+  // Further copies picked up with the selected card: they follow it into the
+  // next free slots of the zone it's placed in.
+  const [picked, setPicked] = useState<{ lead?: Iid; rest: Iid[] }>({ rest: [] })
+  const more = picked.lead && picked.lead === selected ? picked.rest : []
+  const setMore = (rest: Iid[]) => setPicked({ rest })
+  const pick = (iids: Iid[]) => {
+    select(iids[0])
+    setPicked({ lead: iids[0], rest: iids.slice(1) })
+  }
 
   const act = (action: Action) => {
     const r = tryAction(state, action, cardDb)
@@ -27,6 +36,15 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     setWarnings(r.warnings)
     onStep(r.step)
     return true
+  }
+
+  // Several actions as one step (one Undo takes it all back). The session
+  // checks them when it applies the step.
+  const actAll = (label: string, actions: Action[]) => {
+    if (!actions.length) return
+    setError(undefined)
+    setWarnings([])
+    onStep({ label, actions })
   }
 
   // Move a card (by default the selected one) to a zone, using the "next
@@ -42,6 +60,16 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
       ...(summon && monsterZone && { summon }),
     })
     if (ok) {
+      if (card === selected && more.length && isSlotZone(to.zone) && to.slot !== undefined) {
+        const slots = zoneArray(state, to)
+        const free = slots.map((iid, slot) => (iid === null && slot !== to.slot ? slot : -1)).filter((slot) => slot >= 0)
+        // Nearest free slots first, so the copies sit together.
+        free.sort((a, b) => Math.abs(a - to.slot!) - Math.abs(b - to.slot!))
+        more.slice(0, free.length).every((iid, i) => act({ type: 'move', card: iid, to: { ...to, slot: free[i] } }))
+      } else if (card === selected && more.length) {
+        more.every((iid) => act({ type: 'move', card: iid, to }))
+      }
+      setMore([])
       select(undefined)
       setSummon('')
       setFaceDown(false)
@@ -58,9 +86,10 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
   }
 
   const cancel = () => {
+    setMore([])
     setAttaching(false)
     select(undefined)
   }
 
-  return { state, selected, select, act, place, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
+  return { state, selected, select, pick, more, act, actAll, place, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
 }

@@ -475,6 +475,14 @@ export function Table({
             return took
           }}
           cardActions={freePlay ? undefined : cardActions}
+          onPickAll={
+            freePlay
+              ? (iids) => {
+                  openPileViewer(undefined)
+                  fp.pick(iids)
+                }
+              : undefined
+          }
           onToHand={freePlay ? (iid) => fp.act({ type: 'move', card: iid, to: { player: entry.state.cards[iid].owner, zone: 'hand' } }) : undefined}
         />
       )}
