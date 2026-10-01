@@ -5,6 +5,7 @@
 import type { GamePrompt } from '../../src/api/game'
 import type { Iid, Player } from '../../src/engine'
 import { playerOf } from './duel'
+import type { ChainPhase } from './game'
 import { LOC, M, POS, type CardData, type Ocg, type PromptMsg } from './lib'
 import type { Translator } from './translate'
 
@@ -15,7 +16,7 @@ export type Question =
   | { auto: Uint8Array }
   | { prompt: GamePrompt; answer(choices: number[]): Uint8Array }
 
-type Context = { id: number; hint?: number; ocg: Ocg; translator: Translator; codes: number[] }
+type Context = { id: number; hint?: number; chain?: ChainPhase; ocg: Ocg; translator: Translator; codes: number[] }
 
 const ATTRIBUTES = ['EARTH', 'WATER', 'FIRE', 'WIND', 'LIGHT', 'DARK', 'DIVINE']
 const RACES = ['Warrior', 'Spellcaster', 'Fairy', 'Fiend', 'Zombie', 'Machine', 'Aqua', 'Pyro', 'Rock', 'Winged Beast', 'Plant', 'Insect', 'Thunder', 'Dragon', 'Beast', 'Beast-Warrior', 'Dinosaur', 'Fish', 'Sea Serpent', 'Reptile', 'Psychic', 'Divine-Beast', 'Creator God', 'Wyrm', 'Cyberse', 'Illusion']
@@ -26,6 +27,10 @@ const POSITIONS: [number, string][] = [
   [POS.faceDownDef, 'face-down Defense Position'],
 ]
 const HINT_SELECTMSG = 3
+// The core's "select a card to..." hints where the card picked is lost:
+// Tribute, discard, destroy, banish, send to the GY, return to the Deck,
+// detach.
+const LOSING_HINTS = [500, 501, 502, 503, 504, 507, 519]
 
 export function question(m: PromptMsg, ctx: Context): Question {
   const { ocg, translator } = ctx
@@ -42,7 +47,15 @@ export function question(m: PromptMsg, ctx: Context): Question {
   }
   const name = (code: number) => ocg.card(code)?.name ?? `card ${code}`
   const text = (desc: number) => ocg.describe(desc)?.replace(/\[%ls\]/g, '').trim()
-  const hint = (fallback: string) => (ctx.hint !== undefined && text(ctx.hint)) || fallback
+  const hint = (fallback: string) => (ctx.hint !== undefined && text(ctx.hint)?.replace(/\.$/, '')) || fallback
+  // The effect that's asking: the top of the chain, while it's being
+  // activated or is resolving.
+  const top = ctx.chain && translator.state.chain.at(-1)
+  const code = top && translator.state.cards[top.card]?.cardId
+  const source = top && code !== undefined ? { name: name(code), card: top.card, when: ctx.chain! } : undefined
+  // Picking from your own hand or field for a hint that says the card goes.
+  const costly = (cards: Where[]) =>
+    ctx.hint !== undefined && LOSING_HINTS.includes(ctx.hint) && cards.every((c) => playerOf(c.controller) === player && (c.location & (LOC.hand | LOC.mzone | LOC.szone)) !== 0)
   const cardOption = (c: Where & { code: number }, label: string, group?: string): Option => {
     const card = cardOf(c, label)
     return { label, ...(card && { card }), ...(group && { group }) }
@@ -54,8 +67,8 @@ export function question(m: PromptMsg, ctx: Context): Question {
     const label = `${prefix}${hidden ? 'Face-down card' : name(c.code)} (${where(c, player)})`
     return { label, ...(card && { card }), ...(group && { group }) }
   }
-  const ask = (kind: GamePrompt['kind'], message: string, options: Option[], answer: (choices: number[]) => Uint8Array, min = 1, max = 1): Question => ({
-    prompt: { id: ctx.id, player, kind, message, options, min, max },
+  const ask = (kind: GamePrompt['kind'], message: string, options: Option[], answer: (choices: number[]) => Uint8Array, min = 1, max = 1, lost: Where[] = []): Question => ({
+    prompt: { id: ctx.id, player, kind, message, ...(source && { source }), ...(lost.length && costly(lost) && { costly: true }), options, min, max },
     answer,
   })
 
@@ -96,12 +109,19 @@ export function question(m: PromptMsg, ctx: Context): Question {
     const forced = m.chains.some((c) => c.forced)
     const options = m.chains.map((c) => cardOption(c, text(c.desc) ? `Activate: ${text(c.desc)}` : 'Activate', 'Activate'))
     if (!forced) options.push({ label: "Don't respond", group: 'Pass' })
-    return ask('chain', forced ? 'Activate a trigger effect' : 'Respond with a chain?', options, ([i]) => (i === m.chains.length ? m.defaultResponse() : m.prepareResponse(m.chains[i])))
+    const to = translator.state.chain.at(-1)
+    const toCode = to && translator.state.cards[to.card]?.cardId
+    const respond = toCode !== undefined ? `Respond to ${name(toCode)}?` : 'Respond with a chain?'
+    return ask('chain', forced ? 'Activate a trigger effect' : respond, options, ([i]) => (i === m.chains.length ? m.defaultResponse() : m.prepareResponse(m.chains[i])))
   }
 
   if (m instanceof M.YGOProMsgSelectEffectYn) {
     const card = cardOf(m)
-    const message = `${name(m.code)}: ${text(m.desc) ?? 'use this effect?'}`
+    // The core's text has blanks for the card's name; two of them is its
+    // stock "activate the trigger effect of" line.
+    const raw = ocg.describe(m.desc) ?? ''
+    const blanks = raw.split('[%ls]').length - 1
+    const message = blanks === 1 ? raw.replace('[%ls]', name(m.code)) : `${name(m.code)}: ${blanks || !raw ? 'activate its effect?' : raw}`
     return { prompt: { id: ctx.id, player, kind: 'yesno', message, options: [{ label: 'Yes', ...(card && { card }) }, { label: 'No' }], min: 1, max: 1 }, answer: ([i]) => m.prepareResponse(i === 0) }
   }
   if (m instanceof M.YGOProMsgSelectYesNo) {
@@ -115,7 +135,7 @@ export function question(m: PromptMsg, ctx: Context): Question {
   if (m instanceof M.YGOProMsgSelectCard || m instanceof M.YGOProMsgSelectTribute) {
     const kind = m instanceof M.YGOProMsgSelectTribute ? 'tribute' : 'cards'
     const options = m.cards.map((c) => pickOption(c))
-    return ask(kind, hint(kind === 'tribute' ? 'Select monsters to Tribute' : 'Select cards'), options, (is) => m.prepareResponse(is.map((i) => M.IndexResponse(i))), m.min, m.max)
+    return ask(kind, hint(kind === 'tribute' ? 'Select monsters to Tribute' : 'Select cards'), options, (is) => m.prepareResponse(is.map((i) => M.IndexResponse(i))), m.min, m.max, m.cards)
   }
   if (m instanceof M.YGOProMsgSelectUnselectCard) {
     const options = [
@@ -124,12 +144,12 @@ export function question(m: PromptMsg, ctx: Context): Question {
     ]
     if (m.finishable) options.push({ label: 'Done', group: 'Done' })
     const all = [...m.selectableCards, ...m.unselectableCards]
-    return ask('unselect', hint('Select cards'), options, ([i]) => (i >= all.length ? m.prepareResponse(null) : m.prepareResponse(all[i])))
+    return ask('unselect', hint('Select cards'), options, ([i]) => (i >= all.length ? m.prepareResponse(null) : m.prepareResponse(all[i])), 1, 1, all)
   }
   if (m instanceof M.YGOProMsgSelectSum) {
     const options = m.cards.map((c) => pickOption(c))
     const message = `${hint('Select cards')} (they must add up to ${m.sumVal})`
-    return ask('sum', message, options, (is) => m.prepareResponse(is.map((i) => m.cards[i])), 1, m.cards.length)
+    return ask('sum', message, options, (is) => m.prepareResponse(is.map((i) => m.cards[i])), 1, m.cards.length, m.cards)
   }
 
   if (m instanceof M.YGOProMsgSelectPosition) {
@@ -173,9 +193,10 @@ export function question(m: PromptMsg, ctx: Context): Question {
   throw new Error(`no way to ask ${m.constructor.name} yet`)
 }
 
-// The last "select a..." hint before a prompt, for its message.
+// The last "select a..." hint before a prompt (the last message), for its
+// message.
 export function selectHint(messages: unknown[], player: number): number | undefined {
-  for (let i = messages.length - 1; i >= 0; i--) {
+  for (let i = messages.length - 2; i >= 0; i--) {
     const h = messages[i]
     if (h instanceof M.YGOProMsgHint && h.type === HINT_SELECTMSG && h.player === player) return h.desc
     if (h instanceof M.YGOProMsgResponseBase) return undefined

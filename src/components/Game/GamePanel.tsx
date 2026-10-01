@@ -1,7 +1,7 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Lightbulb, MoreHorizontal, Search, Undo2 } from 'lucide-react'
+import { Lightbulb, MoreHorizontal, Search, TriangleAlert, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView } from '../../api/game'
 import { cardDb } from '../../data/cards'
@@ -110,13 +110,28 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   }
 
   const multi = prompt.max > 1
+  const how = multi && PICK_KINDS.includes(prompt.kind) && (prompt.min === prompt.max ? `pick ${prompt.max}` : `pick ${prompt.min} to ${prompt.max}`)
   const indexed = prompt.options.map((o, i) => ({ ...o, i }))
   const withCard = indexed.filter((o) => o.card && state.cards[o.card])
   const general = indexed.filter((o) => !o.card || !state.cards[o.card])
 
   return (
     <div className="space-y-2.5" role="region" aria-label="Your move" data-testid="game-prompt">
-      <p className="text-sm font-semibold text-ink">{prompt.message}</p>
+      {/* Which effect is asking, then what it's asking. A pick that costs you the cards is marked. */}
+      <div>
+        {prompt.source && (
+          <p className="text-xs text-accent">
+            {prompt.source.when === 'activating' ? 'To activate ' : 'Effect of '}
+            <span className="font-semibold">{prompt.source.name}</span>
+          </p>
+        )}
+        <p className={`flex items-start gap-1.5 text-sm font-semibold ${prompt.costly ? 'text-warn' : 'text-ink'}`}>
+          {prompt.costly && <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden />}
+          {prompt.message}
+          {how && <span className="font-normal text-muted">({how})</span>}
+        </p>
+        {prompt.costly && <p className="text-xs text-warn/80">You lose what you pick.</p>}
+      </div>
       {multi ? (
         <MultiPick prompt={prompt} picked={choice.picked} onChange={(picked) => onChoice({ ...choice, picked })} onConfirm={() => onAnswer(choice.picked)} busy={busy} />
       ) : choice.focused && withCard.some((o) => o.card === choice.focused) ? (
