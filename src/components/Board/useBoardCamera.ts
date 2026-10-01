@@ -19,7 +19,7 @@ const SPRING = { type: 'spring', stiffness: 90, damping: 20 } as const
 
 type Size = { w: number; h: number }
 
-function useSize(ref: RefObject<HTMLElement | null>) {
+export function useSize(ref: RefObject<HTMLElement | null>) {
   const [size, setSize] = useState<Size>()
   useLayoutEffect(() => {
     const el = ref.current
@@ -31,13 +31,19 @@ function useSize(ref: RefObject<HTMLElement | null>) {
   return size
 }
 
+// What a left overlay takes from the view: nothing, if it would leave too little.
+export const coveredLeft = (full: Size, insetLeft: number) => (full.w - insetLeft >= full.w * MIN_UNCOVERED ? insetLeft : 0)
+
+// What's covered at the bottom by the hand, when it's pinned there.
+export type PinnedHand = { height: number }
+
 // Scale and offset that frame a focus area in the part of the viewport that
-// isn't covered on the left.
-function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number) {
-  const left = full.w - insetLeft >= full.w * MIN_UNCOVERED ? insetLeft : 0
-  const size = { w: full.w - left, h: full.h }
+// isn't covered on the left or by a pinned hand.
+function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number, hand?: PinnedHand) {
+  const left = coveredLeft(full, insetLeft)
+  const size = { w: full.w - left, h: full.h - (hand?.height ?? 0) }
   const unit = worldW / BOUNDS.width
-  const r = focusRegion(focus)
+  const r = focusRegion(focus, !!hand)
   const fitW = size.w / (r.width * unit)
   const scale = Math.min(MAX_FOCUS_ZOOM, focus === 'all' ? fitW : fitW / (1 - MAX_SIDE_CROP), size.h / (r.height * unit))
   const cx = (r.minX + r.width / 2 - BOUNDS.minX) * unit
@@ -45,7 +51,7 @@ function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number) 
   return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -68,7 +74,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
   // frames the whole table even in free mode; after that, free mode leaves the
   // camera wherever it was.
   const area = mode !== 'free' ? mode : placed.current ? undefined : 'all'
-  const target = size && worldW && area ? frame(size, worldW, area, insetLeft) : undefined
+  const target = size && worldW && area ? frame(size, worldW, area, insetLeft, hand) : undefined
   useEffect(() => {
     if (!target) return
     goTo(target, !placed.current)
@@ -166,7 +172,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     },
   }
 
-  const reset = () => size && worldW && goTo(frame(size, worldW, 'all', insetLeft), false)
+  const reset = () => size && worldW && goTo(frame(size, worldW, 'all', insetLeft, hand), false)
 
-  return { worldW, style: { x, y, scale }, handlers, reset }
+  return { size, worldW, style: { x, y, scale }, handlers, reset }
 }

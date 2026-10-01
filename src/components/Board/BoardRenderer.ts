@@ -20,6 +20,10 @@ export type BoardRendererProps = {
   // Px along the left covered by an overlay (the scene panel). The camera
   // frames the rest when there's room.
   insetLeft?: number
+  // Your hand stays at the bottom of the screen as a fan rather than lying
+  // on the table, above insetBottom px that an overlay (the phone sheet) covers.
+  pinnedHand?: boolean
+  insetBottom?: number
   onCameraMove?: () => void // the viewer panned or zoomed by hand
   onCardClick?: (iid: Iid) => void
   // Dragging a card onto a zone. Only cards in draggable can be picked up;

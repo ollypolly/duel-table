@@ -2,7 +2,7 @@
 // board filling everything else, and a floating scene panel with the
 // narration and playback controls. Clicking a card opens it with what you can
 // do with it; free play adds a header menu and drag-to-move.
-import { Crosshair, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Crosshair, Hand, PanelLeftClose, PanelLeftOpen, type LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { cardDb } from '../../data/cards'
@@ -106,7 +106,7 @@ export function Table({
   draggable,
   onCardDrop,
 }: TableProps) {
-  const { position: rawPosition, playing, speed, followFocus, muted, goTo, setPlaying, setSpeed, setFollowFocus, setMuted } = usePlayerStore()
+  const { position: rawPosition, playing, speed, followFocus, pinHand, muted, goTo, setPlaying, setSpeed, setFollowFocus, setPinHand, setMuted } = usePlayerStore()
   const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board; the URL keeps it
@@ -114,7 +114,7 @@ export function Table({
   const [panelOpen, setPanelOpen] = useState(() => panelFromUrl() ?? (typeof matchMedia !== 'function' || matchMedia('(min-width: 640px)').matches))
   useEffect(() => writePanel(panelOpen), [panelOpen])
   const phone = useMediaQuery('(max-width: 639px)')
-  const { ref: sheetRef, peekRef: sheetPeekRef, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
+  const { ref: sheetRef, peekRef: sheetPeekRef, peek: sheetPeek, motionProps: sheetProps, startDrag, toggle: togglePanel } = useSheet(panelOpen, setPanelOpen, phone)
   // Messages count as seen while the panel is open.
   const messages = activity?.messages ?? 0
   const talker = activity?.who ?? scenario.timeline.at(-1)!.state.players.p2.name
@@ -203,6 +203,8 @@ export function Table({
           choosable={choosable}
           focus={focus}
           insetLeft={panelOpen ? SCENE_PANEL_PX : 0}
+          pinnedHand={pinHand}
+          insetBottom={sheetPeek}
           onCameraMove={() => setFollowFocus(false)}
           onCardClick={(iid) => {
             if (freePlay && fp.attachTo(iid)) return
@@ -368,10 +370,25 @@ export function Table({
           </div>
         )}
 
-        <FocusToggle checked={followFocus} onChange={setFollowFocus} />
+        <ViewToggle
+          label="Focus"
+          icon={Crosshair}
+          title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
+          className="top-3"
+          checked={followFocus}
+          onChange={setFollowFocus}
+        />
+        <ViewToggle
+          label="Pin hand"
+          icon={Hand}
+          title="Pin hand. On: your hand stays at the bottom of the screen while the board moves"
+          className="top-[3.875rem] sm:top-[3.375rem]"
+          checked={pinHand}
+          onChange={setPinHand}
+        />
 
         {!(phone && panelOpen) && (
-          <div className="absolute right-3 top-16 z-10 max-h-[40%] w-56 overflow-y-auto sm:top-14 sm:w-64">
+          <div className="absolute right-3 top-[7.25rem] z-10 max-h-[40%] w-56 overflow-y-auto sm:top-[6.25rem] sm:w-64">
             <ChainList view={view} />
           </div>
         )}
@@ -403,15 +420,18 @@ export function Table({
   )
 }
 
-function FocusToggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
+type ViewToggleProps = { label: string; icon: LucideIcon; title: string; className: string; checked: boolean; onChange: (checked: boolean) => void }
+
+// A checkbox at the board's top right. On a phone its icon stands for the label.
+function ViewToggle({ label, icon: Icon, title, className, checked, onChange }: ViewToggleProps) {
   return (
     <label
-      className="panel absolute right-3 top-3 z-10 flex h-11 cursor-pointer items-center gap-2 px-3.5 text-sm text-muted hover:text-ink sm:h-9 sm:gap-1.5 sm:px-2.5 sm:text-xs"
-      title="Focus. On: the camera follows each step. Dragging or zooming the board turns it off"
+      className={`panel absolute right-3 z-10 flex h-11 cursor-pointer items-center gap-2 px-3.5 text-sm text-muted hover:text-ink sm:h-9 sm:gap-1.5 sm:px-2.5 sm:text-xs ${className}`}
+      title={title}
     >
-      <input type="checkbox" className="accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label="Focus" />
-      <span className="hidden sm:inline">Focus</span>
-      <Crosshair size={18} className="sm:hidden" aria-hidden />
+      <input type="checkbox" className="accent-gold" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-label={label} />
+      <span className="hidden sm:inline">{label}</span>
+      <Icon size={18} className="sm:hidden" aria-hidden />
     </label>
   )
 }

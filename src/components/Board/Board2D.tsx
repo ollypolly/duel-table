@@ -10,11 +10,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useContext, useRef, useState, type CSSProperties } from 'react'
 import { PLAYERS, type Iid, type Player } from '../../engine'
 import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
-import type { PlacedCard, ZoneView } from '../../view/boardView'
+import { VIEWER, type PlacedCard, type ZoneView } from '../../view/boardView'
 import { BOUNDS, CARD, DECK_BOX, deckBoxPlacement, type Point } from '../../view/layout'
 import { CardView } from '../CardView/CardView'
 import type { BoardRendererProps } from './BoardRenderer'
-import { useBoardCamera } from './useBoardCamera'
+import { fanCardHeight, fanHeight } from './fan'
+import { HandFan } from './HandFan'
+import { coveredLeft, useBoardCamera, useSize } from './useBoardCamera'
 
 // Position only; rotation is applied to the card inside so labels stay upright.
 const box = (p: Point, size: { w: number; h: number } = CARD): CSSProperties => ({
@@ -30,6 +32,8 @@ export function Board2D({
   choosable = [],
   focus = 'all',
   insetLeft = 0,
+  pinnedHand = false,
+  insetBottom = 0,
   onCameraMove,
   onCardClick,
   draggable = [],
@@ -37,7 +41,11 @@ export function Board2D({
   onZoneClick,
 }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove)
+  // Unmeasured (a test's DOM), the fan lays out for a desktop.
+  const size = useSize(ref) ?? { w: 1280, h: 800 }
+  const fan = pinnedHand ? insetBottom + fanHeight(fanCardHeight(size)) : 0
+  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined)
+  const inFan = (c: PlacedCard) => pinnedHand && c.handIndex !== undefined && c.zone.player === VIEWER
   const seatDecks = useContext(SeatDecks)
   const byDeck = useCosmeticsStore((s) => s.cosmetics)
   const cosmetics = (p: Player) => (seatDecks[p] && byDeck[seatDecks[p]]) || {}
@@ -97,7 +105,7 @@ export function Board2D({
                 ),
             )}
             <AnimatePresence initial={false}>
-              {view.cards.map((c) => (
+              {view.cards.filter((c) => !inFan(c)).map((c) => (
                 <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} />
               ))}
             </AnimatePresence>
@@ -133,8 +141,26 @@ export function Board2D({
               ))}
             </svg>
           </motion.div>
+          {pinnedHand && (
+            <HandFan
+              cards={view.cards.filter(inFan)}
+              board={size}
+              left={coveredLeft(size, insetLeft)}
+              bottom={insetBottom}
+              lit={lit}
+              canDrag={canDrag}
+              dragging={!!dragging}
+              onCardClick={onCardClick}
+            />
+          )}
           {focus === 'free' && (
-            <button type="button" className="btn absolute bottom-3 right-3 z-10" onClick={cam.reset} onPointerDown={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="btn absolute right-3 z-10"
+              style={{ bottom: `calc(${fan}px + 0.75rem)` }}
+              onClick={cam.reset}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               Reset view
             </button>
           )}

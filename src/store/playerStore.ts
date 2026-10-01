@@ -21,11 +21,13 @@ type PlayerState = {
   goTo: (position: number) => void
   setSpeed: (speed: number) => void
   setPlaying: (playing: boolean) => void
+  pinHand: boolean // your hand stays at the bottom of the screen as a fan
   setFollowFocus: (followFocus: boolean) => void
+  setPinHand: (pinHand: boolean) => void
   setMuted: (muted: boolean) => void
 }
 
-type Persisted = Pick<PlayerState, 'speed' | 'muted'>
+type Persisted = Pick<PlayerState, 'speed' | 'muted' | 'pinHand'>
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -35,23 +37,25 @@ export const usePlayerStore = create<PlayerState>()(
       playing: false,
       muted: false,
       followFocus: true,
+      pinHand: true,
       open: (scenarioId, position = 0) => set({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true }),
       openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false, followFocus: true }),
       goTo: (position) => set({ position }),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),
       setFollowFocus: (followFocus) => set({ followFocus }),
+      setPinHand: (pinHand) => set({ pinHand }),
       setMuted: (muted) => set({ muted }),
     }),
     {
       name: 'duel-table/player',
       version: 3,
-      partialize: ({ speed, muted }): Persisted => ({ speed, muted }),
+      partialize: ({ speed, muted, pinHand }): Persisted => ({ speed, muted, pinHand }),
       // Only called when the stored version differs. Earlier versions also
       // saved what was open; the preferences carry over.
       migrate: (old): Persisted => {
-        const { speed = 1, muted = false } = (old ?? {}) as Partial<Persisted>
-        return { speed, muted }
+        const { speed = 1, muted = false, pinHand = true } = (old ?? {}) as Partial<Persisted>
+        return { speed, muted, pinHand }
       },
     },
   ),

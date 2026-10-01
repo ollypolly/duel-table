@@ -68,9 +68,13 @@ export const MATERIAL_OFFSET = 0.09
 export type FocusArea = 'all' | Player
 export type Region = { minX: number; minY: number; width: number; height: number }
 
-export function focusRegion(area: FocusArea): Region {
-  if (area === 'all') return BOUNDS
+// handless: p1's hand is pinned to the screen, so its row isn't framed.
+export function focusRegion(area: FocusArea, handless = false): Region {
+  const bottom = handless ? 2 * ROW + CARD.h / 2 + 0.15 : BOUNDS.minY + BOUNDS.height
+  if (area === 'all') return { ...BOUNDS, height: bottom - BOUNDS.minY }
   const oppMonsterTop = -(ROW + CARD.h / 2 + 0.15)
-  const height = BOUNDS.minY + BOUNDS.height - oppMonsterTop
-  return { minX: BOUNDS.minX, minY: area === 'p1' ? oppMonsterTop : BOUNDS.minY, width: BOUNDS.width, height }
+  const p2Bottom = BOUNDS.minY + (BOUNDS.minY + BOUNDS.height - oppMonsterTop)
+  return area === 'p1'
+    ? { minX: BOUNDS.minX, minY: oppMonsterTop, width: BOUNDS.width, height: bottom - oppMonsterTop }
+    : { minX: BOUNDS.minX, minY: BOUNDS.minY, width: BOUNDS.width, height: p2Bottom - BOUNDS.minY }
 }

@@ -18,6 +18,7 @@ export function useSheet(open: boolean, setOpen: (open: boolean) => void, enable
   const y = useMotionValue(0)
   const controls = useDragControls()
   const [height, setHeight] = useState(0) // hidden when closed: everything under the peek
+  const [peek, setPeek] = useState(0) // what still shows then
   const dragging = useRef(false)
   const placed = useRef(false)
   const closedY = enabled ? height : 0
@@ -26,7 +27,10 @@ export function useSheet(open: boolean, setOpen: (open: boolean) => void, enable
     const el = ref.current
     const peek = peekRef.current
     if (!el || !peek || typeof ResizeObserver !== 'function') return
-    const observer = new ResizeObserver(() => setHeight(el.getBoundingClientRect().bottom - peek.getBoundingClientRect().bottom))
+    const observer = new ResizeObserver(() => {
+      setHeight(el.getBoundingClientRect().bottom - peek.getBoundingClientRect().bottom)
+      setPeek(peek.getBoundingClientRect().bottom - el.getBoundingClientRect().top)
+    })
     observer.observe(el)
     observer.observe(peek)
     return () => observer.disconnect()
@@ -60,6 +64,7 @@ export function useSheet(open: boolean, setOpen: (open: boolean) => void, enable
   return {
     ref,
     peekRef,
+    peek: enabled ? peek : 0,
     motionProps: enabled
       ? {
           style: { y },
