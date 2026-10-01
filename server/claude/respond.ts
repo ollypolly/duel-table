@@ -1,5 +1,5 @@
 // Claude's view of a chance to respond: whether it's worth stopping the
-// person for, and why. One short call to a fast model, with no tools and
+// person for, and why. One short call with thinking off and no tools, given
 // only what the person can see.
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { GamePrompt } from '../../src/api/game'
@@ -8,15 +8,30 @@ import type { BoardState, Player } from '../../src/engine'
 import type { ChainAdvice } from '../games'
 import { cardText, describeQuestion, describeTable, publicLabel } from './view'
 
-const MODEL = 'claude-haiku-4-5-20251001'
+const MODEL = 'claude-sonnet-5-5'
 
 // One prompt in, the model's text out.
 export type Quick = (system: string, message: string) => Promise<string>
 
+// Thinking is off and the call is cut short: an answer that takes longer than
+// simply asking the person is worth less than asking them.
+const LIMIT_MS = 10_000
+
 export const sdkQuick: Quick = async (system, message) => {
-  const q = query({ prompt: message, options: { model: MODEL, systemPrompt: system, tools: [], settingSources: [], maxTurns: 1, persistSession: false } })
+  const abortController = new AbortController()
+  const timer = setTimeout(() => abortController.abort(), LIMIT_MS)
+  const q = query({
+    prompt: message,
+    options: { model: MODEL, systemPrompt: system, tools: [], settingSources: [], maxTurns: 1, maxThinkingTokens: 0, persistSession: false, abortController },
+  })
   let out = ''
-  for await (const m of q) if (m.type === 'result' && m.subtype === 'success' && !m.is_error) out = m.result
+  try {
+    for await (const m of q) if (m.type === 'result' && m.subtype === 'success' && !m.is_error) out = m.result
+  } catch {
+    // Cut short or failed: no view, so the person is asked.
+  } finally {
+    clearTimeout(timer)
+  }
   return out
 }
 
