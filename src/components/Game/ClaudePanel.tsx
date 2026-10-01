@@ -1,4 +1,4 @@
-// Claude, when it plays one side, tutors a lesson or reviews a game. The chat log fills the
+// Claude, when it plays one side, coaches you against a bot, tutors a lesson or reviews a game. The chat log fills the
 // middle of the scene panel: what it says, with its moves and the app's notes
 // in among it. The input bar sits at the bottom with Stop/Resume and a
 // settings menu: the model, coaching and what to send it (in a game), and the
@@ -109,10 +109,11 @@ function Checked({ on, role, onClick, children }: { on: boolean; role: 'menuitem
   )
 }
 
-// A lesson's tutor and a review have no coaching or sharing to set, never
+// A lesson's tutor and a review have no coaching or sharing to set (nor has a
+// coach beside you, who may know the bot's deck instead), never
 // wait stopped, and can start over instead. A review can also be left (onEnd).
 type InputProps = {
-  claude: Pick<ClaudeView, 'model' | 'costUsd'> & Partial<Pick<ClaudeView, 'coach' | 'share'>> & { status: ClaudeView['status'] }
+  claude: Pick<ClaudeView, 'model' | 'costUsd'> & Partial<Pick<ClaudeView, 'coach' | 'share' | 'knowsDeck'>> & { status: ClaudeView['status'] }
   placeholder?: string
   onChat: (text: string) => void
   onStop: () => void
@@ -161,6 +162,14 @@ export function ClaudeInput({ claude, placeholder = 'Say something to Claude…'
             <MenuLabel>Claude</MenuLabel>
             <Checked role="menuitemcheckbox" on={claude.coach} onClick={() => onSettings({ coach: !claude.coach })}>
               Coach me
+            </Checked>
+          </>
+        )}
+        {claude.knowsDeck !== undefined && (
+          <>
+            <MenuLabel>Claude</MenuLabel>
+            <Checked role="menuitemcheckbox" on={claude.knowsDeck} onClick={() => onSettings({ knowsDeck: !claude.knowsDeck })}>
+              Knows the bot's deck
             </Checked>
           </>
         )}

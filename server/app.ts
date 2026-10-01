@@ -37,7 +37,7 @@ const SummarySchema = z.object({
   kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),
   winner: z.enum(['p1', 'p2']).optional(),
   claudeLesson: z.literal(true).optional().openapi({ description: 'A lesson Claude ran on the rules engine' }),
-  opponent: z.enum(['bot', 'claude']).optional().openapi({ description: 'Who answers for p2 in a game, if not a person' }),
+  opponent: z.enum(['bot', 'trained', 'claude']).optional().openapi({ description: 'Who answers for p2 in a game, if not a person' }),
   reviewed: z
     .object({ scanned: z.boolean(), busy: z.boolean(), moments: z.partialRecord(z.enum(MOMENT_KINDS), z.int()) })
     .optional()
@@ -499,24 +499,53 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
             opponentDeck: z.string().optional(),
             seed: z.int().optional(),
             bots: z.array(PlayerSchema).optional(),
+            bot: z.enum(['random', 'agent']).optional().describe('Which bot answers for bots: random (default) or agent, the trained one, which plays only the decks in GET /games/opponents'),
             claude: PlayerSchema.optional().describe('Claude plays this side instead of the bot (needs a Claude login)'),
             lesson: z.boolean().optional().describe('Claude runs the game as a lesson: it plays both sides, sets up positions and hands you a side to try (needs a Claude login)'),
             topic: z.string().optional().describe('What you want the lesson to teach'),
             model: ModelChoiceSchema.optional().describe("Claude's model (default opus)"),
             coach: z.boolean().optional().describe('Claude also coaches you (default true)'),
+            watch: z.boolean().optional().describe('In a bot game, Claude sits beside you as a coach to ask: it sees your side and answers nothing (needs a Claude login)'),
+            knowsDeck: z.boolean().optional().describe("With watch: Claude is given the bot's decklist (default true)"),
             title: z.string().optional(),
           })
           .strict()
           .refine((o) => !o.deck !== !o.scenario, { message: 'give a deck or a scenario' }),
       ),
-      responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, 'No rules engine, or no Claude login'), ...errors },
+      responses: { 201: json(SessionSchema, 'The new game'), 501: json(ErrorSchema, "No rules engine, no Claude login, or the trained bot isn't running"), ...errors },
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       const opts = c.req.valid('json')
-      if ((opts.claude || opts.lesson) && !(claude && (await claude.account())))
+      if ((opts.claude || opts.lesson || opts.watch) && !(claude && (await claude.account())))
         return c.json({ error: `${opts.lesson ? 'a lesson with' : 'playing'} Claude needs a Claude login (run \`claude\` and log in)` }, 501)
-      return c.json(await games.create(opts), 201)
+      // Against a bot, Claude sits beside you to be asked, when there's a login for it.
+      const watch = opts.watch ?? (!opts.claude && !opts.lesson && (opts.bots ?? ['p2']).length === 1 && !!(claude && (await claude.account())))
+      return c.json(await games.create({ ...opts, watch }), 201)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'get',
+      path: '/games/opponents',
+      summary: 'Which bots can be played here, and with which decks',
+      description: 'The random bot plays any deck. The trained bot (ygo-agent) plays only decks made of cards it was trained on, and only when its service is set up and running.',
+      responses: {
+        200: json(
+          z.object({
+            agent: z.object({ available: z.boolean(), reason: z.string().optional().describe("Why it can't be played, when it can't"), decks: z.array(z.string()).describe('Deck ids it can play') }),
+          }),
+          'The bots',
+        ),
+      },
+    }),
+    async (c) => {
+      await games?.loadAgent()
+      const decks = games?.agentDecks()
+      const up = !!decks && (await games!.agentUp())
+      const reason = !decks ? "It isn't set up on this server." : !up ? "Its service isn't running (docker compose up -d ygo-agent)." : undefined
+      return c.json({ agent: { available: up, ...(reason && { reason }), decks: decks ?? [] } }, 200)
     },
   )
 

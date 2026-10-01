@@ -163,7 +163,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       ? () =>
           report(
             api
-              .createGame({ deck: players.p1.deck!, opponentDeck: players.p2.deck!, ...(claude && { claude: 'p2' as const, model: claude.model, coach: claude.coach }) })
+              .createGame({ deck: players.p1.deck!, opponentDeck: players.p2.deck!, ...(claude && (claude.watch ? { model: claude.model, knowsDeck: claude.knowsDeck } : { claude: 'p2' as const, model: claude.model, coach: claude.coach })), ...(game?.bot === 'agent' && { bot: 'agent' as const }) })
               .then((s) => openSession(s.id, Infinity)),
           )
       : undefined
@@ -329,10 +329,18 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         chat={
           reviewChat ||
           (game?.claude && {
-            log: <ClaudeChat claude={game.claude} footer={dock} footerKey={dockKey} />,
+            log: (
+              <ClaudeChat
+                claude={game.claude}
+                {...(game.claude.watch && { empty: 'Claude is beside you for this game. Ask it what to play, or why something happened.' })}
+                footer={dock}
+                footerKey={dockKey}
+              />
+            ),
             input: (
               <ClaudeInput
-                claude={claudeLesson ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
+                claude={claudeLesson || game.claude.watch ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
+                {...(game.claude.watch && { placeholder: 'Ask Claude…' })}
                 onChat={(text) => report(api.chat(id, text))}
                 onStop={() => report(api.stopClaude(id))}
                 onResume={() => report(api.resumeClaude(id))}

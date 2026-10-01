@@ -28,10 +28,12 @@ const service = new ClaudeService({
   sessions,
   db: () => ctx().db,
   agent: sdkAgent,
-  system: ({ coach, character, lesson }) =>
+  system: ({ coach, character, lesson, watch }) =>
     lesson
       ? prompt('lesson')
-      : [prompt('game'), coach && prompt('coach'), character && prompt('persona').replace(/\{(\w+)\}/g, (_, k: keyof Character) => character[k])]
+      : watch
+        ? prompt('advisor')
+        : [prompt('game'), coach && prompt('coach'), character && prompt('persona').replace(/\{(\w+)\}/g, (_, k: keyof Character) => character[k])]
           .filter(Boolean)
           .join('\n\n'),
   store: diskClaudeStore(join(ROOT, 'sessions', 'claude')),

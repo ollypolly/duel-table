@@ -1,10 +1,13 @@
 import { existsSync } from 'node:fs'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { ScenarioFile } from '../src/scenarios/schema'
 import { repoContext, ROOT } from './files'
 import { GameService, UNDOS } from './games'
 import { ocgDataDir } from './ocg/lib'
+import { agentCodes } from './ocg/agentBot'
 import { seededRng } from './ocg/bot'
 import { SessionError, SessionService, type SessionStore } from './sessions'
 
@@ -29,6 +32,39 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     // Bot steps are paced, not shown at once.
     expect(v.lesson.queued).toBeGreaterThan(0)
   }, 60_000)
+
+  it('plays the trained bot only with decks it knows, and falls back to the random bot when it has no pick', async () => {
+    // A stand-in for ygo-agent that is up but never has a prediction.
+    let calls = 0
+    const server = createServer((req, res) => {
+      if (req.method === 'POST' && req.url === '/v0/duels') return void res.end(JSON.stringify({ duelId: 'd1', index: 0 }))
+      if (req.method === 'POST') calls++
+      res.statusCode = req.method === 'POST' ? 500 : 200
+      res.end('{}')
+    }).listen(0, '127.0.0.1')
+    await new Promise((r) => server.once('listening', r))
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+      const sessions = new SessionService(ctx)
+      const games = new GameService(sessions, ctx, undefined, { url, codes: agentCodes(ROOT) })
+      await games.loadAgent()
+      expect(games.agentDecks()).toContain('trained-blue-eyes')
+      expect(games.agentDecks()).not.toContain('chazz-armed-ojama')
+      await expect(games.create({ deck: 'trained-blue-eyes', opponentDeck: 'chazz-armed-ojama', bot: 'agent' })).rejects.toThrow(/only knows its own decks/)
+      const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'trained-blue-eyes', seed: 2, bots: ['p1', 'p2'], bot: 'agent' })
+      expect(v.game).toMatchObject({ bot: 'agent' })
+      expect(v.game?.winner).toBeDefined()
+      expect(v.file.duel?.bot).toBe('agent')
+      expect(sessions.list().find((s) => s.id === v.id)?.opponent).toBe('trained')
+      expect(calls).toBeGreaterThan(0)
+      expect(games.agentMisses(v.id).length).toBeGreaterThan(0)
+      // Not offered at all when its service is down.
+      const down = new GameService(new SessionService(ctx), ctx, undefined, { url: 'http://127.0.0.1:9', codes: agentCodes(ROOT) })
+      await expect(down.create({ deck: 'chazz-armed-ojama', opponentDeck: 'trained-blue-eyes', bot: 'agent' })).rejects.toThrow(/isn't running/)
+    } finally {
+      server.close()
+    }
+  }, 120_000)
 
   it('stops at a person and refuses free-play steps and undo', async () => {
     const sessions = new SessionService(ctx)

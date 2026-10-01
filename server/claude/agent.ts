@@ -19,6 +19,12 @@ export type DuelTools = {
   table(): string
   answer?(question: number, choices: number[], batch?: boolean): Promise<string>
   card(name: string): string
+  // In a game: a decklist, and what has happened so far.
+  deck?(side: 'yours' | 'opponent'): string
+  history?(last?: number): string
+  // A coach beside the person: their open question, and a line of theirs tried on a copy of the game.
+  options?(): Promise<string>
+  tryLine?(picks: number[][]): Promise<string>
   setup?(setup: Setup, lp?: Partial<Record<Player, number>>): Promise<string>
   handOver?(player: Player, until: Handover['until']): Promise<string>
   takeBack?(player: Player): string
@@ -41,7 +47,7 @@ const MAX_TURNS = 60
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
 export const sdkAgent: Agent = (req) => {
-  const { answer, setup, handOver, takeBack, ask, tableAt, mark } = req.tools
+  const { answer, setup, handOver, takeBack, ask, tableAt, mark, deck, history, options, tryLine } = req.tools
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
@@ -68,6 +74,30 @@ export const sdkAgent: Agent = (req) => {
           ]
         : []),
       tool('card', "A card's full text and stats, by name.", { name: z.string() }, async ({ name }) => text(req.tools.card(name))),
+      ...(deck && history
+        ? [
+            tool(
+              'deck',
+              "A decklist: yours with what is still in the Deck, or your opponent's if you have been given it (otherwise just their cards you can see).",
+              { side: z.enum(['yours', 'opponent']) },
+              async ({ side }) => text(deck(side)),
+            ),
+            tool('history', 'What has happened in the game so far, oldest first, numbered.', { last: z.int().min(1).optional().describe('How many of the latest events (default 40)') }, async ({ last }) =>
+              text(history(last)),
+            ),
+          ]
+        : []),
+      ...(options && tryLine
+        ? [
+            tool('options', "The person's open question and its numbered options, as it stands now.", {}, async () => text(await options())),
+            tool(
+              'tryLine',
+              "Play a line for the person on a copy of the game and see what the rules engine does with it, without touching the real game. Give the picks in order: the first answers their open question, the next the question that follows, and so on. Each pick is the option numbers chosen. The result shows what would happen, the table after it and the next question, so build a longer line by adding a pick and calling again.",
+              { picks: z.array(z.array(z.int().min(0))).min(1).max(30) },
+              async ({ picks }) => text(await tryLine(picks)),
+            ),
+          ]
+        : []),
       ...(setup && handOver && takeBack && ask
         ? [
             tool(
@@ -120,6 +150,8 @@ export const sdkAgent: Agent = (req) => {
         'mcp__duel__table',
         'mcp__duel__card',
         ...(answer ? ['mcp__duel__answer'] : []),
+        ...(deck ? ['mcp__duel__deck', 'mcp__duel__history'] : []),
+        ...(tryLine ? ['mcp__duel__options', 'mcp__duel__tryLine'] : []),
         ...(setup ? ['mcp__duel__setup', 'mcp__duel__handOver', 'mcp__duel__takeBack', 'mcp__duel__ask'] : []),
         ...(mark ? ['mcp__duel__tableAt', 'mcp__duel__mark'] : []),
       ],

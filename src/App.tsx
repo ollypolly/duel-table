@@ -63,6 +63,7 @@ export default function App() {
         deck: t.players.p1.deck!,
         opponentDeck: t.players.p2.deck!,
         ...(t.opponent === "claude" && { claude: "p2" as const }),
+        ...(t.opponent === "trained" && { bot: "agent" as const }),
       })
       .then((s) => openSession(s.id, Infinity));
 

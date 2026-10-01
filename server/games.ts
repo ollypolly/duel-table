@@ -3,7 +3,7 @@
 // file as duel.responses). After a restart a game is rebuilt by replaying
 // those answers the first time it's needed.
 import { PLAYERS, type BoardState, type Player, type Step } from '../src/engine'
-import type { GameAnswer, GameView, ModelChoice } from '../src/api/game'
+import type { GameAnswer, GamePrompt, GameView, ModelChoice } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
 import { AgentBot, agentCodes, agentUrl } from './ocg/agentBot'
@@ -20,6 +20,8 @@ import { SessionError, type SessionService, type SessionView } from './sessions'
 // players it holds (both, to begin with).
 // bot: which bot answers for the players in bots: the trained one (ygo-agent)
 // or, by default, the random one.
+// watch: in a bot game, Claude sits beside you as a coach (it sees your side,
+// answers nothing). knowsDeck: that coach is given the bot's decklist (default true).
 // scenario: start from that scenario's setup (hands, fields, LP) instead of
 // two decks and opening hands.
 export type CreateGameOptions = {
@@ -34,6 +36,8 @@ export type CreateGameOptions = {
   topic?: string
   model?: ModelChoice
   coach?: boolean
+  watch?: boolean
+  knowsDeck?: boolean
   title?: string
 }
 
@@ -48,6 +52,11 @@ type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean;
 // moves: for each move a person began, how many answers had been given.
 // agents: the trained bot's side of the conversation, for each player it plays.
 type Live = Seats & { game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; agents?: Partial<Record<Player, AgentBot>> }
+
+// A line tried on a copy of the game: what happened, the table after it, how
+// many of the picks were played, and why it stopped (the next question for the
+// player, a decision of the other side's, a pick the engine refused, the end).
+export type Trial = { steps: Step[]; state: BoardState; played: number; next?: GamePrompt; theirs?: boolean; refused?: boolean; winner?: Player }
 
 // Where the trained bot is served, and the cards it knows.
 export type AgentConfig = { url: string; codes: Set<number> }
@@ -106,6 +115,15 @@ export class GameService {
       .map((d) => d.id)
   }
 
+  // Whether the trained bot's service answers.
+  async agentUp(): Promise<boolean> {
+    if (!this.agent) return false
+    return fetch(this.agent.url, { signal: AbortSignal.timeout(1500) }).then(
+      (r) => r.ok,
+      () => false,
+    )
+  }
+
   // Printings the trained bot knows under another code, once the engine's
   // card data is loaded.
   private aliases?: Map<number, number>
@@ -125,6 +143,7 @@ export class GameService {
       await this.loadAgent()
       const deck = opts.opponentDeck ?? opts.deck ?? ''
       if (!this.agent) throw new SessionError(501, "the trained bot isn't set up (YGO_AGENT_URL)")
+      if (!(await this.agentUp())) throw new SessionError(501, "the trained bot isn't running (docker compose up -d ygo-agent)")
       if (opts.scenario || !this.agentDecks()!.includes(deck)) throw new SessionError(422, `the trained bot can't play ${opts.scenario ? 'from a position' : deck}: it only knows its own decks`)
     }
     const { id } = this.sessions.create({
@@ -269,6 +288,49 @@ export class GameService {
     return !live.lesson && left > 0 && live.moves.length && (yours || live.game.duel.result) ? left : undefined
   }
 
+  // What would happen if player answered their open question, and the ones
+  // after it, with these picks: played on a copy, so the game doesn't move.
+  // Wherever the other side could respond they pass; the copy stops at any
+  // other decision of theirs, or when the picks run out.
+  async trial(id: string, player: Player, picks: number[][]): Promise<Trial> {
+    const live = await this.live(id)
+    const file = this.sessions.export(id)
+    const game = new OcgGame(live.ocg, this.setup(file), !!file.duel!.shuffled)
+    let p = game.replay(file.duel!.responses.map(decodeResponse))
+    const steps: Step[] = []
+    const copy = { game, ocg: live.ocg, codes: live.codes }
+    const done = (rest: Omit<Trial, 'steps' | 'state' | 'played'>): Trial => ({ steps, state: game.state, played, ...rest })
+    let played = 0
+    for (let i = 0; i < 500; i++) {
+      if (game.duel.result) return done({ winner: game.duel.result.player })
+      if (!p.prompt || !p.waitingFor) return done({})
+      let response: Uint8Array | undefined
+      let picked = false
+      if (p.waitingFor !== player) {
+        if (!(p.prompt instanceof M.YGOProMsgSelectChain) || p.prompt.chains.some((c) => c.forced)) return done({ theirs: true })
+        response = p.prompt.defaultResponse()
+      } else if (quietChance(p, game.state)) response = (p.prompt as InstanceType<typeof M.YGOProMsgSelectChain>).defaultResponse()
+      else {
+        const q = this.ask(copy, p)
+        if ('prompt' in q) {
+          const pick = picks[played]
+          const { min, max, options } = q.prompt
+          if (!pick) return done({ next: q.prompt })
+          if (pick.length < min || pick.length > max || new Set(pick).size !== pick.length || pick.some((c) => c >= options.length))
+            return done({ next: q.prompt, refused: true })
+          response = q.answer(pick)
+          picked = true
+        } else response = q.auto
+      }
+      if (!response) return done({ theirs: true })
+      p = game.respond(response)
+      if (p.retried) return done({ refused: true })
+      if (picked) played++
+      steps.push(...p.steps)
+    }
+    return done({})
+  }
+
   async get(id: string): Promise<OcgGame> {
     return (await this.live(id)).game
   }
@@ -298,7 +360,7 @@ export class GameService {
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
     const undos = this.undos(id, live)
-    return { bots, ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }) }
+    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -376,7 +438,7 @@ export class GameService {
     }
   }
 
-  private ask(live: Live, p: Progress): Question {
+  private ask(live: Pick<Live, 'game' | 'ocg' | 'codes'>, p: Progress): Question {
     return question(p.prompt!, { id: live.game.duel.responses.length, hint: p.hint, chain: p.chain, ocg: live.ocg, translator: live.game.translator, codes: live.codes })
   }
 

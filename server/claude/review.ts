@@ -51,7 +51,7 @@ export type ReviewDeps = {
   agent: Agent
   system: () => string
   // The side Claude played and the game's chat, when Claude played or ran a lesson.
-  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat'> | undefined
+  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch'> | undefined
   store?: RecordStore<ReviewRecord>
 }
 
@@ -282,9 +282,11 @@ export class ReviewService {
     const claude = this.played(id)
     const how = v.claudeLesson
       ? 'It was a lesson you ran for the person: you played both sides, and handed them p1 to try things.'
-      : claude
+      : claude && !claude.watch
         ? `You played ${claude.player} against the person.`
-        : 'The person played p1 against a bot picking random legal moves.'
+        : v.file.duel?.bot === 'agent'
+          ? `The person played p1 against a trained bot (a neural network that plays its own deck well).${claude ? ' You sat beside them as their coach.' : ''}`
+          : `The person played p1 against a bot picking random legal moves.${claude ? ' You sat beside them as their coach.' : ''}`
     const result = v.winner ? `${v.players[v.winner].name} (${v.winner}) won, on turn ${v.turn}.` : `It stopped on turn ${v.turn} without a winner.`
     return [`The game: ${v.title}. p1 is the person, ${seat('p1')}; p2 is ${seat('p2')}.`, how, result].join(' ')
   }

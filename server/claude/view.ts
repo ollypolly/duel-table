@@ -95,6 +95,33 @@ export function knownCards(state: BoardState, viewer: Player, db: CardDb, shown 
   return [...new Set(names)]
 }
 
+// player's deck as viewer may know it. given: viewer has the decklist (their
+// own, or one they've been shown); otherwise only the cards they can see now.
+type DeckList = { name?: string; main: { name: string; count: number }[]; extra?: { name: string; count: number }[] }
+export function describeDeck(state: BoardState, player: Player, viewer: Player, db: CardDb, list: DeckList | undefined, given: boolean): string {
+  const whose = player === viewer ? 'Your' : "Your opponent's"
+  const name = (iid: Iid) => cardFace(state, iid, db).name
+  const tally = (names: string[]) => {
+    const n = new Map<string, number>()
+    for (const x of names) n.set(x, (n.get(x) ?? 0) + 1)
+    return [...n].sort(([a], [b]) => a.localeCompare(b)).map(([x, c]) => `${c}x ${x}`).join(', ') || 'none'
+  }
+  const entries = (es: { name: string; count: number }[] = []) => es.map((e) => `${e.count}x ${e.name}`).join(', ') || 'none'
+  const size = (es: { count: number }[] = []) => es.reduce((n, e) => n + e.count, 0)
+  const owned = Object.values(state.cards).filter((c) => c.owner === player).map((c) => c.iid)
+  if (!given) {
+    const seen = owned.filter((iid) => seenBy(state, iid, viewer, db))
+    return `You haven't been given ${player === viewer ? 'this' : "your opponent's"} decklist. Their cards you can see now: ${tally(seen.map(name))}. The history has what was played earlier.`
+  }
+  const lines = list
+    ? [`${whose} deck${list.name ? `: ${list.name}` : ''}`, `Main Deck (${size(list.main)}): ${entries(list.main)}`, `Extra Deck (${size(list.extra)}): ${entries(list.extra)}`]
+    : [`${whose} cards (${owned.length}): ${tally(owned.map(name))}`]
+  // Their own Deck's contents follow from the list and what's out of it; the order doesn't.
+  if (player === viewer) lines.push(`Still in the Deck (${state.players[player].zones.deck.length}, in an order nobody knows): ${tally(state.players[player].zones.deck.map(name))}`)
+  else lines.push(`Not seen yet (in their Deck, hand, Extra Deck or face-down): ${tally(owned.filter((iid) => !seenBy(state, iid, viewer, db)).map(name))}`)
+  return lines.join('\n')
+}
+
 export function cardText(db: CardDb, name: string): string {
   const c = db.byName(name)
   if (!c) return `No card named "${name}".`
@@ -130,10 +157,11 @@ export function optionLabel(prompt: GamePrompt, i: number, state: BoardState, vi
   return `${seenBy(state, o.card, viewer, db) ? cardFace(state, o.card, db).name : 'Face-down card'}: ${o.label}`
 }
 
-// theirs: the opponent's question, which they've shown viewer for advice.
-export function describeQuestion(prompt: GamePrompt, state: BoardState, viewer: Player, db: CardDb, theirs = false): string {
+// theirs: it's someone else's question (the opponent's, shown to viewer for
+// advice; the person's, to their coach), introduced with that line.
+export function describeQuestion(prompt: GamePrompt, state: BoardState, viewer: Player, db: CardDb, theirs?: string): string {
   const how = prompt.min === prompt.max ? (prompt.max === 1 ? 'pick one' : `pick ${prompt.max}`) : `pick ${prompt.min} to ${prompt.max}`
   const why = prompt.source ? `, ${prompt.source.when === 'activating' ? 'to activate' : 'for the effect of'} ${prompt.source.name}` : ''
-  const head = theirs ? `Your opponent is being asked (theirs to answer, not yours): "${prompt.message}"${why} (${how})` : `Question ${prompt.id}: ${prompt.message}${why} (${how})`
+  const head = theirs ? `${theirs}: "${prompt.message}"${why} (${how})` : `Question ${prompt.id}: ${prompt.message}${why} (${how})`
   return [head, ...prompt.options.map((_, i) => `  ${i}. ${optionLabel(prompt, i, state, viewer, db)}`)].join('\n')
 }

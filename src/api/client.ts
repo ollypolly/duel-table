@@ -19,7 +19,7 @@ export type SessionSummary = {
   kind: 'game' | 'board'
   winner?: Player
   claudeLesson?: true // a lesson Claude ran on the rules engine
-  opponent?: 'bot' | 'claude' // who answers for p2 in a game, if not a person
+  opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> } // it has a review with Claude
 }
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
@@ -73,11 +73,13 @@ export const api = {
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
-  createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean }) =>
+  createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { bot?: 'random' | 'agent'; claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean; knowsDeck?: boolean }) =>
     call<SessionSummary>('POST', '/games', opts),
   answerGame: (id: string, answer: GameAnswer) => call<SessionSummary>('POST', `/sessions/${id}/game/answer`, answer),
   undoGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/undo`),
   forfeitGame: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/game/forfeit`),
+  // Which bots can be played, and the decks the trained one knows.
+  opponents: () => call<Opponents>('GET', '/games/opponents').catch((): Opponents => ({ agent: { available: false, decks: [] } })),
   // Whether this server has a Claude login to play with.
   claude: () => call<ClaudeStatus>('GET', '/claude').catch((): ClaudeStatus => ({ available: false })),
   chat: (id: string, text: string, show?: boolean) => call<unknown>('POST', `/sessions/${id}/claude/chat`, { text, ...(show && { show }) }),
@@ -100,6 +102,7 @@ export const api = {
   clearReview: (id: string) => call<ReviewView>('DELETE', `/sessions/${id}/review`),
 }
 
+export type Opponents = { agent: { available: boolean; reason?: string; decks: string[] } }
 export type ClaudeStatus = { available: boolean; email?: string; plan?: string }
 
 // Calls onUpdate with the whole session now and after every change.

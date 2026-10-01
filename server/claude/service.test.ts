@@ -53,7 +53,7 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
 const setup = (agent: Agent) => {
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: ({ coach, character, lesson }) => (lesson ? 'lesson' : [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as ')), store: memoryClaudeStore() })
+  const claude = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: ({ coach, character, lesson, watch }) => (lesson ? 'lesson' : watch ? 'beside' : [coach ? 'coach' : 'play', character?.name].filter(Boolean).join(' as ')), store: memoryClaudeStore() })
   return { sessions, games, claude }
 }
 
@@ -180,6 +180,62 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     // Each card's text is given once.
     expect(fake.requests[0].message).toContain('Card texts')
     expect(shared.match(/Card texts/g)?.length ?? 0).toBeLessThanOrEqual(1)
+  }, 60_000)
+
+  it('sits beside you against a bot: sees your side, answers nothing, and tries a line on a copy', async () => {
+    const requests: AgentRequest[] = []
+    const seen: Record<string, string> = {}
+    const agent: Agent = (req) => {
+      requests.push(req)
+      async function* run(): AsyncIterable<AgentEvent> {
+        const { tools } = req
+        seen.options = await tools.options!()
+        const end = /(\d+)\. End turn/.exec(seen.options)
+        seen.line = await tools.tryLine!([[Number(end![1])]])
+        seen.mine = tools.deck!('yours')
+        seen.theirs = tools.deck!('opponent')
+        seen.history = tools.history!()
+        yield { type: 'text', text: 'Set a monster and pass.' }
+        yield { type: 'done', sessionId: 'fake-session', costUsd: 0.01 }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const { sessions, games, claude } = setup(agent)
+    const v = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 1, watch: true })
+    expect(v.game).toMatchObject({ bots: ['p2'], bot: 'random', waitingFor: 'p1', claude: { player: 'p1', watch: true, knowsDeck: true, chat: [] } })
+    // Nothing runs until you ask, and your question stays yours.
+    await claude.idle(v.id)
+    expect(requests).toHaveLength(0)
+    expect(v.game?.prompt?.player).toBe('p1')
+    const answers = sessions.export(v.id).duel!.responses.length
+
+    claude.chat(v.id, 'What do I do?')
+    await claude.idle(v.id)
+    const [req] = requests
+    expect(req.system).toBe('beside')
+    expect(req.tools.answer).toBeUndefined()
+    expect(req.message).toContain('The person says: What do I do?')
+    expect(req.message).toMatch(/The person is being asked .*: "Your move"/)
+    // Their hand by name; the bot's stays hidden.
+    const hand = sessions.get(v.id).state.players.p1.zones.hand.map((iid) => cardFace(sessions.get(v.id).state, iid, ctx().db).name)
+    for (const name of hand) expect(req.message).toContain(name)
+    expect(req.message).toMatch(/Your opponent's side: 8000 LP\n {2}Hand \(5\): 5 hidden/)
+
+    expect(seen.options).toContain('The person is being asked: "Your move"')
+    expect(seen.line).toContain('- Turn 2')
+    expect(seen.line).toContain("It stops here: the next decision is the bot's.")
+    expect(seen.line).toContain('Nothing was played in the real game.')
+    expect(sessions.export(v.id).duel!.responses).toHaveLength(answers)
+    expect(seen.mine).toMatch(/^Your deck: .*\nMain Deck \(\d+\): .*\nExtra Deck .*\nStill in the Deck \(35/)
+    expect(seen.theirs).toMatch(/^Your opponent's deck: .*\nMain Deck .*\nExtra Deck .*\nNot seen yet/)
+    expect(sessions.get(v.id).game?.claude?.chat.map((e) => e.from)).toEqual(['you', 'claude'])
+
+    // Without the bot's decklist, only what's on show.
+    claude.settings(v.id, { knowsDeck: false })
+    claude.chat(v.id, 'And now?')
+    await claude.idle(v.id)
+    expect(seen.theirs).toContain("You haven't been given your opponent's decklist.")
+    expect(requests[1].sessionId).toBe('fake-session')
   }, 60_000)
 
   it("plays as its deck's character", async () => {

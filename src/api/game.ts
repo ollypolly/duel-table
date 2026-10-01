@@ -49,6 +49,8 @@ export type ModelChoice = z.infer<typeof ModelChoiceSchema>
 
 export const ClaudeViewSchema = z.object({
   player: PlayerSchema,
+  watch: z.boolean().optional().describe("Claude isn't playing: it sits on player's side as their coach, in a game against a bot"),
+  knowsDeck: z.boolean().optional().describe("For that coach: it can look at the bot's decklist"),
   model: ModelChoiceSchema,
   coach: z.boolean().describe('Also points out your misplays and explains its plays'),
   share: z.boolean().describe('You show Claude your hidden cards (hand, face-down cards, Extra Deck) and your open question, so it can advise you'),
@@ -59,15 +61,16 @@ export const ClaudeViewSchema = z.object({
 })
 export type ClaudeView = z.infer<typeof ClaudeViewSchema>
 
-export const ClaudeSettingsSchema = z.object({ model: ModelChoiceSchema.optional(), coach: z.boolean().optional(), share: z.boolean().optional() }).strict()
+export const ClaudeSettingsSchema = z.object({ model: ModelChoiceSchema.optional(), coach: z.boolean().optional(), share: z.boolean().optional(), knowsDeck: z.boolean().optional() }).strict()
 export type ClaudeSettings = z.infer<typeof ClaudeSettingsSchema>
 
 export const GameViewSchema = z.object({
   waitingFor: PlayerSchema.optional().describe('Whose answer the rules engine is waiting for'),
   winner: z.object({ player: PlayerSchema, reason: z.int() }).optional(),
-  bots: z.array(PlayerSchema).describe('Players the random bot answers for'),
+  bots: z.array(PlayerSchema).describe('Players a bot answers for'),
+  bot: z.enum(['random', 'agent']).optional().describe('Which bot: the random one, or the trained one (ygo-agent)'),
   prompt: GamePromptSchema.optional().describe("The open question, when it's for a person"),
-  claude: ClaudeViewSchema.optional().describe('Claude, when it plays one side'),
+  claude: ClaudeViewSchema.optional().describe('Claude, when it plays one side or coaches you against a bot'),
   undos: z.int().optional().describe('Moves you can still take back, when there is one to take back now'),
 })
 export type GameView = z.infer<typeof GameViewSchema>
