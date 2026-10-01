@@ -33,6 +33,27 @@ import { ChainList, StatusBar } from '../StatusBar/StatusBar'
 import { StepControls } from '../StepControls/StepControls'
 import { TopBar } from '../TopBar/TopBar'
 
+// Free play: a wash over the half of the board you now act for, with its
+// name, that fades.
+function SideSwitch({ side, name }: { side: Player; name: string }) {
+  const prev = useRef(side)
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    // Not on the first look at the table, only on a switch.
+    if (prev.current === side) return
+    prev.current = side
+    setShow(true)
+    const t = setTimeout(() => setShow(false), 1400)
+    return () => clearTimeout(t)
+  }, [side])
+  if (!show) return null
+  return (
+    <div className={`side-switch pointer-events-none absolute inset-x-0 z-10 grid h-1/2 place-items-center ${side === 'p1' ? 'bottom-0 side-p1' : 'top-0 side-p2'}`} data-testid="side-switch">
+      <p className="font-display text-3xl font-bold uppercase tracking-widest">Playing as {name}</p>
+    </div>
+  )
+}
+
 const intentCardOf = (step?: Step): Iid | undefined => {
   const i = step?.intent
   if (!i) return undefined
@@ -119,7 +140,7 @@ export function Table({
   onCardDrop,
 }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, pinHand, muted, goTo, setPlaying, setSpeed, setFollowFocus, setPinHand, setMuted } = usePlayerStore()
-  const { inspected, selected, openPile, inspect, openPileViewer, openHands } = useUiStore()
+  const { inspected, selected, openPile, inspect, openPileViewer, openHands, freeSide } = useUiStore()
   const open = !!onStep && openHands // free play, playing both sides
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board; the URL keeps it
@@ -350,7 +371,7 @@ export function Table({
                 onMuted={setMuted}
                 marks={marks}
                 onMark={onMark}
-                nav={freePlay ? <FreePlayBar fp={fp} onRulesOn={onRulesOn} /> : stepNav}
+                nav={stepNav}
               >
                 {!freePlay && onBranch && (
                   <button type="button" className="btn btn-primary" onClick={() => onBranch(position)}>
@@ -389,6 +410,12 @@ export function Table({
 
         <DamagePopups changes={moved ? lpChanges : {}} position={position} names={{ p1: view.players.p1.name, p2: view.players.p2.name }} />
 
+        {freePlay && (
+          <div className="absolute bottom-[max(0.75rem,var(--safe-bottom))] left-3 z-20 max-w-[min(24rem,calc(100%-1.5rem))]">
+            <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
+          </div>
+        )}
+        {freePlay && <SideSwitch side={freeSide} name={view.players[freeSide].name} />}
         {freePlay && (
           <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center *:pointer-events-auto sm:left-[27rem] sm:right-32">
             <FreePlayStatus fp={fp} />

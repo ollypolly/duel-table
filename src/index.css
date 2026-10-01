@@ -223,3 +223,25 @@
 .chat-md h3 {
   font-weight: 600;
 }
+
+/* Free play: the half of the board you've switched to lights up, then fades. */
+.side-switch {
+  animation: side-switch 1.4s ease-out forwards;
+}
+.side-p1 {
+  color: var(--color-p1);
+  background: linear-gradient(to top, color-mix(in oklab, var(--color-p1) 30%, transparent), transparent);
+}
+.side-p2 {
+  color: var(--color-p2);
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--color-p2) 30%, transparent), transparent);
+}
+@keyframes side-switch {
+  0% { opacity: 0; transform: scale(0.98); }
+  15% { opacity: 1; transform: scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .side-switch { animation-duration: 0.01s; }
+}
