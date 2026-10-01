@@ -1,0 +1,9 @@
+# ygo-agent: a trained bot that answers the rules engine's questions over
+# HTTP (docs/BOT-PLAN.md). Only reachable from this machine.
+services:
+  ygo-agent:
+    build: docker/ygo-agent
+    ports:
+      - 127.0.0.1:5182:3000
+    mem_limit: 1g
+    restart: unless-stopped
