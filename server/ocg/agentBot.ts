@@ -104,11 +104,13 @@ export class AgentBot {
     }
   }
 
-  // Its estimate of me's chance to win from here, asked the question me has open.
-  async rate(m: PromptMsg, ctx: AgentContext): Promise<number | undefined> {
+  // What it would answer to the question me has open, and its estimate of
+  // me's chance to win from here.
+  async rate(m: PromptMsg, ctx: AgentContext): Promise<{ winRate?: number; response?: Uint8Array; confidence?: number }> {
     this.last = undefined
-    await this.respond(m, ctx)
-    return (this.last as AgentBot['last'])?.winRate
+    const response = await this.respond(m, ctx)
+    const last = this.last as AgentBot['last']
+    return { winRate: last?.winRate, response, confidence: last?.confidence }
   }
 
   async close() {

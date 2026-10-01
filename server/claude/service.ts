@@ -596,10 +596,16 @@ export class ClaudeService {
         return last.map((l) => `Its last decision had ${l!.options} option(s); it picked one with probability ${(l!.confidence * 100).toFixed(0)}%.${l!.winRate === undefined ? '' : ` It puts its own chance of winning at ${(l!.winRate * 100).toFixed(0)}%.`}`).join('\n')
       },
       evaluate: async () => {
-        const rate = await this.games.evaluate(id, seat.player).catch(() => undefined)
-        return rate === undefined
-          ? "No estimate: it only rates positions for decks made of cards it knows, when the person has a question open."
-          : `The trained bot puts the person's chance of winning from here at ${(rate * 100).toFixed(0)}%. It knows nothing of cards outside its training, so weigh it, don't quote it as fact.`
+        const view = await this.games.evaluate(id, seat.player).catch(() => undefined)
+        const prompt = this.sessions.get(id).game?.prompt
+        if (!view || (view.winRate === undefined && view.pick === undefined)) return 'No view: it only looks at positions for decks made of cards it knows, when the person has a question open.'
+        return [
+          view.winRate !== undefined && `The trained bot puts the person's chance of winning from here at ${(view.winRate * 100).toFixed(0)}%.`,
+          view.pick !== undefined && prompt && `In their place it would pick "${optionLabel(prompt, view.pick, state(), seat.player, this.db())}" (${((view.confidence ?? 0) * 100).toFixed(0)}% sure).`,
+          "It knows nothing of cards outside its training and doesn't explain itself, so weigh it against your own reading; don't quote it as fact.",
+        ]
+          .filter(Boolean)
+          .join(' ')
       },
     }
   }

@@ -87,7 +87,7 @@ export const sdkAgent: Agent = (req) => {
         async (i) => text(t.suggestDeck!(i.name, i.main, i.extra, i.why)),
       ),
     t.botMove && tool('botMove', "The trained bot's latest decision: how sure it was, and its own estimate of its chance to win.", {}, async () => text(t.botMove!())),
-    t.evaluate && tool('evaluate', "The trained bot's estimate of the person's chance to win from here, as a second opinion. Only for decks it knows.", {}, async () => text(await t.evaluate!())),
+    t.evaluate && tool('evaluate', "The trained bot's view of the person's open question, as a second opinion: its estimate of their chance to win, and the option it would pick in their place. Only for decks it knows.", {}, async () => text(await t.evaluate!())),
   ].filter((x) => !!x)
   const COACH = ['lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate'] as const
   const server = createSdkMcpServer({

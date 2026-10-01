@@ -571,10 +571,11 @@ export class GameService {
     return Object.values(this.games.get(id)?.agents ?? {}).flatMap((a) => (a.last ? [a.last] : []))
   }
 
-  // The trained bot's estimate of player's chance to win, at their open
-  // question. Undefined when it can't say: it isn't set up, the deck has
-  // cards it doesn't know, or nothing is being asked of them.
-  async evaluate(id: string, player: Player): Promise<number | undefined> {
+  // The trained bot's view of player's open question: its estimate of their
+  // chance to win, and which option it would pick (when it's a pick of one),
+  // with how sure it is. Undefined when it can't say: it isn't set up, the
+  // deck has cards it doesn't know, or nothing is being asked of them.
+  async evaluate(id: string, player: Player): Promise<{ winRate?: number; pick?: number; confidence?: number } | undefined> {
     const live = await this.live(id)
     const pending = live.game.duel.pending
     await this.loadAgent()
@@ -583,7 +584,18 @@ export class GameService {
     const bot = new AgentBot(this.agent.url, this.agent.codes)
     const { state } = live.game
     try {
-      return await bot.rate(pending, { ocg: live.ocg, duel: live.game.duel, me: player, turn: state.turn, phase: state.phase, active: state.activePlayer })
+      const { winRate, response, confidence } = await bot.rate(pending, { ocg: live.ocg, duel: live.game.duel, me: player, turn: state.turn, phase: state.phase, active: state.activePlayer })
+      const q = live.asked
+      // Its answer is the engine's bytes: the option that gives the same ones.
+      const same = (i: number) => {
+        try {
+          return Buffer.from(q!.answer([i])).equals(Buffer.from(response!))
+        } catch {
+          return false
+        }
+      }
+      const pick = q && response && q.prompt.max === 1 ? q.prompt.options.findIndex((_, i) => same(i)) : -1
+      return { winRate, ...(pick >= 0 && { pick, confidence }) }
     } finally {
       void bot.close()
     }
