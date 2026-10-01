@@ -67,7 +67,7 @@ export const api = {
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),
   renameSession: (id: string, title: string) => call<SessionSummary>('PATCH', `/sessions/${id}`, { title }),
   deleteSession: (id: string) => call<{ deleted: string }>('DELETE', `/sessions/${id}`),
-  createSession: (opts: { scenario: string; atStep: number }) => call<SessionSummary>('POST', '/sessions', opts),
+  createSession: (opts: { scenario: string; atStep: number } | { deck: string; opponentDeck?: string; title?: string }) => call<SessionSummary>('POST', '/sessions', opts),
   // The viewer's own moves, so Claude can tell them from its steps.
   applyStep: (id: string, step: Step) => call<{ position: number }>('POST', `/sessions/${id}/steps`, { ...step, author: 'user' }),
   undo: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/undo`, { author: 'user' }),

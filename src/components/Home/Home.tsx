@@ -1,13 +1,14 @@
 // The home page: what you can open, and where you go to switch. The top
 // offers the next thing to do: your unfinished game to carry on with, or your
 // last one to play again or go over. Under it, everything by kind: games (won
-// in green, lost in red, with what Claude's review found), lessons, boards.
+// in green, lost in red, with what Claude's review found), lessons, free play tables.
 // Shown when nothing is open; the header's title comes back here.
 import { Loader2, MessageSquareText, MoreHorizontal, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api, type SessionSummary } from '../../api/client'
 import { MOMENT_KINDS, reviewable, type Moment } from '../../api/review'
 import type { ResolveResult } from '../../scenarios/resolve'
+import { rawDecks } from '../../scenarios/load'
 import { usePlayerStore } from '../../store/playerStore'
 import { MOMENT } from '../Live/moment'
 import { Logo } from '../Logo/Logo'
@@ -28,7 +29,8 @@ type Props = {
   onChanged: () => void // a table was renamed or deleted
 }
 
-const TABS = ['Games', 'Lessons', 'Boards'] as const
+const TABS = ['Games', 'Lessons', 'Free play'] as const
+const DECKS = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id }))
 const FILTERS = ['All', 'Won', 'Lost', 'In progress'] as const
 
 const result = (t: SessionSummary) => (!t.winner ? 'In progress' : t.winner === 'p1' ? 'Won' : 'Lost')
@@ -148,9 +150,10 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
             </div>
           )}
 
-          {tab === 'Boards' && (
+          {tab === 'Free play' && (
             <div className="space-y-6">
-              {boards.length === 0 && branches.length === 0 && <Empty>A board is a free table to move cards around on. Open a lesson and choose to play on from a step, and it shows up here.</Empty>}
+              <p className="text-sm text-muted">A free table: no rules engine and no opponent. Move any card anywhere, on either side, to try things out. Playing on from a step of a lesson makes one too.</p>
+              {tables && <NewTable onOpen={onOpenTable} />}
               {boards.length > 0 && <div className={GRID}>{boards.map(card)}</div>}
               {branches.length > 0 && (
                 <div>
@@ -168,6 +171,47 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
 
 function Heading({ children }: { children: ReactNode }) {
   return <h2 className="mb-2 font-display text-xs font-semibold uppercase tracking-widest text-faint">{children}</h2>
+}
+
+// Start a free table from two decks: shuffled, with opening hands, and nothing enforced.
+function NewTable({ onOpen }: { onOpen: (id: string) => void }) {
+  const [deck, setDeck] = useState(DECKS[0]?.id ?? '')
+  const [theirs, setTheirs] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const pick = (label: string, value: string, set: (v: string) => void, same?: boolean) => (
+    <label className="min-w-0 flex-1 basis-40 space-y-1 text-xs text-muted">
+      <span>{label}</span>
+      <select className="block w-full px-2 py-1.5 text-sm" value={value} onChange={(e) => set(e.target.value)}>
+        {same && <option value="">Same as yours</option>}
+        {DECKS.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+  const start = () => {
+    setBusy(true)
+    setError('')
+    api
+      .createSession({ deck, ...(theirs && { opponentDeck: theirs }), title: `Free play: ${DECKS.find((d) => d.id === deck)?.name ?? deck}` })
+      .then((s) => onOpen(s.id))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false))
+  }
+  return (
+    <div className="panel flex flex-wrap items-end gap-3 p-4" data-testid="new-table">
+      {pick('Your deck', deck, setDeck)}
+      {pick('Other side', theirs, setTheirs, true)}
+      <button type="button" className="btn btn-primary flex items-center gap-1.5" disabled={busy || !deck} onClick={start}>
+        <Plus size={14} aria-hidden />
+        New table
+      </button>
+      {error && <p className="basis-full text-xs text-danger">{error}</p>}
+    </div>
+  )
 }
 
 function Empty({ children, action }: { children: ReactNode; action?: { label: string; run: () => void } | false }) {
