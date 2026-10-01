@@ -6,6 +6,7 @@ import { isMaterial } from '../../branches/branches'
 import { cardDb } from '../../data/cards'
 import { getCard, locate, PLAYERS, type Iid, type Player, type SummonMethod } from '../../engine'
 import type { FreePlay } from '../../hooks/useFreePlay'
+import { useUiStore } from '../../store/uiStore'
 import { cardFace } from '../../view/boardView'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 
@@ -105,6 +106,81 @@ export function FreePlayStatus({ fp }: { fp: FreePlay }) {
         </p>
       )}
       {!fp.error && fp.warnings.length > 0 && <p className="text-xs text-warn">⚠ {fp.warnings.join(' · ')}</p>}
+    </div>
+  )
+}
+
+// The everyday tools, by the board: draw, deal, add any card, see both hands.
+// They act for the side picked on the left.
+export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () => void }) {
+  const { state, act } = fp
+  const [count, setCount] = useState(3)
+  const [query, setQuery] = useState('')
+  const [adding, setAdding] = useState(false)
+  const { openHands, setOpenHands, freeSide: side, setFreeSide: setSide } = useUiStore()
+  const fresh = PLAYERS.every((p) => state.players[p].zones.hand.length === 0) && state.turn <= 1
+  const q = query.trim().toLowerCase()
+  const found = q.length < 2 ? [] : cardDb.all().filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8)
+  const add = (cardId: number) => {
+    let n = Object.keys(state.cards).length
+    while (state.cards[`${side}-added-${n}`]) n++
+    const ok = act({ type: 'create', card: `${side}-added-${n}`, cardId, owner: side, to: { player: side, zone: 'hand' } })
+    if (ok) {
+      setQuery('')
+      setAdding(false)
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-1 text-xs" data-testid="free-bar">
+      <span className="flex overflow-hidden rounded-md border border-line" role="group" aria-label="Act for">
+        {PLAYERS.map((p) => (
+          <button key={p} type="button" aria-pressed={side === p} className={`px-2 py-1 ${side === p ? 'bg-raised font-semibold text-ink' : 'text-muted hover:text-ink'}`} onClick={() => setSide(p)}>
+            {state.players[p].name}
+          </button>
+        ))}
+      </span>
+      {fresh && (
+        <button type="button" className="btn btn-primary text-xs" onClick={() => PLAYERS.forEach((p) => act({ type: 'draw', player: p, count: 5 }))}>
+          Deal hands
+        </button>
+      )}
+      <button type="button" className="btn text-xs" onClick={() => act({ type: 'draw', player: side })}>
+        Draw
+      </button>
+      <button type="button" className="btn text-xs" onClick={() => act({ type: 'draw', player: side, count: 5 })}>
+        Draw 5
+      </button>
+      <span className="flex items-center gap-1">
+        <button type="button" className="btn text-xs" onClick={() => act({ type: 'draw', player: side, count })}>
+          Draw
+        </button>
+        <input aria-label="How many to draw" type="number" min={1} max={60} className="w-12 px-1 py-1" value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))} />
+      </span>
+      <span className="relative">
+        <button type="button" className="btn text-xs" aria-expanded={adding} onClick={() => setAdding(!adding)}>
+          Add a card
+        </button>
+        {adding && (
+          <div className="panel absolute left-0 top-full z-30 mt-1 w-64 space-y-1 p-2">
+            <input autoFocus aria-label="Card name" placeholder="Card name…" className="block w-full px-2 py-1.5 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} />
+            {found.map((c) => (
+              <button key={c.id} type="button" className="block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-raised" onClick={() => add(c.id)}>
+                {c.name}
+              </button>
+            ))}
+            <p className="px-1 text-muted">{q.length < 2 ? `Goes to ${state.players[side].name}'s hand.` : found.length ? '' : 'No card by that name.'}</p>
+          </div>
+        )}
+      </span>
+      <label className="flex items-center gap-1.5 px-1 text-muted" title="Show both hands face-up, to play both sides or show someone">
+        <input type="checkbox" className="accent-gold" checked={openHands} onChange={(e) => setOpenHands(e.target.checked)} />
+        Both hands
+      </label>
+      {onRulesOn && (
+        <button type="button" className="btn text-xs" onClick={onRulesOn} title="Start a game with these decks on the rules engine, against the simple bot">
+          Restart with rules
+        </button>
+      )}
     </div>
   )
 }

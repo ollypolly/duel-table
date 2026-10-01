@@ -84,7 +84,8 @@ export type BoardView = {
 
 export const VIEWER: Player = 'p1'
 
-export function cardFace(state: BoardState, iid: Iid, db: CardDb): CardFace {
+// open: every hand is shown, as when one person plays both sides in free play.
+export function cardFace(state: BoardState, iid: Iid, db: CardDb, open = false): CardFace {
   const card = state.cards[iid]
   const lookup: CardLookup = (id) => db.byId(id)
   const data = card.cardId !== undefined ? db.byId(card.cardId) : undefined
@@ -92,7 +93,7 @@ export function cardFace(state: BoardState, iid: Iid, db: CardDb): CardFace {
   const loc = locate(state, iid)
   const zone = loc && 'zone' in loc ? loc.zone.zone : undefined
   const inDeck = zone === 'deck' || zone === 'extraDeck'
-  const visible = card.faceUp || revealed || (card.owner === VIEWER && !inDeck)
+  const visible = card.faceUp || revealed || (card.owner === VIEWER && !inDeck) || (open && zone === 'hand')
   return {
     iid,
     cardId: card.cardId,
@@ -147,8 +148,8 @@ export function catalogFace(data: CardData): CardFace {
 
 const customFrame = (kind?: string) => (kind === 'spell' ? 'spell' : kind === 'trap' ? 'trap' : kind === 'extra' ? 'fusion' : 'effect')
 
-export function buildBoardView(state: BoardState, db: CardDb): BoardView {
-  const face = (iid: Iid) => cardFace(state, iid, db)
+export function buildBoardView(state: BoardState, db: CardDb, open = false): BoardView {
+  const face = (iid: Iid) => cardFace(state, iid, db, open)
   const zones: ZoneView[] = []
   const cards: PlacedCard[] = []
   const placements = new Map<Iid, Placement>()

@@ -419,6 +419,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         // Your moves wait until the queued steps have shown.
         onStep={game || lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
         onUndo={game ? undefined : () => report(api.undo(id))}
+        onRulesOn={!game && players?.p1.deck && players.p2.deck ? () => report(api.createGame({ deck: players.p1.deck!, opponentDeck: players.p2.deck! }).then((s) => openSession(s.id, Infinity))) : undefined}
         choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
         onChoose={prompt && !away ? chooseCard : undefined}
         choosableZones={zoneOptions.length && !away ? zoneOptions : undefined}

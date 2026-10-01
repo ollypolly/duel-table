@@ -150,7 +150,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted">
-            {game.deciding ? 'Claude is weighing a response for you…' : waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}
+            {game.deciding ? 'Claude is weighing a response for you…' : waitingFor === VIEWER ? (lesson ? 'Claude is playing your side…' : 'Working out your side…') : waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}
           </p>
           {more}
         </div>

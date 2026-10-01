@@ -22,7 +22,7 @@ import { play, stepSounds } from '../../view/sounds'
 import { Board2D } from '../Board/Board2D'
 import type { BoardRenderer } from '../Board/BoardRenderer'
 import { CardInspector } from '../CardInspector/CardInspector'
-import { CardActions, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
+import { CardActions, FreePlayBar, FreePlayMenu, FreePlayStatus } from '../FreePlay/FreePlay'
 import { DamagePopups } from './DamagePopups'
 import { LiveFeed } from './LiveFeed'
 import { useSheet } from './useSheet'
@@ -51,6 +51,7 @@ type TableProps = {
   onStep?: (step: Step) => void
   onUndo?: () => void
   menuItems?: ReactNode // extra entries for the scene panel's More menu
+  onRulesOn?: () => void // free play: start a rules-engine game with these decks
   // Start a branch at a position, from anywhere free-play isn't available.
   onBranch?: (position: number) => void
   branchLabel?: string
@@ -97,6 +98,7 @@ export function Table({
   onStep,
   onUndo,
   menuItems,
+  onRulesOn,
   onBranch,
   branchLabel = 'Branch',
   onGoLive,
@@ -117,7 +119,8 @@ export function Table({
   onCardDrop,
 }: TableProps) {
   const { position: rawPosition, playing, speed, followFocus, pinHand, muted, goTo, setPlaying, setSpeed, setFollowFocus, setPinHand, setMuted } = usePlayerStore()
-  const { inspected, selected, openPile, inspect, openPileViewer } = useUiStore()
+  const { inspected, selected, openPile, inspect, openPileViewer, openHands } = useUiStore()
+  const open = !!onStep && openHands // free play, playing both sides
   // The scene panel slides off to the left. Open by default unless the
   // screen is phone-sized, where it would cover the board; the URL keeps it
   // as you left it over a reload.
@@ -142,7 +145,7 @@ export function Table({
   const position = Math.min(Math.max(0, rawPosition), last)
   const entry = scenario.timeline[position]
   const step = position > 0 ? scenario.game.steps[position - 1] : undefined
-  const view = useMemo(() => buildBoardView(entry.state, cardDb), [entry])
+  const view = useMemo(() => buildBoardView(entry.state, cardDb, open), [entry, open])
   const lpChanges = useMemo(() => {
     const changes: Partial<Record<Player, number>> = {}
     for (const e of entry.events) if (e.type === 'lpChanged') changes[e.player] = (changes[e.player] ?? 0) + e.to - e.from
@@ -184,7 +187,7 @@ export function Table({
     },
     [scenario],
   )
-  const face = (iid?: Iid) => (iid && entry.state.cards[iid] ? cardFace(entry.state, iid, cardDb) : undefined)
+  const face = (iid?: Iid) => (iid && entry.state.cards[iid] ? cardFace(entry.state, iid, cardDb, open) : undefined)
   // Opened up, your own cards show their face wherever they are, as the pile
   // viewer shows your Deck and Extra Deck.
   const inspectedFace = () => {
@@ -347,7 +350,7 @@ export function Table({
                 onMuted={setMuted}
                 marks={marks}
                 onMark={onMark}
-                nav={stepNav}
+                nav={freePlay ? <FreePlayBar fp={fp} onRulesOn={onRulesOn} /> : stepNav}
               >
                 {!freePlay && onBranch && (
                   <button type="button" className="btn btn-primary" onClick={() => onBranch(position)}>
