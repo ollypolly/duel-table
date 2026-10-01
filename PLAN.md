@@ -337,7 +337,7 @@ OCG Core owns the rules, turn flow and hidden information. It asks each player w
 
 **Chances to respond are passed for you by level.** Built (`chance()` in `server/games.ts`, `server/claude/respond.ts`, `prompts/respond.md`). "Ask me to respond" in the game's … menu, or `respond` on `POST /games`:
 - **Every chance** (`all`): asked whenever you could activate anything.
-- **When something happened** (`auto`, the default): not asked at a quiet moment or straight after your own move, your own trigger effects aside. The rules alone remove little, because the core already marks most windows as following something.
+- **When something happened** (`auto`, the default): not asked at a quiet moment or straight after your own move, your own trigger effects aside. Nor to chain a Spell or Trap of your own onto your own card (a monster's effect is still asked, since it may be a trigger). The rules alone remove little, because the core already marks most windows as following something.
 - **With Claude's view** (`advise`): as auto, and each question carries one line from Claude: "Worth responding: …" or "Claude would pass: …". This is the level for learning what to stop, in a given deck and in general.
 - **Claude passes the obvious ones** (`claude`): as auto, and Claude passes where responding is plainly not worth it, stopping you when unsure.
 - A passed chance leaves a line in the game panel naming the cards and why, with **Ask me**, which rewinds the game to it and asks after all (`POST /game/reopen`, the same replay as undo, and it doesn't use one up).

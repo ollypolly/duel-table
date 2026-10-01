@@ -47,6 +47,8 @@ export const BOT_STEP_MS = 700
 // Moves a person can take back in one game.
 export const UNDOS = 3
 
+const TYPE_MONSTER = 0x1
+
 type Asked = Extract<Question, { prompt: unknown }>
 export type BotKind = 'random' | 'agent'
 // respond: when the person is asked to chain. skipped: chances passed for
@@ -490,6 +492,10 @@ export class GameService {
     // your trigger effects); the rest are cards that could be used at any time.
     // After your own summon or activation, with nothing of theirs on the chain, those aren't asked.
     if (m.specialCount === 0 && (top ? top.player === prompt.player : cause === prompt.player)) return skip('rules', 'it followed your own move')
+    // Chaining a Spell or Trap of your own onto your own card is rarely meant.
+    // Monsters are still asked: theirs may be a trigger effect, lost if passed.
+    const spellOrTrap = (code: number) => !((live.ocg.card(code)?.type ?? TYPE_MONSTER) & TYPE_MONSTER)
+    if (top?.player === prompt.player && m.chains.every((c) => spellOrTrap(c.code))) return skip('rules', 'it would respond to your own card')
     if (level === 'auto' || !this.adviser) return undefined
     live.deciding = true
     this.sessions.touch(id)
