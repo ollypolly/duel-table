@@ -18,6 +18,7 @@ export function PileViewer({
   cardActions,
   onToHand,
   onPickAll,
+  onToBoard,
   picked,
   onPick,
 }: {
@@ -28,6 +29,7 @@ export function PileViewer({
   cardActions?: (iid: Iid, close: () => void) => ReactNode
   onPickAll?: (iids: Iid[]) => void // free play: a grouped tile picks up all its copies to place together
   onToHand?: (iid: Iid) => void // free play: a quick way to pull a card, with the pile left open
+  onToBoard?: (iids: Iid[]) => void // free play: straight into a free Monster or Spell & Trap Zone
   picked?: Iid[] // free play with Select on: a click adds a tile to the selection, or takes it back out
   onPick?: (iids: Iid[]) => void
 }) {
@@ -146,6 +148,18 @@ export function PileViewer({
                   </button>
                   {copies > 1 && (
                     <button type="button" className="btn justify-center text-xs" title={`All ${copies} copies to hand`} onClick={() => iids.forEach(onToHand)}>
+                      All {copies}
+                    </button>
+                  )}
+                </span>
+              )}
+              {onToBoard && (
+                <span className="mt-1 flex gap-1">
+                  <button type="button" className="btn min-w-0 flex-1 justify-center text-xs" onClick={() => onToBoard([c.iid])}>
+                    To board
+                  </button>
+                  {copies > 1 && (
+                    <button type="button" className="btn justify-center text-xs" title={`All ${copies} copies to the board`} onClick={() => onToBoard(iids)}>
                       All {copies}
                     </button>
                   )}

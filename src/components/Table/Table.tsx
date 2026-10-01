@@ -493,6 +493,17 @@ export function Table({
           }
           picked={freePlay ? multi : undefined}
           onPick={freePlay && boxSelect ? (iids) => setMulti(iids.every((iid) => multi.includes(iid)) ? multi.filter((m) => !iids.includes(m)) : [...new Set([...multi, ...iids])]) : undefined}
+          onToBoard={
+            freePlay
+              ? (iids) =>
+                  fp.toBoard(
+                    iids.map((iid) => {
+                      const frame = face(iid)?.frame
+                      return { iid, to: { player: entry.state.cards[iid].owner, zone: frame === 'spell' || frame === 'trap' ? 'spellTrap' : 'monster' } }
+                    }),
+                  )
+              : undefined
+          }
           onToHand={freePlay ? (iid) => fp.act({ type: 'move', card: iid, to: { player: entry.state.cards[iid].owner, zone: 'hand' } }) : undefined}
         />
       )}

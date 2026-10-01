@@ -96,11 +96,23 @@ export function useFreePlay(state: BoardState, onStep: (step: Step) => void) {
     return true
   }
 
+  // Straight onto the table: each card into the first free slot of the row
+  // it belongs in, for as many as there is room for.
+  const toBoard = (cards: { iid: Iid; to: ZoneRef }[]) => {
+    const taken = new Set<string>()
+    for (const { iid, to } of cards) {
+      const slot = zoneArray(state, to).findIndex((c, i) => c === null && !taken.has(`${to.player}:${to.zone}:${i}`))
+      if (slot < 0) continue
+      taken.add(`${to.player}:${to.zone}:${slot}`)
+      if (!act({ type: 'move', card: iid, to: { ...to, slot } })) return
+    }
+  }
+
   const cancel = () => {
     setMore([])
     setAttaching(false)
     select(undefined)
   }
 
-  return { state, selected, select, pick, more, act, actAll, place, placeMany, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
+  return { state, selected, select, pick, more, act, actAll, place, placeMany, toBoard, attachTo, cancel, error, warnings, summon, setSummon, faceDown, setFaceDown, attaching, setAttaching }
 }
