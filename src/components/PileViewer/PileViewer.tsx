@@ -51,6 +51,47 @@ export function PileViewer({
       : zone.cards.map((c, i) => ({ c, copies: 1, iids: [c.iid], i }))
   const isPicked = (iids: Iid[]) => iids.every((iid) => picked?.includes(iid))
   const held = zone.cards.filter((c) => picked?.includes(c.iid)).length
+  // With Select on, a drag across the list boxes tiles into the selection,
+  // the same as on the table. It becomes a box once it has moved a few px.
+  const press = useRef<{ x: number; y: number }>(undefined)
+  const swallow = useRef(false)
+  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number }>()
+  const boxing = onPick && {
+    onPointerDown: (e: React.PointerEvent) => {
+      press.current = e.button === 0 && e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : undefined
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const from = press.current
+      if (box) return setBox({ ...box, x1: e.clientX, y1: e.clientY })
+      if (!from || Math.hypot(e.clientX - from.x, e.clientY - from.y) < 6) return
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setBox({ x0: from.x, y0: from.y, x1: e.clientX, y1: e.clientY })
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      press.current = undefined
+      if (!box) return
+      setBox(undefined)
+      const [l, t, r, b] = [Math.min(box.x0, box.x1), Math.min(box.y0, box.y1), Math.max(box.x0, box.x1), Math.max(box.y0, box.y1)]
+      const hit = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-tile]')].filter((el) => {
+        const c = el.getBoundingClientRect()
+        return c.left < r && c.right > l && c.top < b && c.bottom > t
+      })
+      const add = hit.flatMap((el) => tiles[Number(el.dataset.tile)].iids).filter((iid) => !picked?.includes(iid))
+      if (add.length) onPick(add)
+      swallow.current = true
+      setTimeout(() => (swallow.current = false))
+    },
+    onPointerCancel: () => {
+      press.current = undefined
+      setBox(undefined)
+    },
+    // The click that ends a box isn't a click on the tile under it.
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!swallow.current) return
+      swallow.current = false
+      e.stopPropagation()
+    },
+  }
   return (
     <dialog
       ref={ref}
@@ -81,10 +122,10 @@ export function PileViewer({
             </button>
           </span>
         </div>
-        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 overflow-y-auto p-4">
+        <div className={`grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-3 overflow-y-auto p-4 ${onPick ? 'cursor-crosshair select-none' : ''}`} {...boxing}>
           {zone.count === 0 && <p className="col-span-full text-sm text-muted">Empty.</p>}
-          {tiles.map(({ c, copies, iids, i }) => (
-            <div key={c.iid} className="group relative text-left">
+          {tiles.map(({ c, copies, iids, i }, n) => (
+            <div key={c.iid} data-tile={n} className="group relative text-left">
               <button type="button" className="block w-full text-left" aria-pressed={onPick && isPicked(iids)} onClick={() => (onPick ? onPick(iids) : onPickAll && copies > 1 ? onPickAll(iids) : onCardClick?.(c.iid) || setPinned(c.iid))}>
                 <div className={`relative aspect-[1/1.46] text-base transition group-hover:scale-105 ${copies > 1 ? 'rounded-md shadow-[4px_4px_0_var(--color-line),8px_8px_0_var(--color-line)]' : ''} ${isPicked(iids) ? 'rounded-md outline outline-2 outline-offset-2 outline-accent' : ''}`}>
                   <CardView card={c} showFace={!hidden || c.visible} />
@@ -111,6 +152,14 @@ export function PileViewer({
           ))}
         </div>
       </div>
+      {/* Outside the panel, whose blur would otherwise anchor a fixed box to itself. */}
+      {box && (
+        <div
+          className="pointer-events-none fixed z-10 rounded-sm border border-accent bg-accent/15"
+          data-testid="list-marquee"
+          style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
+        />
+      )}
       <CardInspector card={face(pinned)} materialsOf={() => []} onClose={() => setPinned(undefined)} actions={pinned && cardActions?.(pinned, onClose)} />
     </dialog>
   )
