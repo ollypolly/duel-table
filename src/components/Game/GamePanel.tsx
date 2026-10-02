@@ -1,7 +1,7 @@
 // A game on the rules engine, in the scene panel: what it's asking you, as
 // buttons, with the cards involved lit up on the board. Clicking a lit card
 // narrows the options to it (or picks it, when picking cards is the question).
-import { Check, Lightbulb, MoreHorizontal, Search, TriangleAlert, Undo2 } from 'lucide-react'
+import { Check, Lightbulb, MoreHorizontal, Search, Swords, TriangleAlert, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import { PICK_KINDS, type GamePrompt, type GameView, type Respond } from '../../api/game'
 import { cardDb } from '../../data/cards'
@@ -31,6 +31,7 @@ type Props = {
   onAnswer: (choices: number[]) => void
   onRematch?: () => void // once it's over
   onReview?: () => void // go through the finished game with Claude
+  onAttempt?: (tries: number) => void // a game you lost: Claude plays your side to see if it could be won
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move
   lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
@@ -44,8 +45,9 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
+  const [trying, setTrying] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
     const f = cardFace(state, iid, cardDb)
@@ -60,7 +62,25 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   )
 
   if (winner) {
-    const who = winner.player === 'p1' ? 'You win!' : `${state.players[winner.player].name} wins`
+    const tried = game.claude?.attempt
+    const who = tried ? (winner.player === 'p1' ? 'Claude won it' : 'Claude lost too') : winner.player === 'p1' ? 'You win!' : `${state.players[winner.player].name} wins`
+    if (trying && onAttempt)
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">Claude plays your side from the same opening hand, against the same bot. How many tries?</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="btn" onClick={() => setTrying(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn" onClick={() => onAttempt(1)}>
+              One try
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => onAttempt(3)}>
+              Up to three
+            </button>
+          </div>
+        </div>
+      )
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-display text-lg font-semibold text-gold">{who}</p>
@@ -70,6 +90,12 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
             <button type="button" className="btn flex items-center gap-1.5" onClick={onReview} title="Go through this game with Claude">
               <Search size={14} className="text-gold" aria-hidden />
               Review
+            </button>
+          )}
+          {onAttempt && (
+            <button type="button" className="btn flex items-center gap-1.5" onClick={() => setTrying(true)} title="Claude plays your side from the same opening, to see if it could be won, then teaches you how">
+              <Swords size={14} className="text-gold" aria-hidden />
+              Can Claude win it?
             </button>
           )}
           {onRematch && (

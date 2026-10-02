@@ -20,11 +20,12 @@ import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
 import { PLAYERS, type BoardState, type Iid, type Player, type ZoneRef } from '../../src/engine'
 import type { GameService, Trial } from '../games'
-import { SessionError, type SessionService } from '../sessions'
+import { SessionError, type SessionView, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
 import type { Moment } from '../../src/api/review'
 import { cardFace } from '../../src/view/boardView'
 import { isTurnStart, played, playedBy } from '../../src/view/plays'
+import type { CreateGameOptions } from '../games'
 import { cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, optionLabel, publicLabel, rulesTopic, searchCards, seenBy } from './view'
 
 // watch: Claude isn't playing. It sits on player's side of a game against a
@@ -51,7 +52,23 @@ export type ClaudeRecord = {
   texts?: string[] // cards whose text Claude has been given
   character?: Character // who Claude plays as, from its deck
   lesson?: LessonSeats
+  attempt?: Attempt
 }
+
+// Claude playing the person's side of a game they lost, to see if it could be
+// won. over: the game has ended and Claude has been told (told), and what
+// follows a loss, the next try, is under way (done).
+export type Attempt = NonNullable<CreateGameOptions['attempt']> & { over?: 'told' | 'done' }
+
+// Answers in one run of a try, before it carries on in the next.
+const TRY_ANSWERS = 25
+
+const WON =
+  "You won. Now teach the person how, as a short lesson on this game. Below is the game they lost from the same opening, step by step. Find where your game first parted from theirs and the two or three decisions that made the difference. Take them through those in order, one per message at most three or four sentences: `lookBack` to the step in your game, `point` at the cards, `spotlight` a card when its text is the point, and say what they did there instead. End with two or three takeaways they can use next game, and offer to answer questions."
+const LOST_RETRY = "You lost this try, and there's another. In three or four lines, say what went wrong and what you'll do differently from the first turn: this is what your next try is given, so make it specific to these decks and this opening hand."
+const LOST_LAST =
+  "You lost, and that was the last try. Be straight with the person: say where you think the game was decided and whether the opening could have won at all. Below is the game they lost from the same opening: say what, if anything, they could take from how your tries went differently."
+
 
 // A player Claude has handed to the person, until they've answered one
 // question, until the turn ends (at is the turn it was handed over on), or
@@ -107,7 +124,7 @@ export type ClaudeDeps = {
   sessions: SessionService
   db: () => CardDb
   agent: Agent
-  system: (seat: Pick<ClaudeRecord, 'coach' | 'character' | 'lesson' | 'watch'>) => string // the system prompt
+  system: (seat: Pick<ClaudeRecord, 'coach' | 'character' | 'lesson' | 'watch' | 'attempt'>) => string // the system prompt
   store?: ClaudeStore
   // For the coach: the person's notes on a deck, the rules reference, saving
   // a deck it suggests (returns its id), and misplays past reviews marked.
@@ -224,6 +241,7 @@ export class ClaudeService {
           ...(s.zones?.length && { zones: s.zones }),
           ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrases: s.spotlight.phrases, keep: s.spotlight.keep } }),
           ...(s.lesson?.handed.some((h) => h.goal) && { goal: s.lesson.handed.find((h) => h.goal)!.goal }),
+          ...(s.attempt && { attempt: { of: s.attempt.of, n: s.attempt.n, max: s.attempt.max, ...(s.attempt.over && { over: true }) } }),
           model: s.model,
           coach: s.coach,
           share: s.share,
@@ -239,7 +257,7 @@ export class ClaudeService {
 
   // Seat Claude in a new game (before its first move). A lesson starts with
   // what you asked to learn.
-  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean; lesson?: boolean; topic?: string; brief?: string; watch?: boolean; knowsDeck?: boolean } = {}) {
+  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean; lesson?: boolean; topic?: string; brief?: string; watch?: boolean; knowsDeck?: boolean; attempt?: Attempt } = {}) {
     const watch = !!opts.watch && !opts.lesson
     const character = watch ? undefined : this.sessions.export(id).players?.[player].list?.character
     const seat: Seat = {
@@ -256,6 +274,7 @@ export class ClaudeService {
       queue: [],
       busy: false,
       ...(opts.lesson && { lesson: { holds: ['p1', 'p2'], handed: [] } }),
+      ...(opts.attempt && { attempt: opts.attempt }),
     }
     // Set up from a chat on the home page: what was said there carries over.
     const brief = opts.brief?.trim()
@@ -319,9 +338,61 @@ export class ClaudeService {
   }
 
   // Which side Claude played and what was said, for a review of the game.
-  played(id: string): Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined {
+  // Have Claude play the person's side of a finished game against the same
+  // bot, from the same shuffle. A new game, which it plays by itself.
+  async attempt(of: string, opts: { tries?: number; model?: ModelChoice }, earlier?: Pick<Attempt, 'n' | 'carried'>): Promise<SessionView> {
+    const file = this.sessions.export(of)
+    const { duel, players } = file
+    if (!duel?.winner || duel.lesson || duel.claude || !duel.bots?.includes('p2') || !players?.p1.deck || !players.p2.deck)
+      throw new SessionError(409, 'Claude can only try a finished game of yours against a bot')
+    const n = (earlier?.n ?? 0) + 1
+    const max = Math.max(n, opts.tries ?? 1)
+    return this.games.create({
+      deck: players.p1.deck,
+      opponentDeck: players.p2.deck,
+      seed: file.seed,
+      bots: ['p2'],
+      bot: duel.bot,
+      claude: 'p1',
+      model: opts.model,
+      coach: false,
+      attempt: { of, n, max, ...(earlier?.carried?.length && { carried: earlier.carried }) },
+      title: `Can Claude win it? ${players.p1.list?.name ?? players.p1.deck} vs ${players.p2.list?.name ?? players.p2.deck}${max > 1 ? ` (try ${n} of ${max})` : ''}`,
+    })
+  }
+
+  // The game has ended: Claude is told, teaches from a win, and after a loss
+  // with tries left says what it learned and starts the next. True if its run failed.
+  private async attemptOver(id: string, seat: Seat, won: boolean): Promise<boolean> {
+    const a = seat.attempt!
+    const again = !won && a.n < a.max
+    if (!a.over) {
+      const theirs = this.sessions.has(a.of) ? this.sessions.export(a.of).steps.flatMap((s, i) => (s.label ? [`${i + 1}. ${s.label}`] : [])) : []
+      const lost = theirs.length ? `\n\nThe game the person lost (p1 was them):\n${theirs.join('\n')}` : ''
+      seat.notes = [...(seat.notes ?? []), won ? WON + lost : again ? LOST_RETRY : LOST_LAST + lost]
+      seat.chat.push({ from: 'note', text: won ? `Claude won${a.max > 1 ? ` on try ${a.n}` : ''}.` : `Claude lost${a.max > 1 ? ` try ${a.n} of ${a.max}` : ''}.` })
+      a.over = 'told'
+      this.changed(id, seat)
+    }
+    const from = seat.chat.length
+    if (seat.notes?.length && (await this.send(id, seat, () => this.message(id, seat, undefined, false)))) return true
+    if (again) {
+      const learned = seat.chat.slice(from).filter((e) => e.from === 'claude').map((e) => e.text).join('\n')
+      try {
+        const next = await this.attempt(a.of, { tries: a.max, model: seat.model }, { n: a.n, carried: [...(a.carried ?? []), learned].filter(Boolean) })
+        seat.chat.push({ from: 'note', text: `Try ${a.n + 1} of ${a.max} has started.`, open: { session: next.id, title: next.title } })
+      } catch (e) {
+        seat.chat.push({ from: 'note', text: `The next try couldn't start: ${(e as Error).message}` })
+      }
+    }
+    a.over = 'done'
+    this.changed(id, seat)
+    return false
+  }
+
+  played(id: string): Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags' | 'attempt'> | undefined {
     const s = this.seat(id)
-    return s && { player: s.player, chat: stamp(s.chat), ...(s.watch && { watch: true }), ...(s.flags && { flags: s.flags }) }
+    return s && { player: s.player, chat: stamp(s.chat), ...(s.watch && { watch: true }), ...(s.flags && { flags: s.flags }), ...(s.attempt && { attempt: s.attempt }) }
   }
 
   private seat(id: string): Seat | undefined {
@@ -383,6 +454,11 @@ export class ClaudeService {
           continue
         }
         const prompt = seat.watch ? undefined : await this.games.asking(id, seat.player)
+        const result = seat.attempt && seat.attempt.over !== 'done' ? (await this.games.get(id)).duel.result : undefined
+        if (result) {
+          if (await this.attemptOver(id, seat, result.player === seat.player)) break
+          continue
+        }
         if (!prompt && !seat.queue.length) break
         nudges = prompt && prompt.id === lastAsked ? nudges + 1 : 0
         if (prompt && nudges > NUDGES) {
@@ -414,9 +490,13 @@ export class ClaudeService {
   private async message(id: string, seat: Seat, prompt: GamePrompt | undefined, nudge: boolean): Promise<string> {
     const { state } = await this.games.get(id)
     const parts: string[] = []
+    if (seat.attempt) {
+      this.unmark(id, seat)
+      if (!seat.sessionId) parts.push(this.briefing(id, seat))
+    }
     parts.push(...(seat.notes?.splice(0) ?? []))
     const said = seat.queue.splice(0)
-    for (const text of said) parts.push(`Your opponent says: ${text}`)
+    for (const text of said) parts.push(`${seat.attempt ? 'The person, watching, says' : 'Your opponent says'}: ${text}`)
     const events = this.catchUp(id, seat)
     if (events.length) parts.push(`Since you last looked:\n${events.map((e) => `- ${e}`).join('\n')}`)
     // Talking to Claude while they have a decision shows it their question
@@ -434,6 +514,26 @@ export class ClaudeService {
       parts.push(describeQuestion(prompt, state, seat.player, this.db()))
     } else parts.push("There's no question for you right now; just reply.")
     return parts.filter(Boolean).join('\n\n')
+  }
+
+  // What Claude is given before it tries a game the person lost: every fair
+  // help, and nothing of the bot's hand or the order of the Decks.
+  private briefing(id: string, seat: Seat): string {
+    const a = seat.attempt!
+    const { players } = this.sessions.export(id)
+    const deck = players?.[seat.player].deck
+    const state = this.sessions.get(id).state
+    const notes = deck && this.extras.notes?.read(deck).trim()
+    const past = (deck && this.extras.misplays?.(deck)) || []
+    return [
+      `This is try ${a.n} of ${a.max}. The person lost this game from this same opening hand, against this same bot.`,
+      notes && `The person's notes on this deck, from earlier games:\n${notes}`,
+      past.length && `Misplays reviews of their games with this deck marked (don't repeat them):\n${past.map((m) => `- ${m}`).join('\n')}`,
+      `The bot's decklist:\n${describeDeck(state, other(seat.player), seat.player, this.db(), players?.[other(seat.player)].list, true)}`,
+      a.carried?.length && `What you took from your earlier ${a.carried.length === 1 ? 'try' : 'tries'}, which lost:\n${a.carried.map((c, i) => `Try ${i + 1}: ${c}`).join('\n\n')}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
   }
 
   // To the coach beside the person: what they said, and the game as they see it.
@@ -526,7 +626,7 @@ export class ClaudeService {
       // a coach who knows it, the person's while they show their cards.
       deck: (side: 'yours' | 'opponent') => {
         const p = side === 'yours' ? seat.player : other(seat.player)
-        const given = side === 'yours' || (seat.watch ? (seat.knowsDeck ?? true) : seat.share)
+        const given = side === 'yours' || !!seat.attempt || (seat.watch ? (seat.knowsDeck ?? true) : seat.share)
         return describeDeck(state(), p, seat.player, this.db(), this.sessions.export(id).players?.[p].list, given)
       },
       history: (last = 40) => {
@@ -545,8 +645,23 @@ export class ClaudeService {
         tryLine: (picks, show) => this.tryLine(id, seat, picks, show),
         ...this.coachTools(id, seat),
       }
+    // Trying a lost game, it also checks lines on a copy and asks the trained bot's view of its own position.
+    const { lethal, odds, searchCards, rules, point, lookBack, spotlight, botMove, evaluate } = seat.attempt ? this.coachTools(id, seat) : ({} as Partial<DuelTools>)
+    const trying: Partial<DuelTools> = seat.attempt
+      ? {
+          options: async () => {
+            const q = await this.games.asking(id, seat.player)
+            return q ? describeQuestion(q, state(), seat.player, this.db()) : 'Nothing is being asked of you right now.'
+          },
+          tryLine: (picks) => this.tryLine(id, seat, picks),
+          ...{ lethal, odds, searchCards, rules, point, lookBack, spotlight, botMove, evaluate },
+        }
+      : {}
+    const turn = state().turn
+    let answered = 0
     return {
       ...looking,
+      ...trying,
       answer: async (question, choices) => {
         const prompt = await this.games.asking(id, seat.player)
         if (!prompt || prompt.id !== question) return prompt ? `Question ${question} isn't open; question ${prompt.id} is.` : "There's no open question for you."
@@ -559,6 +674,10 @@ export class ClaudeService {
         }
         seat.chat.push({ from: 'move', text: picked.join(', ') })
         this.changed(id, seat)
+        // A bot answers at once, so a try would be one endless run: it ends
+        // with the turn, or after a long run of answers, and the next message carries on.
+        const now = (await this.games.get(id)).state.turn
+        if (seat.attempt && (now !== turn || ++answered >= TRY_ANSWERS) && !(await this.games.get(id)).duel.result) return 'Done. Stop here: what happened and your next question come in a new message.'
         return this.afterAnswer(id, seat)
       },
     }
@@ -626,7 +745,7 @@ export class ClaudeService {
       },
       evaluate: async () => {
         const view = await this.games.evaluate(id, seat.player).catch(() => undefined)
-        const prompt = this.sessions.get(id).game?.prompt
+        const prompt = await this.games.asking(id, seat.player)
         if (!view || (view.winRate === undefined && view.pick === undefined)) return 'No view: it only looks at positions for decks made of cards it knows, when the person has a question open.'
         return [
           view.winRate !== undefined && `The trained bot puts the person's chance of winning from here at ${(view.winRate * 100).toFixed(0)}%.`,
@@ -652,8 +771,8 @@ export class ClaudeService {
       t.refused ? `Pick ${t.played + 1} wasn't accepted (a wrong number of options, an option that isn't there, or the engine turned it down). Up to there:` : '',
       events.length ? `What would happen:\n${events.map((e) => `- ${e}`).join('\n')}` : 'Nothing would happen yet.',
       `The table after it:\n${describeTable(t.state, seat.player, this.db(), false, drawn)}`,
-      t.winner ? `The duel would be over: ${t.winner === seat.player ? 'the person wins' : 'the bot wins'}.` : '',
-      t.next ? describeQuestion(t.next, t.state, seat.player, this.db(), `Then the person would be asked (add a pick for it to go on)`) : '',
+      t.winner ? `The duel would be over: ${t.winner === seat.player ? (seat.attempt ? 'you win' : 'the person wins') : 'the bot wins'}.` : '',
+      t.next ? describeQuestion(t.next, t.state, seat.player, this.db(), `Then ${seat.attempt ? 'you' : 'the person'} would be asked (add a pick for it to go on)`) : '',
       t.theirs ? "It stops here: the next decision is the bot's." : '',
       `Nothing was played in the real game. This assumes the bot passes wherever it could respond.${drawn.size ? ' Cards drawn in this line are shown as hidden: nobody knows them yet.' : ''}`,
       show ? (drawn.size ? "Not put on a board: the line draws cards nobody knows yet, and a board would show them." : this.showLine(id, seat, t, show)) : '',
@@ -1029,9 +1148,10 @@ export class ClaudeService {
 
   private save(id: string, seat: Seat) {
     if (this.seats.get(id) !== seat) return // deleted while a run was finishing
-    const { player, watch, knowsDeck, flags, model, coach, share, sessionId, chat, costUsd, seen, logged, texts, character, lesson } = seat
+    const { player, watch, knowsDeck, flags, model, coach, share, sessionId, chat, costUsd, seen, logged, texts, character, lesson, attempt } = seat
     this.store.save(id, {
       player,
+      ...(attempt && { attempt }),
       ...(watch && { watch, knowsDeck: knowsDeck ?? true }),
       ...(flags && { flags }),
       model,

@@ -46,6 +46,10 @@ export type CreateGameOptions = {
   // An example in a chat: decks given whole, nobody's opponent, left out of the lists.
   lists?: Partial<Record<Player, DeckFile>>
   demo?: boolean
+  // Claude plays your side of a game you lost against the same bot, from the
+  // same shuffle, to see if it could be won: try n of max, after the game of.
+  // carried: what it took from the tries before.
+  attempt?: { of: string; n: number; max: number; carried?: string[] }
 }
 
 // How long each bot (or Claude) step stays on screen before the next.
@@ -152,7 +156,7 @@ export class GameService {
 
   async create(opts: CreateGameOptions): Promise<SessionView> {
     const ocg = await this.ocg()
-    const bots = opts.claude || opts.lesson ? [] : (opts.bots ?? ['p2'])
+    const bots = opts.lesson || (opts.claude && !opts.attempt) ? [] : (opts.bots ?? ['p2'])
     const bot = bots.length && opts.bot === 'agent' ? 'agent' : undefined
     if (bot) {
       await this.loadAgent()
@@ -177,6 +181,7 @@ export class GameService {
             title: opts.title ?? `${opts.lesson ? 'Lesson' : 'Game'}: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
           }),
       ...(bots.includes('p2') && { opponentName: bot ? 'Trained bot' : 'Bot' }),
+      ...(opts.attempt && { playerName: 'Claude' }),
       ...(opts.demo && { opponentName: 'Opponent' }),
       // Claude plays as the character its deck belongs to, if it has one.
       ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck ?? ''] as DeckFile | undefined)?.character?.name ?? 'Claude' }),

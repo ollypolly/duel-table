@@ -56,7 +56,7 @@ export type ReviewDeps = {
   agent: Agent
   system: () => string
   // The side Claude played and the game's chat, when Claude played or ran a lesson.
-  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined
+  played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags' | 'attempt'> | undefined
   store?: RecordStore<ReviewRecord>
   rules?: () => string
   findCards?: (query: string) => Promise<CardData[]> // by name, among every card printed
@@ -297,7 +297,9 @@ export class ReviewService {
     const claude = this.played(id)
     const how = v.claudeLesson
       ? 'It was a lesson you ran for the person: you played both sides, and handed them p1 to try things.'
-      : claude && !claude.watch
+      : claude?.attempt
+        ? 'The person lost a game from this same opening against this same bot, and you played their side (p1) here to see if it could be won.'
+        : claude && !claude.watch
         ? `You played ${claude.player} against the person.`
         : v.file.duel?.bot === 'agent'
           ? `The person played p1 against a trained bot (a neural network that plays its own deck well).${claude ? ' You sat beside them as their coach.' : ''}`

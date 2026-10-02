@@ -61,10 +61,12 @@ const service: ClaudeService = new ClaudeService({
   sessions,
   db: () => ctx().db,
   agent: sdkAgent,
-  system: ({ coach, character, lesson, watch }) =>
+  system: ({ coach, character, lesson, watch, attempt }) =>
     lesson
       ? prompt('lesson')
-      : watch
+      : attempt
+        ? prompt('attempt')
+        : watch
         ? prompt('advisor')
         : [prompt('game'), coach && prompt('coach'), character && prompt('persona').replace(/\{(\w+)\}/g, (_, k: keyof Character) => character[k])]
           .filter(Boolean)

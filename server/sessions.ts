@@ -37,6 +37,7 @@ export type CreateOptions = {
   seed?: number
   title?: string
   opponentName?: string // defaults to Friend
+  playerName?: string // defaults to You
   lists?: Partial<Record<Player, DeckFile>> // a player's deck given whole, rather than by id
   demo?: boolean // an example in a chat, left out of the lists
 }
@@ -138,7 +139,7 @@ export class SessionService {
         title: opts.title ?? `Live: ${opts.deck}`,
         ...(opts.demo && { demo: true }),
         seed: opts.seed ?? Math.floor(Math.random() * 2 ** 31),
-        players: { p1: { name: 'You', ...seat('p1') }, p2: { name: opts.opponentName ?? 'Friend', ...seat('p2', opts.opponentDeck ?? opts.deck) } },
+        players: { p1: { name: opts.playerName ?? 'You', ...seat('p1') }, p2: { name: opts.opponentName ?? 'Friend', ...seat('p2', opts.opponentDeck ?? opts.deck) } },
         steps: [],
       }
     } else {

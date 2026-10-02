@@ -502,4 +502,44 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(requests.at(-1)!.message).toContain('took back their last move')
   }, 60_000)
 
+
+  it('tries a game you lost against the same bot from the same shuffle, and after a loss starts the next try with what it learned', async () => {
+    const fake = fakeAgent(5)
+    const store = memoryClaudeStore()
+    const { sessions, games, claude } = setup(fake.agent, store)
+    // Bots play a game that p1 loses.
+    const lost = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 3, bots: ['p1', 'p2'] })
+    expect(sessions.export(lost.id).duel?.winner).toBe('p2')
+    await expect(claude.attempt(lost.id, {}, undefined).then((v) => claude.attempt(v.id, {}))).rejects.toThrow(/finished game of yours against a bot/)
+
+    const tries: string[] = []
+    let v = await claude.attempt(lost.id, { tries: 2, model: 'haiku' })
+    for (;;) {
+      tries.push(v.id)
+      await claude.idle(v.id)
+      const s = sessions.get(v.id)
+      const seat = s.game!.claude!
+      expect(s.game).toMatchObject({ bots: ['p2'], winner: expect.anything() })
+      expect(seat).toMatchObject({ player: 'p1', attempt: { of: lost.id, n: tries.length, max: 2, over: true } })
+      expect(store.load(v.id)?.attempt).toMatchObject({ n: tries.length, over: 'done' })
+      // Same shuffle: the same opening hand as the game that was lost.
+      expect(sessions.stateAt(v.id, 0).players.p1.zones.hand).toEqual(sessions.stateAt(lost.id, 0).players.p1.zones.hand)
+      const next = seat.chat.find((e) => e.open)?.open
+      const won = s.game!.winner!.player === 'p1'
+      expect(!!next).toBe(!won && tries.length < 2)
+      if (!next) break
+      v = sessions.get(next.session)
+    }
+    const first = fake.requests.find((r) => r.message.includes('This is try 1 of 2'))!
+    expect(first.message).toContain("The bot's decklist")
+    expect(first.tools.tryLine && first.tools.evaluate && first.tools.lookBack && first.tools.spotlight).toBeTruthy()
+    const last = sessions.get(tries.at(-1)!).game!
+    const told = fake.requests.map((r) => r.message)
+    if (last.winner!.player === 'p1') expect(told.some((m) => m.includes('You won. Now teach the person how') && m.includes('The game the person lost'))).toBe(true)
+    else {
+      expect(tries).toHaveLength(2)
+      expect(told.some((m) => m.includes('This is try 2 of 2') && m.includes('What you took from your earlier try, which lost:\nTry 1: Hello from the fake.'))).toBe(true)
+      expect(told.some((m) => m.includes('that was the last try'))).toBe(true)
+    }
+  }, 120_000)
 })

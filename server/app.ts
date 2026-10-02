@@ -606,6 +606,25 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(
     createRoute({
       method: 'post',
+      path: '/sessions/{id}/attempt',
+      summary: 'Have Claude try to win a game you lost',
+      description:
+        "A new game from the same shuffle against the same bot, with Claude playing your side by itself: it gets your notes on the deck, the bot's decklist and lines tried on a copy, but not the bot's hand. It runs whether or not you watch. After a win it teaches you how; after a loss with tries left it starts the next, linked from this one's chat.",
+      request: {
+        params: IdParam,
+        ...body(z.object({ tries: z.int().min(1).max(3).optional().openapi({ description: 'How many tries it gets (default 1)' }), model: ModelChoiceSchema.optional() }).strict()),
+      },
+      responses: { 201: json(SessionSchema, "The new game, Claude's first try"), 409: json(ErrorSchema, "Not a finished game of yours against a bot"), 501: json(ErrorSchema, 'No Claude login'), ...errors },
+    }),
+    async (c) => {
+      if (!(claude && (await claude.account()))) return c.json({ error: 'this needs a Claude login (run `claude` and log in)' }, 501)
+      return c.json(await claude.service.attempt(c.req.valid('param').id, c.req.valid('json')), 201)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
       path: '/sessions/{id}/claude/chat',
       summary: 'Say something to Claude',
       description: "It replies (and plays, if it's asked something) on its next run. Sent while it's thinking, it waits for that run to end.",

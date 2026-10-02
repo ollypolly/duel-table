@@ -91,6 +91,10 @@ export const ClaudeViewSchema = z.object({
     .optional()
     .describe('Cards Claude has lifted off the table to show big, until you close it or the game moves on'),
   goal: z.string().optional().describe('In a lesson: what Claude asked you to reach while you play'),
+  attempt: z
+    .object({ of: z.string(), n: z.int(), max: z.int(), over: z.boolean().optional() })
+    .optional()
+    .describe('Claude is playing your side of a game you lost (session of), against the same bot from the same shuffle: try n of max'),
   model: ModelChoiceSchema,
   coach: z.boolean().describe('Also points out your misplays and explains its plays'),
   share: z.boolean().describe('You show Claude your hidden cards (hand, face-down cards, Extra Deck) and your open question, so it can advise you'),

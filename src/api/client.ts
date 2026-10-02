@@ -117,6 +117,7 @@ export const api = {
   changeIdea: (id: string, text: string) => call<Idea[]>('PATCH', `/ideas/${id}`, { text }),
   removeIdea: (id: string) => call<Idea[]>('DELETE', `/ideas/${id}`),
   // Reviewing a finished game with Claude; the review arrives over the session's SSE.
+  attempt: (id: string, tries: number) => call<SessionSummary>('POST', `/sessions/${id}/attempt`, { tries }),
   startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
   closeReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/close`),
   askReview: (id: string, text: string, position: number) => call<ReviewView>('POST', `/sessions/${id}/review/chat`, { text, position }),

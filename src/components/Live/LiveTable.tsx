@@ -194,7 +194,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // A lesson Claude runs: no rematch, hints, coaching or sharing (it sees everything).
   const claudeLesson = !!claude?.holds
   const rematch =
-    players?.p1.deck && players.p2.deck && !claudeLesson
+    players?.p1.deck && players.p2.deck && !claudeLesson && !claude?.attempt
       ? () =>
           report(
             api
@@ -347,8 +347,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             normalUsed={turn?.normalUsed}
             onHover={(i) => setHot({ for: prompt?.id, i })}
             onRematch={rematch}
+            onAttempt={claudeOn && rematch && game.winner?.player === 'p2' && game.bots.includes('p2') && !(claude && !claude.watch) ? (tries) => report(api.attempt(id, tries).then((s) => openSession(s.id, Infinity))) : undefined}
             onReview={review || claudeLesson ? undefined : startReview}
-            onHint={game.claude && !claudeLesson ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
+            onHint={game.claude && !claudeLesson && !game.claude.attempt ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
             lesson={claudeLesson}
             onUndo={() => {
               setBusy(true)
@@ -415,14 +416,15 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               <ClaudeChat
                 claude={game.claude}
                 {...(game.claude.watch && { empty: 'Claude is beside you for this game. Ask it what to play, or why something happened.' })}
+                {...(game.claude.attempt && { empty: 'Claude is playing your side of the game you lost, from the same opening hand. It carries on whether or not you watch.' })}
                 footer={dock}
                 footerKey={dockKey}
               />
             ),
             input: (
               <ClaudeInput
-                claude={claudeLesson || game.claude.watch ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
-                {...(game.claude.watch && { placeholder: 'Ask Claude…' })}
+                claude={claudeLesson || game.claude.watch || game.claude.attempt ? { ...game.claude, coach: undefined, share: undefined } : game.claude}
+                {...((game.claude.watch || game.claude.attempt) && { placeholder: 'Ask Claude…' })}
                 onChat={(text) => report(api.chat(id, text))}
                 onStop={() => report(api.stopClaude(id))}
                 onResume={() => report(api.resumeClaude(id))}
