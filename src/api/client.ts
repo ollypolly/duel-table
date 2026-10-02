@@ -19,6 +19,7 @@ export type SessionSummary = {
   kind: 'game' | 'board'
   winner?: Player
   claudeLesson?: true // a lesson Claude ran on the rules engine
+  fromTable?: true // a game carried over from a free-play table
   lessonPlan?: { now: number; of: number } // how far its plan has got: now === of once it's done
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> } // it has a review with Claude

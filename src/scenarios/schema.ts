@@ -203,6 +203,7 @@ export const ScenarioSchema = z
         bot: z.enum(['random', 'agent']).optional().describe('Which bot: the trained one (ygo-agent) or, by default, the random one'),
         claude: PlayerSchema.optional().describe('The player Claude answers for'),
         lesson: z.boolean().optional().describe('Claude runs the game as a lesson, answering for whichever players it holds'),
+        table: z.boolean().optional().describe('Carried over from a free-play table, which it can go back to'),
         shuffled: z.boolean().optional().describe('The Decks were shuffled from the seed (games saved before that replay unshuffled)'),
         winner: PlayerSchema.optional().describe('Who won, once the duel is over'),
         undone: z.int().optional().describe('Moves taken back so far'),

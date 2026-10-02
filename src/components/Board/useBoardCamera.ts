@@ -51,7 +51,7 @@ function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number, 
   return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand, select = false) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand, select = false, scrollPans = select) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -91,6 +91,8 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
   }
   const selectRef = useRef(select)
   selectRef.current = select
+  const scrollRef = useRef(scrollPans)
+  scrollRef.current = scrollPans
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const dragged = useRef(false)
   const pinch = useRef<number>(undefined)
@@ -112,7 +114,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
       const r = el.getBoundingClientRect()
       // Box-select mode pans like a canvas app: two fingers on a trackpad
       // scroll the table, and a pinch (ctrl+wheel) zooms.
-      if (selectRef.current && !e.ctrlKey) {
+      if (scrollRef.current && !e.ctrlKey) {
         manual.current()
         x.jump(x.get() - e.deltaX)
         y.jump(y.get() - e.deltaY)

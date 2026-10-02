@@ -34,6 +34,7 @@ export type CreateGameOptions = {
   bot?: BotKind
   claude?: Player
   lesson?: boolean
+  table?: boolean // carried over from a free-play table
   topic?: string
   model?: ModelChoice
   coach?: boolean
@@ -54,7 +55,7 @@ type Asked = Extract<Question, { prompt: unknown }>
 export type BotKind = 'random' | 'agent'
 // respond: when the person is asked to chain. skipped: chances passed for
 // them. forced: an answer index where they asked for a passed chance back.
-type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean; respond?: Respond; skipped?: Skipped[]; forced?: number }
+type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean; respond?: Respond; table?: boolean; skipped?: Skipped[]; forced?: number }
 // What Claude makes of a chance to respond: stop for it or not, and why.
 export type ChainAdvice = { stop: boolean; why: string }
 // moves: for each move a person began, how many answers had been given.
@@ -180,7 +181,7 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond })
+    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond, table: opts.table })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
@@ -228,8 +229,8 @@ export class GameService {
       throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
     this.sessions.restartGame(id, from)
-    const { bots, bot, claude, lesson, shuffled, respond } = old
-    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond })
+    const { bots, bot, claude, lesson, shuffled, respond, table } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond, table })
     return this.advance(id, live, game.start())
   }
 
@@ -262,7 +263,7 @@ export class GameService {
     const { p1, p2 } = this.sessions.export(id).players ?? {}
     if (!p1?.deck || !p2?.deck) throw new SessionError(422, 'a game needs both players to have a deck')
     const { setup, lp } = positionOf(table.state, this.ctx().db)
-    const made = await this.create({ deck: p1.deck, opponentDeck: p2.deck, title: `Game: ${plain(table.file.title)}` })
+    const made = await this.create({ deck: p1.deck, opponentDeck: p2.deck, title: `Game: ${plain(table.file.title)}`, table: true })
     try {
       return await this.restart(made.id, setup, lp)
     } catch (e) {
@@ -330,9 +331,9 @@ export class GameService {
     const duel = file.duel!
     const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
     const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
-    const { bots, bot, claude, lesson, shuffled, respond } = old
+    const { bots, bot, claude, lesson, shuffled, respond, table } = old
     const skipped = old.skipped?.filter((s) => s.at < to)
-    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled, respond, skipped, forced: change.asked })
+    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled, respond, table, skipped, forced: change.asked })
     live.moves = old.moves.filter((m) => m < to)
     const q = last.prompt && this.ask(live, last)
     if (q && 'prompt' in q) live.asked = q
@@ -501,6 +502,7 @@ export class GameService {
       ...(live.bot && { bot: live.bot }),
       ...(live.claude && { claude: live.claude }),
       ...(live.lesson && { lesson: true, yours: live.moves }),
+      ...(live.table && { table: true }),
       ...(live.shuffled && { shuffled: true }),
       ...(live.respond && { respond: live.respond }),
       ...(live.skipped?.length && { skipped: live.skipped.slice(-20) }),
@@ -581,7 +583,7 @@ export class GameService {
     const moves: number[] = []
     const p1Moves: number[] = []
     let answered: number | undefined
-    const { bots = [], bot, claude, lesson, shuffled, respond, skipped, asked: forced, yours } = file.duel
+    const { bots = [], bot, claude, lesson, shuffled, respond, table, skipped, asked: forced, yours } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
       if (!lesson && !bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
@@ -590,7 +592,7 @@ export class GameService {
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, skipped, forced })
+    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, table, skipped, forced })
     // A lesson records which moves were the person's. One from before it did
     // counts p1's, whoever made them.
     live.moves = lesson ? (yours ?? p1Moves).filter((m) => m < file.duel!.responses.length) : moves

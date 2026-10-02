@@ -50,7 +50,7 @@ export function Board2D({
   // Unmeasured (a test's DOM), the fan lays out for a desktop.
   const size = useSize(ref) ?? { w: 1280, h: 800 }
   const fan = pinnedHand ? insetBottom + fanHeight(fanCardHeight(size)) : 0
-  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined, boxSelect)
+  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined, boxSelect, boxSelect || FINE)
   const inFan = (c: PlacedCard) => pinnedHand && c.handIndex !== undefined && c.zone.player === VIEWER
   const seatDecks = useContext(SeatDecks)
   const byDeck = useCosmeticsStore((s) => s.cosmetics)
@@ -325,6 +325,9 @@ function ZoneOutline({ zone, placing, lit, picked, onClick }: { zone: ZoneView; 
 }
 
 const HELD = 'held-pile'
+// With a mouse or trackpad the wheel always pans (two fingers on a trackpad)
+// and a pinch or ctrl+wheel zooms, in a game as in free play.
+const FINE = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches
 
 // Cards as one pile, the first on top, with how many there are.
 function Stack({ cards, className = '' }: { cards: CardFace[]; className?: string }) {

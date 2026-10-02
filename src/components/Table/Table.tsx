@@ -73,6 +73,7 @@ type TableProps = {
   onUndo?: () => void
   menuItems?: ReactNode // extra entries for the scene panel's More menu
   onRulesOn?: () => void // free play: carry on from this board as a rules-engine game
+  onRulesOff?: () => void // a game that came from a free-play table: go back to one
   // Start a branch at a position, from anywhere free-play isn't available.
   onBranch?: (position: number) => void
   branchLabel?: string
@@ -120,6 +121,7 @@ export function Table({
   onUndo,
   menuItems,
   onRulesOn,
+  onRulesOff,
   onBranch,
   branchLabel = 'Branch',
   onGoLive,
@@ -228,7 +230,7 @@ export function Table({
     const t = setTimeout(() => setGone(!freePlay), freePlay ? 0 : 800)
     return () => clearTimeout(t)
   }, [freePlay])
-  const barShown = freePlay || !gone
+  const barShown = freePlay || !gone || !!onRulesOff
   const closeInspector = useCallback(() => inspect(undefined), [inspect])
   const { p1, p2 } = scenario.game.setup.players
   const seatDecks = useMemo(() => ({ p1: p1.deck, p2: p2.deck }), [p1.deck, p2.deck])
@@ -241,9 +243,9 @@ export function Table({
       />
 
       {barShown && (
-        <div className={`relative z-30 flex flex-col items-center gap-1.5 border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur ${freePlay ? '' : 'pointer-events-none'}`}>
-          <FreePlayTable fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} />
-          <FreePlayBar fp={fp} onRulesOn={onRulesOn} />
+        <div className={`relative z-30 flex flex-col items-center gap-1.5 border-b border-line bg-surface/80 px-3 py-1.5 backdrop-blur ${freePlay || onRulesOff ? '' : 'pointer-events-none'}`}>
+          <FreePlayTable fp={fp} onUndo={onUndo && last > scenario.inheritedSteps ? onUndo : undefined} locked={!!onRulesOff} />
+          <FreePlayBar fp={fp} onRulesOn={onRulesOn} onRulesOff={onRulesOff} />
         </div>
       )}
 

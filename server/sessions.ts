@@ -49,6 +49,7 @@ export type SessionSummary = {
   kind: 'game' | 'board' // a game on the rules engine, or a free board
   winner?: Player // the other player's LP hit 0
   claudeLesson?: true // a lesson Claude ran on the rules engine
+  fromTable?: true // a game carried over from a free-play table
   lessonPlan?: { now: number; of: number } // how far its plan has got: now === of once it's done
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: ReviewSummary // it has a review with Claude, open or not
@@ -332,6 +333,7 @@ export class SessionService {
       kind: file.duel ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
       ...(file.duel?.lesson && { claudeLesson: true as const }),
+      ...(file.duel?.table && { fromTable: true as const }),
       ...(lessonPlan && { lessonPlan }),
       ...(file.duel && !file.duel.lesson && (file.duel.claude === 'p2' ? { opponent: 'claude' as const } : file.duel.bots?.includes('p2') && { opponent: file.duel.bot === 'agent' ? ('trained' as const) : ('bot' as const) })),
       ...(reviewed && { reviewed }),

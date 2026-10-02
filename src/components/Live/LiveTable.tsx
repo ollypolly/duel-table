@@ -421,6 +421,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         onStep={game || lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
         onUndo={game ? undefined : () => report(api.undo(id))}
         onRulesOn={game ? undefined : () => report(api.rules(id, true).then((s) => openSession(s.id, Infinity)))}
+        onRulesOff={game && session?.fromTable ? () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity))) : undefined}
         choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
         onChoose={prompt && !away ? chooseCard : undefined}
         choosableZones={zoneOptions.length && !away ? zoneOptions : undefined}

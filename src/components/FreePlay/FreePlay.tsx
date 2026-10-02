@@ -132,7 +132,9 @@ export function FreePlayStatus({ fp }: { fp: FreePlay }) {
 
 // The everyday tools, by the board: draw, deal, add any card, see both hands.
 // They act for the side picked on the left.
-export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () => void }) {
+// onRulesOff: the board is in a game on the rules engine, so the tools are
+// shown but off, and the one live button takes it back to a free table.
+export function FreePlayBar({ fp, onRulesOn, onRulesOff }: { fp: FreePlay; onRulesOn?: () => void; onRulesOff?: () => void }) {
   const { state, act } = fp
   const [count, setCount] = useState(3)
   const [query, setQuery] = useState('')
@@ -189,6 +191,7 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
   }
   return (
     <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs" data-testid="free-bar">
+      <fieldset disabled={!!onRulesOff} className="contents disabled:[&_label]:opacity-50 disabled:[&_[role=group]]:opacity-50">
       <span className="flex overflow-hidden rounded-md border border-line" role="group" aria-label="Act for">
         {PLAYERS.map((p) => (
           <button key={p} type="button" aria-pressed={side === p} className={`px-2 py-1 transition-colors ${side === p ? (p === 'p1' ? 'bg-p1/25 font-semibold text-p1' : 'bg-p2/25 font-semibold text-p2') : 'text-muted hover:text-ink'}`} onClick={() => setSide(p)}>
@@ -245,6 +248,12 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
       <button type="button" className="btn text-xs" disabled={!away.length} onClick={clear} title="Every card back to its Deck, shuffled, and life points back to 8000. Undo brings it back">
         Clear the board
       </button>
+      </fieldset>
+      {onRulesOff && (
+        <button type="button" className="btn btn-primary text-xs" onClick={onRulesOff} title="Back to a free table with this board, where anything can be moved or added. Rules on there carries on from what you set up">
+          Rules off
+        </button>
+      )}
       {onRulesOn && (
         <button type="button" className="btn text-xs" onClick={onRulesOn} title="Play on from this board under the rules, against the simple bot: your turn, Main Phase 1. Rules off in the game's menu brings you back to move things freely">
           Rules on
@@ -256,14 +265,15 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
 
 // The table's own controls, as a row above the card tools: shuffle, turn,
 // undo and life points, for the side picked below.
-export function FreePlayTable({ fp, onUndo }: { fp: FreePlay; onUndo?: () => void }) {
+export function FreePlayTable({ fp, onUndo, locked }: { fp: FreePlay; onUndo?: () => void; locked?: boolean }) {
   const { state, act } = fp
   const [lpAmount, setLpAmount] = useState(1000)
   const side = useUiStore((s) => s.freeSide)
   const whose = side === 'p1' ? 'your' : `${state.players[side].name}'s`
   return (
     <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs" data-testid="free-play">
-      <span className="font-display font-semibold uppercase tracking-wider text-gold">Free play</span>
+      <span className="font-display font-semibold uppercase tracking-wider text-gold">{locked ? 'Rules on' : 'Free play'}</span>
+      <fieldset disabled={locked} className="contents disabled:[&_span]:opacity-50">
       <button type="button" className="btn text-xs" onClick={() => act({ type: 'shuffle', player: side, zone: 'deck' })}>
         Shuffle {whose} Deck
       </button>
@@ -283,6 +293,7 @@ export function FreePlayTable({ fp, onUndo }: { fp: FreePlay; onUndo?: () => voi
           +
         </button>
       </span>
+      </fieldset>
     </div>
   )
 }
