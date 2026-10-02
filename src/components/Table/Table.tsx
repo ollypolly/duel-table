@@ -352,7 +352,10 @@ export function Table({
                   <span className="h-1 w-10 rounded-full bg-muted" />
                   <span className={`flex w-full min-w-0 items-center gap-2 text-left text-sm ${quick ? 'pr-36' : ''}`}>
                     {activity?.action ? (
-                      <span className="font-semibold text-gold">Your move</span>
+                      <>
+                        <span className="font-semibold text-gold">Your move</span>
+                        {alert && <AlertDot className="relative shrink-0" />}
+                      </>
                     ) : activity?.typing ? (
                       <>
                         <span className="text-muted">{talker} is typing</span>
@@ -370,7 +373,7 @@ export function Table({
                         {step?.label ?? 'Setup'}
                       </span>
                     )}
-                    {alert && <AlertDot className="relative ml-auto shrink-0" />}
+                    {alert && !activity?.action && <AlertDot className="relative ml-auto shrink-0" />}
                   </span>
                 </button>
                 {quick && (
