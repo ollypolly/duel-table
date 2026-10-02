@@ -215,6 +215,12 @@ API docs: https://ygoprodeck.com/api-guide/. Key rules from their terms:
 
 Commit `data/cards.json` (small, makes tests and fresh clones work). Gitignore `public/cards/`.
 
+**Planned: every card searchable by its text.** Claude's `searchCards` covers the downloaded cards by name and text, and every other printed card by name only (YGOPRODeck `fname`), so "cards that search a Beast" misses what the app doesn't have.
+- Fetch all cards once (`cardinfo.php` with no filter, about 13,500 cards and roughly 8 MB trimmed) into a server-side index, gitignored, refreshed when `checkDBVer.php` changes. `searchCards` then matches name and text across all of it.
+- Not in the browser: `data/cards.json` is bundled and the name links are built from it, so it stays the subset that decks and examples use. A card's entry and image are still fetched when it goes into a deck or an example.
+- Not all the images: 787 cards take 160 MB in `public/cards/`, so every card is about 2.7 GB and 27,000 rate-limited downloads.
+- The rules engine needs nothing: `npm run fetch-ocg` already brings scripts for every card.
+
 ## UI
 
 - **Board** laid out like a playmat: opponent mirrored on top, you at the bottom, LP and phase in the header. Hands at the far top/bottom (opponent hand face-down unless revealed).
