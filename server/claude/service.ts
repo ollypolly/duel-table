@@ -602,7 +602,9 @@ export class ClaudeService {
         if (e.type === 'done') {
           seat.sessionId = e.sessionId ?? seat.sessionId
           seat.costUsd += e.costUsd
-          if (e.error && !this.stopped(seat)) {
+          // A try that used up a run's tool calls on one turn (lines tried on a copy) carries on in the next run.
+          const spent = !!seat.attempt && e.error === 'error_max_turns'
+          if (e.error && !spent && !this.stopped(seat)) {
             seat.chat.push({ from: 'note', text: `Claude stopped with an error: ${e.error}` })
             seat.status = 'stopped'
             failed = true
