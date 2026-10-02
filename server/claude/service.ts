@@ -239,6 +239,7 @@ export class ClaudeService {
           ...(s.point?.length && { point: s.point }),
           ...(s.arrows?.length && { arrows: s.arrows }),
           ...(s.zones?.length && { zones: s.zones }),
+          ...(s.back && { back: true }),
           ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrases: s.spotlight.phrases, keep: s.spotlight.keep } }),
           ...(s.lesson?.handed.some((h) => h.goal) && { goal: s.lesson.handed.find((h) => h.goal)!.goal }),
           ...(s.attempt && { attempt: { of: s.attempt.of, n: s.attempt.n, max: s.attempt.max, ...(s.attempt.over && { over: true }) } }),
@@ -824,8 +825,8 @@ export class ClaudeService {
         if (step === undefined)
           return shown ? `Steps so far (give one's number to show the table as it was after it):\n${steps.slice(0, shown).map((s, i) => `${i + 1}. ${s.label ?? 'A move'}`).slice(-40).join('\n')}` : 'Nothing has happened yet.'
         if (step < 0 || step >= shown) return step === shown ? "That's where the game is now." : `There are ${shown} steps so far: give 1 to ${shown - 1}, or 0 for the starting position.`
-        this.sessions.present(id, { position: step })
         seat.back = true
+        this.sessions.present(id, { position: step })
         return `Their screen shows the table as it was after step ${step}${step ? ` (${steps[step - 1].label ?? 'a move'})` : ', the starting position'}. Point at what you mean and say what to look at. It comes back to the present when they answer or play on.`
       },
       spotlight: (cards, say, phrases) => {

@@ -82,7 +82,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     // On a (re)load, straight to where it's got to, without replaying the last move.
     if (!prev) return goTo(cursor.position)
     const { position, speed } = usePlayerStore.getState()
-    if (prev && position !== prev.position && !replay.current) return
+    // You've gone elsewhere: stay there, unless Claude moved the view to show you a step.
+    if (prev && position !== prev.position && !replay.current && !session.game?.claude?.back) return
     stopReplay()
     if (cursor.from === undefined) return goTo(cursor.position)
     let p = cursor.from
@@ -244,8 +245,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   useEffect(() => {
     if (!loaded) return
     const first = lastGo.current === undefined
-    if (went?.n === lastGo.current) return
-    lastGo.current = went?.n ?? 0
+    const n = went?.n ?? 0
+    if (n === lastGo.current) return
+    lastGo.current = n
     if (went && !first) goTo(went.step)
   }, [loaded, went, goTo])
   const marked = review ? review.marks : game?.claude

@@ -90,6 +90,7 @@ export const ClaudeViewSchema = z.object({
     })
     .optional()
     .describe('Cards Claude has lifted off the table to show big, until you close it or the game moves on'),
+  back: z.boolean().optional().describe('Claude has moved your view back to an earlier step, to show you something there'),
   goal: z.string().optional().describe('In a lesson: what Claude asked you to reach while you play'),
   attempt: z
     .object({ of: z.string(), n: z.int(), max: z.int(), over: z.boolean().optional() })
