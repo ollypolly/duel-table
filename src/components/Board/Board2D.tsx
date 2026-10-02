@@ -375,7 +375,7 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: 
     id: card.iid,
     disabled: !canDrag,
   })
-  // No hover lift up close: its brightness filter makes the browser redraw the card from a small, soft copy.
+  // No brightening on hover up close: the filter makes the browser redraw the card from a small, soft copy. It still lifts.
   const close = useContext(FullArt)
   const onField = card.stackIndex === undefined && card.handIndex === undefined && card.materialOf === undefined
   const isMonsterZone = card.zone.zone === 'monster' || card.zone.zone === 'extraMonster'
@@ -405,7 +405,7 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: 
         e.stopPropagation()
         listeners?.onPointerDown?.(e)
       }}
-      className={`absolute text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out motion-reduce:transition-none ${close ? '' : 'hover:-translate-y-[0.4cqw] hover:brightness-110'} ${inPile ? 'pointer-events-none' : ''} ${
+      className={`absolute text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out motion-reduce:transition-none hover:-translate-y-[0.4cqw] ${close ? '' : 'hover:brightness-110'} ${inPile ? 'pointer-events-none' : ''} ${
         canDrag ? 'cursor-grab touch-none' : 'cursor-pointer'
       } ${isDragging || gathered ? 'opacity-30' : ''}`}
       style={{ ...box(card.placement), zIndex: z }}
