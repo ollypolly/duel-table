@@ -110,6 +110,7 @@ type TableProps = {
   circled?: ZoneRef[] // zones Claude has circled
   onChooseZone?: (ref: ZoneRef) => void
   cardActions?: (iid: Iid, close: () => void) => ReactNode
+  cardOptions?: (iid: Iid) => { label: string; run: () => void }[] // the same options, for the pointer resting on a card
   draggable?: Iid[]
   onCardDrop?: (iid: Iid, to: ZoneRef) => void
 }
@@ -140,6 +141,7 @@ export function Table({
   circled,
   onChooseZone,
   cardActions,
+  cardOptions,
   draggable,
   onCardDrop,
 }: TableProps) {
@@ -264,6 +266,7 @@ export function Table({
           pinnedHand={pinHand}
           insetBottom={sheetPeek}
           onCameraMove={() => setFollowFocus(false)}
+          cardOptions={freePlay ? undefined : cardOptions}
           onCardClick={(iid) => {
             if (freePlay && fp.attachTo(iid)) return
             if (freePlay) fp.cancel()

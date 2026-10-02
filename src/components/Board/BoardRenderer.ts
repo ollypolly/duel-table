@@ -34,6 +34,8 @@ export type BoardRendererProps = {
   insetBottom?: number
   onCameraMove?: () => void // the viewer panned or zoomed by hand
   onCardClick?: (iid: Iid) => void
+  // What a card can do right now (a game's open question), offered beside its name under the pointer.
+  cardOptions?: (iid: Iid) => { label: string; run: () => void }[]
   // Dragging a card onto a zone. Only cards in draggable can be picked up;
   // dragging anything else pans the camera.
   draggable?: Iid[]

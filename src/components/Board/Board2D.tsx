@@ -7,7 +7,8 @@
 import { DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { AnimatePresence, motion, useMotionValueEvent } from 'motion/react'
-import { useContext, useRef, useState, type CSSProperties } from 'react'
+import { useContext, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { PLAYERS, type Iid, type Player, type ZoneRef } from '../../engine'
 import { SeatDecks, useCosmeticsStore } from '../../store/cosmeticsStore'
 import { VIEWER, type CardFace, type PlacedCard, type ZoneView } from '../../view/boardView'
@@ -37,6 +38,7 @@ export function Board2D({
   insetBottom = 0,
   onCameraMove,
   onCardClick,
+  cardOptions,
   draggable = [],
   onCardDrop,
   onZoneClick,
@@ -64,6 +66,7 @@ export function Board2D({
   // A few px of movement before a press becomes a drag, so clicks still open cards.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [dragging, setDragging] = useState<CardFace>()
+  const [held, setHeld] = useState<PlacedCard>() // the card a finger is resting on, shown big
   // The selection box, in the board's own pixels. It starts on the table, not
   // on a card, and a second finger (a pan or pinch) calls it off.
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number }>()
@@ -212,7 +215,7 @@ export function Board2D({
             )}
             <AnimatePresence initial={false}>
               {view.cards.filter((c) => !inFan(c)).map((c) => (
-                <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} gathered={group.length > 1 && group.some((g) => g.iid === c.iid)} />
+                <BoardCard key={c.iid} card={c} selected={selected === c.iid} lit={lit.has(c.iid)} onClick={() => onCardClick?.(c.iid)} canDrag={canDrag.has(c.iid)} onHold={setHeld} options={cardOptions} gathered={group.length > 1 && group.some((g) => g.iid === c.iid)} />
               ))}
             </AnimatePresence>
             {view.zones
@@ -274,6 +277,7 @@ export function Board2D({
         </div>
         {/* Screen-sized, outside the zoomed world; no drop animation, since a
           card that moved slides to its new zone by itself. */}
+        {createPortal(<AnimatePresence>{held && !dragging && <HeldCard key={held.iid} card={held} />}</AnimatePresence>, document.body)}
         <DragOverlay dropAnimation={null}>
           {dragging && <Stack cards={group.length ? group : [dragging]} className="rotate-3 opacity-90" />}
         </DragOverlay>
@@ -370,11 +374,87 @@ function HeldPile({ cards, hidden }: { cards: CardFace[]; hidden?: boolean }) {
   )
 }
 
-function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: PlacedCard; selected: boolean; lit: boolean; onClick: () => void; canDrag: boolean; gathered?: boolean }) {
+const HOLD = 180 // ms a finger rests on a card before it shows big
+const SLOP = 8 // px it may wander and still be a tap or a hold
+const LIFE = 380 // px wide: about a real card
+
+// A card on the table a finger is resting on, near life size over everything,
+// as the hand's cards show. It goes when the finger lifts.
+function HeldCard({ card }: { card: PlacedCard }) {
+  const width = Math.min(LIFE, window.innerWidth - 16, ((window.innerHeight - 32) * CARD.w) / CARD.h)
+  return (
+    <motion.div
+      className="pointer-events-none fixed left-1/2 top-1/2 z-[200] rounded-[4%] outline outline-2 outline-offset-2 outline-gold [box-shadow:0_0_2rem_0.25rem_color-mix(in_srgb,var(--color-gold)_45%,transparent),0_1.5rem_3rem_black]"
+      style={{ width, height: (width * CARD.h) / CARD.w, x: '-50%', y: '-50%' }}
+      initial={{ opacity: 0, scale: 0.6 }}
+      animate={{ opacity: 1, scale: 1, transition: { duration: 0.14, ease: 'easeOut' } }}
+      exit={{ opacity: 0, transition: { duration: 0.08 } }}
+      data-testid="card-zoom"
+    >
+      {/* The small image shows at once; the full one covers it when it's in. Your own Set card reads as it would face-up. */}
+      <CardView card={{ ...card, set: false }} />
+      {card.imageFull && (
+        <div className="absolute inset-0">
+          <CardView card={{ ...card, set: false, image: card.imageFull }} />
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+type BoardCardProps = {
+  card: PlacedCard
+  selected: boolean
+  lit: boolean
+  onClick: () => void
+  canDrag: boolean
+  gathered?: boolean
+  onHold: (card: PlacedCard | undefined) => void
+  options?: (iid: Iid) => { label: string; run: () => void }[]
+}
+
+function BoardCard({ card, selected, lit, onClick, canDrag, gathered, onHold, options }: BoardCardProps) {
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: card.iid,
     disabled: !canDrag,
   })
+  // Under a finger there's no hover: resting on a card you can see shows it
+  // big until you lift off. A quick tap is still a click, and moving off is
+  // a pan or a drag as before.
+  const stop = useRef<() => void>(undefined)
+  const swallow = useRef(false)
+  useEffect(() => () => stop.current?.(), [])
+  const rest = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch' || !card.visible) return
+    stop.current?.()
+    const [x, y] = [e.clientX, e.clientY]
+    let shown = false
+    const timer = window.setTimeout(() => {
+      shown = true
+      onHold(card)
+    }, HOLD)
+    const end = () => {
+      window.clearTimeout(timer)
+      for (const type of ['pointerup', 'pointercancel', 'pointerdown'] as const) window.removeEventListener(type, end, true)
+      window.removeEventListener('pointermove', move, true)
+      stop.current = undefined
+      if (!shown) return
+      onHold(undefined)
+      // The click that follows the lift isn't a tap on the card.
+      swallow.current = true
+      setTimeout(() => (swallow.current = false))
+    }
+    // Before it shows, moving away is a pan or a drag; once it's up it stays until the finger lifts.
+    const move = (m: PointerEvent) => !shown && Math.hypot(m.clientX - x, m.clientY - y) > SLOP && end()
+    stop.current = end
+    // On the window: the camera or a drag may take the pointer over from the card. A second finger ends it too.
+    setTimeout(() => {
+      if (stop.current !== end) return
+      for (const type of ['pointerup', 'pointercancel', 'pointerdown'] as const) window.addEventListener(type, end, true)
+      window.addEventListener('pointermove', move, true)
+    })
+  }
+  const offered = card.visible ? (options?.(card.iid) ?? []) : []
   // No brightening on hover up close: the filter makes the browser redraw the card from a small, soft copy. It still lifts.
   const close = useContext(FullArt)
   const onField = card.stackIndex === undefined && card.handIndex === undefined && card.materialOf === undefined
@@ -396,16 +476,18 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: 
       ref={setNodeRef}
       onClick={(e) => {
         e.stopPropagation()
-        onClick()
+        if (!swallow.current) onClick()
       }}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      onContextMenu={(e) => swallow.current && e.preventDefault()}
       // The camera pans from the felt, not from cards you can pick up.
       onPointerDown={(e) => {
+        rest(e)
         if (!canDrag) return
         e.stopPropagation()
         listeners?.onPointerDown?.(e)
       }}
-      className={`absolute text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out motion-reduce:transition-none hover:-translate-y-[0.4cqw] ${close ? '' : 'hover:brightness-110'} ${inPile ? 'pointer-events-none' : ''} ${
+      className={`absolute text-[1.6cqw] transition-[left,top,translate] duration-300 ease-out motion-reduce:transition-none hover:-translate-y-[0.4cqw] ${close ? '' : 'hover:brightness-110'} ${inPile ? 'pointer-events-none' : ''} select-none [-webkit-touch-callout:none] ${
         canDrag ? 'cursor-grab touch-none' : 'cursor-pointer'
       } ${isDragging || gathered ? 'opacity-30' : ''}`}
       style={{ ...box(card.placement), zIndex: z }}
@@ -450,13 +532,23 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered }: { card: 
     </motion.div>
   )
   if (!card.visible) return el
-  // Its name on hover (not on touch, and not while it's being picked up).
+  // Its name on hover (not on touch, and not while it's being picked up), and
+  // what it can do right now, so a move doesn't need the card opened first.
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>{el}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 pointer-coarse:hidden px-2 py-1 font-display text-xs font-semibold text-ink">
+        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 pointer-coarse:hidden px-2 py-1 font-display text-xs font-semibold text-ink" data-testid="card-tip">
           {card.name}
+          {offered.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1 pb-1" onPointerDown={(e) => e.stopPropagation()}>
+              {offered.map((o) => (
+                <button key={o.label} type="button" className="btn btn-primary px-2 py-0.5 text-xs" onClick={o.run}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>

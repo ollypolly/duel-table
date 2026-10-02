@@ -478,6 +478,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         choosableZones={zoneOptions.length && !away ? zoneOptions : undefined}
         onChooseZone={chooseZone}
         cardActions={prompt && !away ? cardActions : undefined}
+        cardOptions={prompt && !away && !busy ? (iid) => optionsFor(iid).map((o) => ({ label: o.label, run: () => answerGame([o.i]) })) : undefined}
         draggable={away ? undefined : draggable}
         onCardDrop={prompt && !away ? dropCard : undefined}
         // Forking a game doesn't cut its saved answers yet, so it's off for games.
