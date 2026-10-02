@@ -317,6 +317,10 @@ export const sdkAgent: Agent = (req) => {
         ...(mark ? ['mcp__duel__tableAt', 'mcp__duel__mark'] : []),
       ],
       settingSources: [],
+      // Only the duel's own tools: not the account's claude.ai connectors (Gmail and
+      // the like), which it would otherwise report on in the chat.
+      strictMcpConfig: true,
+      env: { ...process.env, ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
       maxTurns: MAX_TURNS,
       ...(req.sessionId && { resume: req.sessionId }),
     },
