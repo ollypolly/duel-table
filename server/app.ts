@@ -453,11 +453,11 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     createRoute({
       method: 'post',
       path: '/sessions/{id}/rules',
-      summary: 'Carry the board over to a new session with the rules on (a game) or off (free play)',
+      summary: 'Turn the rules on for a free-play table, or off for a game',
       description:
-        'on: a free-play table becomes a game on the rules engine from the board as it lies, against the simple bot, on your turn in Main Phase 1. off: a game becomes a free-play table from where it stands. Either way the session you came from is left as it was.',
+        'on: a free-play table carries on under the rules engine from the board as it lies, against the simple bot, on your turn in Main Phase 1. It stays the same session. off: a table with the rules on goes back to moving freely, from where the game stands; any other game is left as it was and its board opens on a new table.',
       request: { params: IdParam, ...body(z.object({ on: z.boolean() }).strict()) },
-      responses: { 201: json(SessionSchema, 'The new session'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+      responses: { 201: json(SessionSchema, 'The session it is now'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)

@@ -177,6 +177,14 @@ export class SessionService {
     return this.get(file.id)
   }
 
+  // A free-play table gets the rules (a game begins from this position), or
+  // loses them (the board is laid out afresh to move freely). The same
+  // session either way; its steps start over.
+  retable(id: string, from: Pick<ScenarioFile, 'players' | 'setup' | 'start'>, rules: boolean): SessionView {
+    const { extends: _, duel: __, ...file } = this.live(id).file
+    return this.replaceGame({ ...file, ...from, steps: [], ...(rules && { duel: { responses: [], table: true } }) }, "that board doesn't set up")
+  }
+
   // A new session from a whole file (a game's board taken to free play).
   createFrom(file: Omit<ScenarioFile, 'id'>): SessionView {
     const id = this.newId()
@@ -330,7 +338,8 @@ export class SessionService {
       updatedAt: new Date(updatedAt).toISOString(),
       players: { p1: player('p1'), p2: player('p2') },
       turn: last.turn,
-      kind: file.duel ? 'game' : 'board',
+      // A table with the rules on is still a table.
+      kind: file.duel && !file.duel.table ? 'game' : 'board',
       ...(file.duel && winner && { winner }),
       ...(file.duel?.lesson && { claudeLesson: true as const }),
       ...(file.duel?.table && { fromTable: true as const }),

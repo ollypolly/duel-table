@@ -34,7 +34,6 @@ export type CreateGameOptions = {
   bot?: BotKind
   claude?: Player
   lesson?: boolean
-  table?: boolean // carried over from a free-play table
   topic?: string
   model?: ModelChoice
   coach?: boolean
@@ -181,7 +180,7 @@ export class GameService {
     } catch (e) {
       throw new SessionError(422, (e as Error).message)
     }
-    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond, table: opts.table })
+    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
@@ -254,26 +253,31 @@ export class GameService {
     return players
   }
 
-  // Rules on: a free-play table carries on as a game from the board as it
-  // lies, against the simple bot, on your turn in Main Phase 1. A new session;
-  // the table is left as it was.
+  // Rules on: a free-play table carries on under the rules from the board as
+  // it lies, against the simple bot, on your turn in Main Phase 1. It stays
+  // the same session, a table with the rules on.
   async fromTable(id: string): Promise<SessionView> {
     const table = this.sessions.get(id)
     if (table.file.duel) throw new SessionError(409, `session ${id} is already a game on the rules engine`)
-    const { p1, p2 } = this.sessions.export(id).players ?? {}
-    if (!p1?.deck || !p2?.deck) throw new SessionError(422, 'a game needs both players to have a deck')
+    const file = this.sessions.export(id)
+    if (!file.players) throw new SessionError(422, 'a game needs both players to have a deck')
     const { setup, lp } = positionOf(table.state, this.ctx().db)
-    const made = await this.create({ deck: p1.deck, opponentDeck: p2.deck, title: `Game: ${plain(table.file.title)}`, table: true })
+    const ocg = await this.ocg()
+    const from = { players: this.owning(file.players, setup, lp), setup, start: { phase: 'main1' as const } }
+    let game: OcgGame
     try {
-      return await this.restart(made.id, setup, lp)
+      game = new OcgGame(ocg, this.setup({ ...file, ...from, extends: undefined }))
     } catch (e) {
-      this.sessions.remove(made.id)
-      throw e
+      throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
+    this.sessions.retable(id, from, true)
+    const live = this.track(id, game, ocg, file.seed ?? 0, { bots: ['p2'], shuffled: true, table: true })
+    return this.advance(id, live, game.start())
   }
 
-  // Rules off: the game's board, as it lies now, on a free-play table where
-  // anything can be moved. A new session; the game is left as it was.
+  // Rules off: the game's board, as it lies now, laid out to move freely. A
+  // table with the rules on goes back to being a table; any other game is
+  // left as it was, and its board opens on a new table.
   toTable(id: string): SessionView {
     const game = this.sessions.get(id)
     const file = this.sessions.export(id)
@@ -281,6 +285,11 @@ export class GameService {
     const { setup, lp } = positionOf(game.state, this.ctx().db)
     const { turn, activePlayer, phase } = game.state
     const players = this.owning(file.players, setup, lp)
+    if (file.duel.table) {
+      this.hangUp(id)
+      this.games.delete(id)
+      return this.sessions.retable(id, { players, setup, start: { turn, activePlayer, phase } }, false)
+    }
     players.p2.name = 'Friend'
     return this.sessions.createFrom({ title: `Free play: ${plain(file.title)}`, seed: file.seed, players, setup, start: { turn, activePlayer, phase }, steps: [] })
   }
@@ -428,7 +437,8 @@ export class GameService {
       void this.live(id)
         .then(() => this.sessions.touch(id))
         .catch(() => {})
-      return { bots: this.sessions.export(id).duel?.bots ?? [] }
+      const { bots = [], startedAt, endedAt } = this.sessions.export(id).duel ?? {}
+      return { bots, ...(startedAt && { startedAt }), ...(endedAt && { endedAt }) }
     }
     const { game, bots, asked } = live
     const winner = game.duel.result

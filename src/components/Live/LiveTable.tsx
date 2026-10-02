@@ -315,7 +315,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
             onForfeit={claudeLesson ? undefined : () => report(api.forfeitGame(id))}
-            onFreePlay={claudeLesson ? undefined : () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity)))}
+            onFreePlay={claudeLesson || session?.fromTable ? undefined : () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity)))}
             onRespond={(respond) => report(api.gameSettings(id, { respond }))}
             onReopen={(at) => {
               setBusy(true)

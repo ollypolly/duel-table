@@ -58,7 +58,10 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     const laid = where(sessions.get(table.id))
 
     const game = await games.fromTable(table.id)
-    expect(game.id).not.toBe(table.id)
+    // The same session: a table with the rules on, not a new game in the list.
+    expect(game.id).toBe(table.id)
+    expect(game.kind).toBe('board')
+    expect(game.fromTable).toBe(true)
     expect(game.file.duel).toBeDefined()
     expect(where(game)).toEqual(laid)
     expect(game.state.cards[game.state.players.p2.zones.spellTrap[0]!].faceUp).toBe(false)
@@ -70,8 +73,17 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(where(back)).toEqual(laid)
     // Free again: anything moves.
     expect(sessions.apply(back.id, { label: 'Anything', author: 'user', actions: [{ type: 'move', card: back.state.players.p1.zones.deck[0], to: { player: 'p1', zone: 'banished' } }] }).ok).toBe(true)
-    await expect(games.fromTable(game.id)).rejects.toThrow(/already a game/)
+    expect(back.id).toBe(table.id)
     expect(() => games.toTable(table.id)).toThrow(/isn't a game/)
+    // And on again, from what was changed.
+    const again = await games.fromTable(table.id)
+    expect(again.state.players.p1.zones.banished).toHaveLength(1)
+    await expect(games.fromTable(table.id)).rejects.toThrow(/already a game/)
+    // Any other game is left alone: its board opens on a new table.
+    const real = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 3 })
+    const copy = games.toTable(real.id)
+    expect(copy.id).not.toBe(real.id)
+    expect(sessions.get(real.id).file.duel).toBeDefined()
   }, 60_000)
 
   it('plays the trained bot only with decks it knows, and falls back to the random bot when it has no pick', async () => {
