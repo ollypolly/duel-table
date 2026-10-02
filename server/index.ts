@@ -47,7 +47,7 @@ const saveDeck = async (base: string, name: string, main: Entry[], extra: Entry[
   writeRepoFile()('decks', await draftDeck(id, name, main, extra), false)
   return id
 }
-const findCards = (query: string) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=15&offset=0`).then((r) => (r.data ?? []).map(trim))
+const findCards = (query: string) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=30&offset=0`).then((r) => (r.data ?? []).map(trim))
 // The latest misplays reviews marked in your games with a deck.
 const misplays = (deck: string): string[] =>
   sessions

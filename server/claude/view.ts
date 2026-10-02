@@ -180,12 +180,18 @@ export function matchCards(db: CardDb, query: string): CardData[] {
   return [...db.all().filter((c) => has(c.name)), ...db.all().filter((c) => !has(c.name) && has(`${c.type} ${c.race} ${c.attribute ?? ''} ${c.desc}`))]
 }
 
-// The app's own cards first; the full card list (by name) only when it has none.
+// The app's own cards (by name or text), then the rest of every card printed
+// (by name only), so what it has downloaded never passes for all there is.
 export async function searchCards(db: CardDb, query: string, findCards?: (query: string) => Promise<CardData[]>): Promise<string> {
   const here = matchCards(db, query)
-  if (here.length) return cardLines(here)
-  const all = (await findCards?.(query).catch(() => [])) ?? []
-  return all.length ? `None among the cards this app has downloaded. By name, from every card printed:\n${cardLines(all)}` : `Nothing matches "${query}".`
+  const others = ((await findCards?.(query).catch(() => [])) ?? []).filter((c) => !db.byId(c.id))
+  if (!here.length && !others.length) return `Nothing matches "${query}".`
+  return [
+    here.length ? `Among the cards this app has downloaded, ${cardLines(here)}` : 'None among the cards this app has downloaded.',
+    others.length ? `Other printed cards with that in their name (real cards, not downloaded here yet), ${cardLines(others, 30)}` : findCards ? 'No other printed card has that in its name.' : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 // A section of the rules reference, or its list of topics.
