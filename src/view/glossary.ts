@@ -92,3 +92,13 @@ export const glossary = () => (tree: Root) => {
     { ignore: ['link', 'linkReference', 'inlineCode', 'code', 'heading'] },
   )
 }
+
+export const STEP_HREF = '#step-'
+
+// A remark plugin: "step 85" becomes a link to STEP_HREF + its number, which
+// the chat turns into a button that goes there. A range links to its start.
+export const stepLinks = () => (tree: Root) => {
+  findAndReplace(tree, [/\b[Ss]teps? (\d+)(?:[-–]\d+)?/g, (text: string, n: string) => ({ type: 'link', url: `${STEP_HREF}${n}`, children: [{ type: 'text', value: text }] })], {
+    ignore: ['link', 'linkReference', 'inlineCode', 'code', 'heading'],
+  })
+}

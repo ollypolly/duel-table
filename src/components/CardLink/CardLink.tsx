@@ -12,7 +12,8 @@ import { useUiStore } from '../../store/uiStore'
 import { catalogFace } from '../../view/boardView'
 import { rawDecks } from '../../scenarios/load'
 import { CARD_HREF, DECK_HREF, cardNames, deckNames } from '../../view/cardLinks'
-import { TERM_HREF, glossary, term } from '../../view/glossary'
+import { STEP_HREF, TERM_HREF, glossary, stepLinks, term } from '../../view/glossary'
+import { usePlayerStore } from '../../store/playerStore'
 import { CardInspector } from '../CardInspector/CardInspector'
 
 const names = cardNames(cardDb)
@@ -110,6 +111,13 @@ const components: ComponentProps<typeof Markdown>['components'] = {
     const meant = href?.startsWith(TERM_HREF) ? term(href.slice(TERM_HREF.length)) : undefined
     if (meant) return <Term {...meant}>{children}</Term>
     if (href?.startsWith(DECK_HREF)) return <DeckLink id={href.slice(DECK_HREF.length)}>{children}</DeckLink>
+    // A step Claude names: go to it on the table.
+    if (href?.startsWith(STEP_HREF))
+      return (
+        <button type="button" className="cursor-pointer font-medium text-gold underline decoration-dotted underline-offset-2 hover:decoration-solid" title="Go to this step" onClick={() => usePlayerStore.getState().goTo(Number(href.slice(STEP_HREF.length)))}>
+          {children}
+        </button>
+      )
     return (
       <a href={href} target="_blank" rel="noreferrer">
         {children}
@@ -126,7 +134,7 @@ const components: ComponentProps<typeof Markdown>['components'] = {
 // Markdown with its card names, decks and game terms linked.
 export function CardMarkdown({ children }: { children: string }) {
   return (
-    <Markdown remarkPlugins={[remarkGfm, names.remark, decks.remark, glossary]} components={components}>
+    <Markdown remarkPlugins={[remarkGfm, names.remark, decks.remark, stepLinks, glossary]} components={components}>
       {children}
     </Markdown>
   )
