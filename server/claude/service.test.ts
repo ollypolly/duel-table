@@ -33,7 +33,7 @@ function fakeAgent(seed: number, onSeen: (text: string) => void = () => {}) {
     async function* run(): AsyncIterable<AgentEvent> {
       let text = req.message
       yield { type: 'text', text: 'Hello from the fake.' }
-      onSeen(req.tools.table())
+      onSeen(req.tools.table!())
       for (let tries = 0; tries < 400; tries++) {
         const q = lastQuestion(text)
         if (!q) break

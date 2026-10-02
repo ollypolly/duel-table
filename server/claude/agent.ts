@@ -9,16 +9,16 @@ import type { Player } from '../../src/engine'
 import { PlayerSchema, SetupSchema, type Setup } from '../../src/scenarios/schema'
 import type { Handover } from './service'
 
-export const MODELS: Record<ModelChoice, string> = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5' }
+export const MODELS: Record<ModelChoice, string> = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-4-5-20251001' }
 
 // What the tools do; the service implements them against the game. A tutor
 // on a scripted lesson has nothing to answer, so no answer tool; a lesson
 // Claude runs on the rules engine also sets up positions, hands players over
 // and asks the person questions.
 export type DuelTools = {
-  table(): string
-  answer?(question: number, choices: number[], batch?: boolean): Promise<string>
-  card(name: string): string
+  table?(): string
+  answer?(question: number, choices: number[], batch?: boolean, say?: string): Promise<string>
+  card(name: string): string | Promise<string>
   // In a game: a decklist, and what has happened so far.
   deck?(side: 'yours' | 'opponent'): string
   history?(last?: number): string
@@ -26,14 +26,14 @@ export type DuelTools = {
   options?(): Promise<string>
   tryLine?(picks: number[][]): Promise<string>
   lethal?(): string
-  odds?(cards: string[], draws?: number, from?: 'deck' | 'opening'): string
+  odds?(cards: string[], draws?: number, from?: 'deck' | 'opening', deck?: string): string
   searchCards?(query: string): Promise<string>
   rules?(topic?: string): string
   point?(cards: string[]): string
   offerTakeBack?(why: string): string
   flag?(kind: Moment['kind'], title: string): string
   note?(text: string): string
-  suggestDeck?(name: string, main: Entry[], extra: Entry[], why: string): string
+  suggestDeck?(name: string, main: Entry[], extra: Entry[], why: string): Promise<string>
   botMove?(): string
   evaluate?(): Promise<string>
   setup?(setup: Setup, lp?: Partial<Record<Player, number>>): Promise<string>
@@ -44,9 +44,21 @@ export type DuelTools = {
   // Reviewing a finished game: the table after any step, and marking key moments.
   tableAt?(step: number): string
   mark?(moment: Moment): string
+  // The chat on the home page: the person's decks and games, and starting a game for them.
+  decks?(id?: string): string
+  games?(): string
+  startGame?(game: StartGame): Promise<string>
 }
 
 type Entry = { name: string; count: number }
+const entries = z.array(z.object({ name: z.string(), count: z.int().min(1).max(3) }))
+const StartGameSchema = z.object({
+  deck: z.string().describe("The person's deck, by id"),
+  opponentDeck: z.string().optional().describe('By id; the same deck if not given'),
+  opponent: z.enum(['bot', 'trained', 'claude', 'lesson']).describe('bot: picks at random. trained: the trained bot, only with a deck it knows. claude: Claude plays and coaches. lesson: Claude runs a lesson on the deck, playing both sides and handing over'),
+  topic: z.string().optional().describe('For a lesson: what it should teach'),
+})
+export type StartGame = z.infer<typeof StartGameSchema>
 
 export type AgentEvent =
   { type: 'text'; text: string } | { type: 'tool'; name: string; input: unknown } | { type: 'done'; sessionId?: string; costUsd: number; error?: string }
@@ -63,7 +75,6 @@ const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 export const sdkAgent: Agent = (req) => {
   const { answer, setup, handOver, takeBack, ask, plan, tableAt, mark, deck, history, options, tryLine } = req.tools
   const t = req.tools
-  const entries = z.array(z.object({ name: z.string(), count: z.int().min(1).max(3) }))
   // The coach's other tools, each there only when the service gives it.
   const coach = [
     t.lethal && tool('lethal', "The battle sums this turn: the person's attackers against the other side's monsters and LP. Stats only.", {}, async () => text(t.lethal!())),
@@ -71,8 +82,13 @@ export const sdkAgent: Agent = (req) => {
       tool(
         'odds',
         "The chance of drawing at least one of the named cards: from what is left in the person's Deck in the next draws, or in an opening hand from the full list.",
-        { cards: z.array(z.string()).min(1), draws: z.int().min(1).max(40).optional().describe('How many cards drawn (default 1 from the Deck, 5 for an opening hand)'), from: z.enum(['deck', 'opening']).optional() },
-        async (i) => text(t.odds!(i.cards, i.draws, i.from)),
+        {
+          cards: z.array(z.string()).min(1),
+          draws: z.int().min(1).max(40).optional().describe('How many cards drawn (default 1 from the Deck, 5 for an opening hand)'),
+          from: z.enum(['deck', 'opening']).optional(),
+          ...(t.decks && { deck: z.string().describe('The deck, by id') }),
+        },
+        async (i) => text(t.odds!(i.cards, i.draws, i.from, i.deck)),
       ),
     t.searchCards && tool('searchCards', "Find cards by words in their name or text among the cards this app has, or by name among every card printed when it has none.", { query: z.string() }, async (i) => text(await t.searchCards!(i.query))),
     t.rules && tool('rules', 'A short rules reference: with no topic, the list of topics; with one, that section.', { topic: z.string().optional() }, async (i) => text(t.rules!(i.topic))),
@@ -83,19 +99,22 @@ export const sdkAgent: Agent = (req) => {
     t.suggestDeck &&
       tool(
         'suggestDeck',
-        'Save a changed decklist as a new deck beside the one being played, for the person to try. Give the whole list.',
-        { name: z.string(), main: entries, extra: entries, why: z.string().describe('One or two lines on what changed and why') },
-        async (i) => text(t.suggestDeck!(i.name, i.main, i.extra, i.why)),
+        "Save a decklist to the person's decks for them to try. Give the whole list. Cards the app doesn't have yet are downloaded; a name that doesn't exist comes back with close matches.",
+        { name: z.string(), main: entries, extra: entries, why: z.string().describe('One or two lines on what the deck is for, or what changed and why') },
+        async (i) => text(await t.suggestDeck!(i.name, i.main, i.extra, i.why)),
       ),
     t.botMove && tool('botMove', "The trained bot's latest decision: how sure it was, and its own estimate of its chance to win.", {}, async () => text(t.botMove!())),
     t.evaluate && tool('evaluate', "The trained bot's view of the person's open question, as a second opinion: its estimate of their chance to win, and the option it would pick in their place. Only for decks it knows.", {}, async () => text(await t.evaluate!())),
+    t.decks && tool('decks', "The person's decks. With no id: the list. With one: its cards, and their notes on it.", { id: z.string().optional() }, async (i) => text(t.decks!(i.id))),
+    t.games && tool('games', "The person's games so far, newest first: decks, who they played, the result, and what reviews marked.", {}, async () => text(t.games!())),
+    t.startGame && tool('startGame', 'Start a game or a lesson for the person. They get a button in the chat to open it. Only when they ask for one.', StartGameSchema.shape, async (i) => text(await t.startGame!(i))),
   ].filter((x) => !!x)
-  const COACH = ['lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate'] as const
+  const COACH = ['lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
     tools: [
-      tool('table', 'The table as you see it now: life points, each zone, both GYs, the chain.', {}, async () => text(req.tools.table())),
+      ...(t.table ? [tool('table', 'The table as you see it now: life points, each zone, both GYs, the chain.', {}, async () => text(t.table!()))] : []),
       ...(answer
         ? [
             tool(
@@ -116,7 +135,7 @@ export const sdkAgent: Agent = (req) => {
             ),
           ]
         : []),
-      tool('card', "A card's full text and stats, by name.", { name: z.string() }, async ({ name }) => text(req.tools.card(name))),
+      tool('card', "A card's full text and stats, by name.", { name: z.string() }, async ({ name }) => text(await req.tools.card(name))),
       ...(deck && history
         ? [
             tool(
@@ -201,7 +220,7 @@ export const sdkAgent: Agent = (req) => {
       mcpServers: { duel: server },
       tools: [],
       allowedTools: [
-        'mcp__duel__table',
+        ...(t.table ? ['mcp__duel__table'] : []),
         'mcp__duel__card',
         ...(answer ? ['mcp__duel__answer'] : []),
         ...(deck ? ['mcp__duel__deck', 'mcp__duel__history'] : []),

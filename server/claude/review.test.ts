@@ -95,8 +95,8 @@ describe.skipIf(!hasData)('reviewing a game with Claude', () => {
     expect(second).toContain("They're looking at the start, before step 1")
     expect(second).not.toContain(`Step ${labelled.at(-1)!.n}: `)
     expect(requests[2].sessionId).toBe('review-session')
-    expect(requests[2].tools.table()).toBe(requests[2].tools.table())
-    expect(requests[2].tools.table()).toMatch(/^Turn 1:/)
+    expect(requests[2].tools.table!()).toBe(requests[2].tools.table!())
+    expect(requests[2].tools.table!()).toMatch(/^Turn 1:/)
 
     // Taken through a moment, from just before it.
     review.moment(id, 4)

@@ -13,7 +13,7 @@
 //
 // Each game's record (settings, chat, cost, the SDK session to resume) is
 // saved by a ClaudeStore, so a game carries on after a restart.
-import { mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { stamp, type ChatEntry, type ClaudeSettings, type ClaudeView, type GamePrompt, type ModelChoice } from '../../src/api/game'
 import type { CardData, CardDb } from '../../src/data/cardDb'
@@ -25,7 +25,7 @@ import type { Agent, AgentRun, DuelTools } from './agent'
 import type { Moment } from '../../src/api/review'
 import { cardFace } from '../../src/view/boardView'
 import { isTurnStart, played, playedBy } from '../../src/view/plays'
-import { cardLines, cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, matchCards, optionLabel, publicLabel, seenBy } from './view'
+import { cardText, describeDeck, describeLethal, describeQuestion, describeTable, drawOdds, knownCards, optionLabel, publicLabel, rulesTopic, searchCards, seenBy } from './view'
 
 // watch: Claude isn't playing. It sits on player's side of a game against a
 // bot as their coach: it sees what they see and answers nothing.
@@ -66,12 +66,12 @@ const HANDOVER_NOTE: Record<Handover['until'], string> = {
 }
 
 // Where a chat's record is kept between restarts: a game's, or a lesson's.
-export type RecordStore<R> = { load(id: string): R | undefined; save(id: string, r: R): void; remove(id: string): void }
+export type RecordStore<R> = { load(id: string): R | undefined; save(id: string, r: R): void; remove(id: string): void; ids(): string[] }
 export type ClaudeStore = RecordStore<ClaudeRecord>
 
 export const memoryClaudeStore = <R = ClaudeRecord>(): RecordStore<R> => {
   const m = new Map<string, R>()
-  return { load: (id) => m.get(id), save: (id, r) => void m.set(id, r), remove: (id) => void m.delete(id) }
+  return { load: (id) => m.get(id), save: (id, r) => void m.set(id, r), remove: (id) => void m.delete(id), ids: () => [...m.keys()] }
 }
 
 export const diskClaudeStore = <R = ClaudeRecord>(dir: string): RecordStore<R> => ({
@@ -81,6 +81,7 @@ export const diskClaudeStore = <R = ClaudeRecord>(dir: string): RecordStore<R> =
     writeFileSync(join(dir, `${id}.json`), `${JSON.stringify(r, null, 2)}\n`)
   },
   remove: (id) => rmSync(join(dir, `${id}.json`), { force: true }),
+  ids: () => (existsSync(dir) ? readdirSync(dir).flatMap((f) => (f.endsWith('.json') ? [f.slice(0, -5)] : [])) : []),
 })
 
 const other = (p: Player): Player => (p === 'p1' ? 'p2' : 'p1')
@@ -107,7 +108,7 @@ export type ClaudeDeps = {
   // a deck it suggests (returns its id), and misplays past reviews marked.
   notes?: { read(deck: string): string; add(deck: string, text: string): void }
   rules?: () => string
-  saveDeck?: (name: string, main: Entry[], extra: Entry[], from: string) => string
+  saveDeck?: (name: string, main: Entry[], extra: Entry[], from: string) => Promise<string>
   misplays?: (deck: string) => string[]
   findCards?: (query: string) => Promise<CardData[]> // by name, among every card printed
 }
@@ -557,20 +558,8 @@ export class ClaudeService {
         const n = draws ?? (opening ? 5 : 1)
         return `${hits} of the ${pool.length} cards ${opening ? 'in the Main Deck' : 'left in the Deck'} are ${[...want].join(' or ')}. At least one in ${n} draw${n === 1 ? '' : 's'}: ${(drawOdds(pool.length, hits, n) * 100).toFixed(1)}%.`
       },
-      // The app's own cards first; the full card list only when it has none.
-      searchCards: async (query) => {
-        const here = matchCards(this.db(), query)
-        if (here.length) return cardLines(here)
-        const all = (await findCards?.(query).catch(() => [])) ?? []
-        return all.length ? `None among the cards this app has downloaded. By name, from every card printed:\n${cardLines(all)}` : `Nothing matches "${query}".`
-      },
-      ...(rules && {
-        rules: (topic) => {
-          const sections = rules().split(/^## /m).slice(1)
-          const found = topic && sections.find((s) => s.split('\n')[0].toLowerCase().includes(topic.toLowerCase()))
-          return found ? `## ${found.trim()}` : `Topics: ${sections.map((s) => s.split('\n')[0]).join('; ')}`
-        },
-      }),
+      searchCards: (query) => searchCards(this.db(), query, findCards),
+      ...(rules && { rules: (topic) => rulesTopic(rules(), topic) }),
       point: (cards) => {
         const want = new Set(cards.map((c) => this.db().byName(c)?.name ?? c))
         const s = state()
@@ -602,9 +591,9 @@ export class ClaudeService {
         },
       }),
       ...(saveDeck && {
-        suggestDeck: (name, main, extra, why) => {
+        suggestDeck: async (name, main, extra, why) => {
           try {
-            const saved = saveDeck(name, main, extra, deckId() ?? 'deck')
+            const saved = await saveDeck(name, main, extra, deckId() ?? 'deck')
             seat.chat.push({ from: 'note', text: `Claude saved a suggested deck, "${name}" (${saved}): ${why}` })
             this.changed(id, seat)
             return `Saved as ${saved}. It is in their deck list to try in a new game.`

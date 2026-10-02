@@ -6,7 +6,8 @@
 // comes out of your usage).
 import { Check, Eye, Loader2, LogOut, Pause, Play, RotateCcw, Send, Settings2 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
-import type { ChatEntry, ClaudeSettings, ClaudeView, ModelChoice } from '../../api/game'
+import { MODELS, type ChatEntry, type ClaudeSettings, type ClaudeView } from '../../api/game'
+import { usePlayerStore } from '../../store/playerStore'
 import { CardMarkdown, CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 import { scrollLogTo } from './chatScroll'
@@ -18,11 +19,6 @@ const STYLE = {
   note: 'text-xs text-warn',
   log: 'text-xs text-muted',
 }
-
-const MODELS: [ModelChoice, string][] = [
-  ['opus', 'Opus (strongest)'],
-  ['sonnet', 'Sonnet (faster, lighter on usage)'],
-]
 
 // earlier: a chat that came before this one (the game's, above a review), dimmed.
 // footer: what you're being asked, after the last message, so it scrolls away
@@ -53,6 +49,11 @@ function Entry({ e, outline = '', anchor }: { e: ChatEntry; outline?: string; an
     <p ref={anchor as Ref<HTMLParagraphElement>} className={`whitespace-pre-wrap ${STYLE[e.from]}`} data-moment={e.moment}>
       {e.from === 'move' ? <CardText>{`Claude: ${e.text}`}</CardText> : e.from === 'log' ? <CardText>{e.text}</CardText> : e.text}
       <Time at={e.at} />
+      {e.open && (
+        <button type="button" className="btn btn-primary mt-1.5 block text-xs" onClick={() => usePlayerStore.getState().openSession(e.open!.session, Infinity)}>
+          Open {e.open.title}
+        </button>
+      )}
     </p>
   )
 }

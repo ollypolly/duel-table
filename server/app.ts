@@ -16,6 +16,8 @@ import type { TutorService } from './claude/tutor'
 import { TutorAskSchema, TutorViewSchema } from '../src/api/tutor'
 import { MOMENT_KINDS, ReviewChatSchema, ReviewMomentSchema, ReviewViewSchema } from '../src/api/review'
 import type { ReviewService } from './claude/review'
+import type { HomeService } from './claude/home'
+import { HomeAskSchema, HomeThreadSchema, HomeViewSchema } from '../src/api/home'
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
@@ -74,9 +76,10 @@ type AppDeps = {
   claude?: { service: ClaudeService; account: () => Promise<ClaudeAccount | undefined> }
   tutor?: TutorService // Claude answering questions on a lesson
   review?: ReviewService // Claude going back over a finished game with you
+  home?: HomeService // Claude on the home page
 }
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -663,6 +666,89 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { id } = c.req.valid('param')
       needClaude().settings(id, c.req.valid('json'))
       return c.json(sessions.get(id), 200)
+    },
+  )
+
+  // Claude on the home page ------------------------------------------------------
+
+  const needHome = async () => {
+    if (!home || !(await claude?.account())) throw new SessionError(501, 'the chat needs a Claude login (run `claude` and log in)')
+    return home
+  }
+  const homeResponses = { 200: json(HomeViewSchema, 'The chat'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
+  const TextSchema = z.object({ text: z.string().min(1) }).strict()
+
+  app.openapi(createRoute({ method: 'get', path: '/home', summary: 'Your chats with Claude on the home page, newest first', responses: { 200: json(z.array(HomeThreadSchema), 'The chats') } }), (c) => c.json(home?.list() ?? [], 200))
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/home',
+      summary: 'Start a chat with Claude about what to play or learn',
+      description: 'It is named after this first message. Poll the chat for the reply.',
+      request: body(HomeAskSchema),
+      responses: homeResponses,
+    }),
+    async (c) => {
+      const { text, model } = c.req.valid('json')
+      return c.json((await needHome()).start(text, model), 200)
+    },
+  )
+
+  app.openapi(createRoute({ method: 'get', path: '/home/{id}', summary: 'A chat with Claude from the home page', request: { params: IdParam }, responses: homeResponses }), (c) => {
+    if (!home) throw new SessionError(404, 'no chats here')
+    return c.json(home.view(c.req.valid('param').id), 200)
+  })
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/home/{id}/chat',
+      summary: 'Say something in a chat',
+      description: "Poll the chat for the reply. Sent while Claude is answering, it waits for that answer.",
+      request: { params: IdParam, ...body(TextSchema) },
+      responses: homeResponses,
+    }),
+    async (c) => {
+      const { id } = c.req.valid('param')
+      const h = await needHome()
+      h.ask(id, c.req.valid('json').text)
+      return c.json(h.view(id), 200)
+    },
+  )
+
+  app.openapi(createRoute({ method: 'post', path: '/home/{id}/stop', summary: "Stop Claude's answer", request: { params: IdParam }, responses: homeResponses }), async (c) => {
+    const { id } = c.req.valid('param')
+    const h = await needHome()
+    await h.stop(id)
+    return c.json(h.view(id), 200)
+  })
+
+  app.openapi(
+    createRoute({
+      method: 'patch',
+      path: '/home/{id}',
+      summary: "Rename a chat, or change its model",
+      request: { params: IdParam, ...body(z.object({ title: z.string().min(1).optional(), model: ModelChoiceSchema.optional() }).strict()) },
+      responses: homeResponses,
+    }),
+    (c) => {
+      if (!home) throw new SessionError(404, 'no chats here')
+      const { id } = c.req.valid('param')
+      const { title, model } = c.req.valid('json')
+      if (title) home.rename(id, title)
+      if (model) home.settings(id, { model })
+      return c.json(home.view(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({ method: 'delete', path: '/home/{id}', summary: 'Delete a chat', request: { params: IdParam }, responses: { 200: json(z.object({ deleted: z.string() }), 'Deleted'), ...errors } }),
+    async (c) => {
+      if (!home) throw new SessionError(404, 'no chats here')
+      const { id } = c.req.valid('param')
+      await home.remove(id)
+      return c.json({ deleted: id }, 200)
     },
   )
 

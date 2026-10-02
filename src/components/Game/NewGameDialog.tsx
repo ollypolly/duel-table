@@ -8,7 +8,7 @@
 // scenario's setup instead of opening hands.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, type ClaudeStatus, type Opponents } from '../../api/client'
-import type { ModelChoice } from '../../api/game'
+import { MODELS, type ModelChoice } from '../../api/game'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import type { DeckFile, ScenarioFile } from '../../scenarios/schema'
 
@@ -220,8 +220,11 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
                 {!claude && <p className="text-xs text-muted">Ask Claude what to play or why something happened as you go. It sees your side of the table, and costs nothing until you ask.</p>}
                 <Field label="Model">
                   <select aria-label="Model" className={SELECT} value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
-                    <option value="opus">Opus (strongest)</option>
-                    <option value="sonnet">Sonnet (faster, lighter on usage)</option>
+                    {MODELS.map(([m, label]) => (
+                      <option key={m} value={m}>
+                        {label}
+                      </option>
+                    ))}
                   </select>
                 </Field>
                 {!lesson && opponent === 'claude' && <Toggle label="Coach me" about="Claude points out misplays and explains its own." checked={coach} onChange={setCoach} />}

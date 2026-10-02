@@ -180,6 +180,21 @@ export function matchCards(db: CardDb, query: string): CardData[] {
   return [...db.all().filter((c) => has(c.name)), ...db.all().filter((c) => !has(c.name) && has(`${c.type} ${c.race} ${c.attribute ?? ''} ${c.desc}`))]
 }
 
+// The app's own cards first; the full card list (by name) only when it has none.
+export async function searchCards(db: CardDb, query: string, findCards?: (query: string) => Promise<CardData[]>): Promise<string> {
+  const here = matchCards(db, query)
+  if (here.length) return cardLines(here)
+  const all = (await findCards?.(query).catch(() => [])) ?? []
+  return all.length ? `None among the cards this app has downloaded. By name, from every card printed:\n${cardLines(all)}` : `Nothing matches "${query}".`
+}
+
+// A section of the rules reference, or its list of topics.
+export function rulesTopic(rules: string, topic?: string): string {
+  const sections = rules.split(/^## /m).slice(1)
+  const found = topic && sections.find((s) => s.split('\n')[0].toLowerCase().includes(topic.toLowerCase()))
+  return found ? `## ${found.trim()}` : `Topics: ${sections.map((s) => s.split('\n')[0]).join('; ')}`
+}
+
 export function cardLines(found: CardData[], limit = 15): string {
   const line = (c: CardData) => `- ${c.name} (${c.type}): ${c.desc.replace(/\s+/g, ' ').slice(0, 160)}${c.desc.length > 160 ? '…' : ''}`
   return [`${found.length} match${found.length === 1 ? '' : 'es'}${found.length > limit ? `, the first ${limit}` : ''}:`, ...found.slice(0, limit).map(line)].join('\n')

@@ -9,6 +9,7 @@ import { chainMessage, parseAdvice, sdkQuick } from './claude/respond'
 import { ClaudeService, diskClaudeStore } from './claude/service'
 import { TutorService, type TutorRecord } from './claude/tutor'
 import { ReviewService, type ReviewRecord } from './claude/review'
+import { HomeService, type HomeRecord } from './claude/home'
 import type { Character } from '../src/scenarios/schema'
 import { buildDeck } from './decks'
 import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
@@ -25,6 +26,35 @@ void games.recordResults()
 
 // Prompts are read per run, so edits apply to the next one.
 const prompt = (name: string) => readFileSync(join(ROOT, 'prompts', `${name}.md`), 'utf8')
+
+type Entry = { name: string; count: number }
+// A deck with every card looked up, downloading the ones the app doesn't have yet.
+const draftDeck = async (id: string, name: string, main: Entry[], extra: Entry[]) => {
+  const missing = [...main, ...extra].filter((e) => !ctx().db.byName(e.name)).map((e) => e.name)
+  const fetched = missing.length ? await addCards(missing, ROOT) : undefined
+  const built = buildDeck(id, name, [...main, ...extra], ctx().db)
+  if (built.unknown.length) {
+    const close = (n: string) => fetched?.unknown.find((u) => u.name === n)?.suggestions ?? ctx().db.closeMatches(n, 5)
+    throw new Error(`no such card${built.unknown.length > 1 ? 's' : ''}: ${built.unknown.map((n) => `${n}${close(n).length ? ` (did you mean ${close(n).join(' / ')}?)` : ''}`).join('; ')}`)
+  }
+  return built.file
+}
+// Saved to decks/ under the first free id from the one given.
+const saveDeck = async (base: string, name: string, main: Entry[], extra: Entry[]) => {
+  const taken = ctx().decks
+  let id = base
+  for (let n = 2; taken[id]; n++) id = `${base}-${n}`
+  writeRepoFile()('decks', await draftDeck(id, name, main, extra), false)
+  return id
+}
+const findCards = (query: string) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=15&offset=0`).then((r) => (r.data ?? []).map(trim))
+// The latest misplays reviews marked in your games with a deck.
+const misplays = (deck: string): string[] =>
+  sessions
+    .list()
+    .filter((s) => s.players.p1.deck === deck)
+    .flatMap((s) => review.misplays(s.id))
+    .slice(0, 8)
 const service: ClaudeService = new ClaudeService({
   games,
   sessions,
@@ -41,30 +71,16 @@ const service: ClaudeService = new ClaudeService({
   store: diskClaudeStore(join(ROOT, 'sessions', 'claude')),
   // Notes on a deck are a file of your own beside the sessions, one line per note.
   notes: {
-    read: (deck) => (existsSync(join(ROOT, 'sessions', 'notes', `${deck}.md`)) ? readFileSync(join(ROOT, 'sessions', 'notes', `${deck}.md`), 'utf8') : ''),
+    read: (deck) => notesOn(deck),
     add: (deck, text) => {
       mkdirSync(join(ROOT, 'sessions', 'notes'), { recursive: true })
       appendFileSync(join(ROOT, 'sessions', 'notes', `${deck}.md`), `- ${text.replace(/\s+/g, ' ').trim()}\n`)
     },
   },
   rules: () => prompt('rules'),
-  saveDeck: (name, main, extra, from) => {
-    const taken = ctx().decks
-    let id = `${from}-suggested`
-    for (let n = 2; taken[id]; n++) id = `${from}-suggested-${n}`
-    const built = buildDeck(id, name, [...main, ...extra], ctx().db)
-    if (built.unknown.length) throw new Error(`unknown cards: ${built.unknown.join(', ')} (only cards this app has can go in)`)
-    writeRepoFile()('decks', built.file, false)
-    return id
-  },
-  findCards: (query) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=15&offset=0`).then((r) => (r.data ?? []).map(trim)),
-  // The latest misplays reviews marked in your games with a deck.
-  misplays: (deck): string[] =>
-    sessions
-      .list()
-      .filter((s) => s.players.p1.deck === deck)
-      .flatMap((s) => review.misplays(s.id))
-      .slice(0, 8),
+  saveDeck: (name, main, extra, from) => saveDeck(`${from}-suggested`, name, main, extra),
+  findCards,
+  misplays,
 })
 
 // Claude's view of a chance to respond, for the response levels that ask it.
@@ -92,6 +108,21 @@ const review: ReviewService = new ReviewService({
   store: diskClaudeStore<ReviewRecord>(join(ROOT, 'sessions', 'review')),
 })
 
+const notesOn = (deck: string) => (existsSync(join(ROOT, 'sessions', 'notes', `${deck}.md`)) ? readFileSync(join(ROOT, 'sessions', 'notes', `${deck}.md`), 'utf8') : '')
+const home = new HomeService({
+  ctx,
+  sessions,
+  games,
+  agent: sdkAgent,
+  system: () => prompt('home'),
+  store: diskClaudeStore<HomeRecord>(join(ROOT, 'sessions', 'home')),
+  notes: notesOn,
+  rules: () => prompt('rules'),
+  findCards,
+  saveDeck,
+  misplays,
+})
+
 // Checked once at startup (it takes a few seconds), and again when asked if
 // there was no login, in case you've logged in since.
 let account: { at: number; found: Promise<ClaudeAccount | undefined>; none?: boolean } | undefined
@@ -112,6 +143,7 @@ const app = createApp({
   claude: { service, account: checkAccount },
   tutor,
   review,
+  home,
   writeFile: writeRepoFile(),
   removeFile: removeRepoFile(),
   addCards: (names) => addCards(names, ROOT),

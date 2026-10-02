@@ -7,6 +7,7 @@ import type { ClaudeSettings, GameAnswer, GameView, ModelChoice, Respond } from 
 import type { Answer, LessonView } from './lesson'
 import type { Moment, ReviewView } from './review'
 import type { TutorView } from './tutor'
+import type { HomeThread, HomeView } from './home'
 
 export type SessionSummary = {
   id: string
@@ -100,6 +101,14 @@ export const api = {
   stopTutor: (id: string) => call<TutorView>('POST', `/scenarios/${id}/tutor/stop`),
   tutorSettings: (id: string, s: { model?: ModelChoice }) => call<TutorView>('POST', `/scenarios/${id}/tutor/settings`, s),
   clearTutor: (id: string) => call<TutorView>('DELETE', `/scenarios/${id}/tutor`),
+  // Claude on the home page: one chat per thread.
+  homeThreads: () => call<HomeThread[]>('GET', '/home').catch((): HomeThread[] => []),
+  homeThread: (id: string) => call<HomeView>('GET', `/home/${id}`),
+  startHome: (text: string, model?: ModelChoice) => call<HomeView>('POST', '/home', { text, ...(model && { model }) }),
+  askHome: (id: string, text: string) => call<HomeView>('POST', `/home/${id}/chat`, { text }),
+  stopHome: (id: string) => call<HomeView>('POST', `/home/${id}/stop`),
+  changeHome: (id: string, s: { title?: string; model?: ModelChoice }) => call<HomeView>('PATCH', `/home/${id}`, s),
+  deleteHome: (id: string) => call<{ deleted: string }>('DELETE', `/home/${id}`),
   // Reviewing a finished game with Claude; the review arrives over the session's SSE.
   startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
   closeReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/close`),

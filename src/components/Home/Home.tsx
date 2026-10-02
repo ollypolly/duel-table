@@ -13,6 +13,7 @@ import { usePlayerStore } from '../../store/playerStore'
 import { MOMENT } from '../Live/moment'
 import { Logo } from '../Logo/Logo'
 import { Menu, MenuItem } from '../Menu/Menu'
+import { HomeChat } from './HomeChat'
 import { autoTitle, scenarioKey, scenarioTitle, tableName, when } from './names'
 
 type Props = {
@@ -88,6 +89,8 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
             </button>
           )}
         </section>
+
+        {tables && claudeOn && <HomeChat />}
 
         <section>
           <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">

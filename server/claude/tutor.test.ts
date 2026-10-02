@@ -47,7 +47,7 @@ describe('Claude as a tutor', () => {
     const { requests, tutor } = setup()
     tutor.ask(LESSON, 1, 'What does Magnacarrier do?')
     await tutor.idle(LESSON)
-    expect(requests[0].tools.table()).toContain('Super Quantal Mech Ship Magnacarrier')
+    expect(requests[0].tools.table!()).toContain('Super Quantal Mech Ship Magnacarrier')
     await tutor.clear(LESSON)
     expect(tutor.view(LESSON).chat).toEqual([])
     tutor.ask(LESSON, 1, 'Again?')

@@ -44,6 +44,16 @@ export const ChatEntrySchema = z.object({
   text: z.string(),
   moment: z.int().optional().describe("In a review: the step of the key moment this is Claude taking you through"),
   at: z.number().optional().describe('When it was said (ms since the epoch); older chats have none'),
+  open: z.object({ session: z.string(), title: z.string() }).optional().describe('A game or lesson Claude started for you, to open'),
+  demo: z
+    .object({
+      session: z.string().describe('The hidden session that holds its steps'),
+      title: z.string(),
+      from: z.int().optional().describe('The step it starts at, when the session has earlier ones'),
+      captions: z.record(z.string(), z.string()).optional().describe("Claude's line for a step, by step number"),
+    })
+    .optional()
+    .describe('An example play, shown as a board you step through'),
 })
 
 // Gives the time to entries that have none yet. Entries are added in many
@@ -54,8 +64,13 @@ export function stamp(chat: ChatEntry[]): ChatEntry[] {
 }
 export type ChatEntry = z.infer<typeof ChatEntrySchema>
 
-export const ModelChoiceSchema = z.enum(['opus', 'sonnet'])
+export const ModelChoiceSchema = z.enum(['opus', 'sonnet', 'haiku'])
 export type ModelChoice = z.infer<typeof ModelChoiceSchema>
+export const MODELS: [ModelChoice, string][] = [
+  ['opus', 'Opus (strongest)'],
+  ['sonnet', 'Sonnet (faster, lighter on usage)'],
+  ['haiku', 'Haiku (fastest, lightest, weakest)'],
+]
 
 export const ClaudeViewSchema = z.object({
   player: PlayerSchema,
