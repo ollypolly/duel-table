@@ -51,7 +51,7 @@ function frame(full: Size, worldW: number, focus: FocusArea, insetLeft: number, 
   return { scale, x: left + size.w / 2 - scale * cx, y: size.h / 2 - scale * cy }
 }
 
-export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand, select = false, scrollPans = select) {
+export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraMode, insetLeft = 0, onManual?: () => void, hand?: PinnedHand, select = false, scrollPans = select, still = false) {
   const size = useSize(ref)
   const worldW = size && Math.min(size.w, (size.h * BOUNDS.width) / BOUNDS.height)
   const x = useMotionValue(0)
@@ -108,7 +108,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || still) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
@@ -125,7 +125,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
     el.addEventListener('wheel', onWheel, { passive: false }) // React's onWheel is passive
     return () => el.removeEventListener('wheel', onWheel)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref])
+  }, [ref, still])
 
   const local = (e: React.PointerEvent) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -138,7 +138,7 @@ export function useBoardCamera(ref: RefObject<HTMLElement | null>, mode: CameraM
 
   const handlers = {
     onPointerDown: (e: React.PointerEvent) => {
-      if (e.button !== 0) return
+      if (e.button !== 0 || still) return
       pointers.current.set(e.pointerId, local(e))
       if (pointers.current.size === 1) dragged.current = false
       if (pointers.current.size === 2) pinch.current = spread().d

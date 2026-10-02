@@ -62,7 +62,7 @@ export function HomeChat() {
 
   if (view) {
     return (
-      <section className="panel flex h-[min(34rem,70dvh)] flex-col overflow-hidden" data-testid="home-chat">
+      <section className="panel flex h-[min(46rem,85dvh)] flex-col overflow-hidden" data-testid="home-chat">
         <header className="flex items-center gap-2 border-b border-line px-3 py-2">
           <button type="button" className="btn flex items-center gap-1.5 text-xs" onClick={() => setView(undefined)}>
             <ArrowLeft size={13} aria-hidden />

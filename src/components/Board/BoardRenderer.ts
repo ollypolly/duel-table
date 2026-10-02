@@ -38,6 +38,9 @@ export type BoardRendererProps = {
   draggable?: Iid[]
   onCardDrop?: (iid: Iid, to: ZoneRef) => void
   onZoneClick?: (ref: ZoneRef) => void
+  // A small board inside a page that scrolls: the camera stays on the whole
+  // table, and the wheel and a drag are left to the page.
+  still?: boolean
 }
 
 export type BoardRenderer = ComponentType<BoardRendererProps>

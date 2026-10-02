@@ -44,13 +44,14 @@ export function Board2D({
   boxSelect = false,
   multi = [],
   onMultiSelect,
+  still = false,
 }: BoardRendererProps) {
   const ref = useRef<HTMLDivElement>(null)
   const swallow = useRef(false)
   // Unmeasured (a test's DOM), the fan lays out for a desktop.
   const size = useSize(ref) ?? { w: 1280, h: 800 }
   const fan = pinnedHand ? insetBottom + fanHeight(fanCardHeight(size)) : 0
-  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined, boxSelect, boxSelect || FINE)
+  const cam = useBoardCamera(ref, focus, insetLeft, onCameraMove, pinnedHand ? { height: fan } : undefined, boxSelect, boxSelect || FINE, still)
   const inFan = (c: PlacedCard) => pinnedHand && c.handIndex !== undefined && c.zone.player === VIEWER
   const seatDecks = useContext(SeatDecks)
   const byDeck = useCosmeticsStore((s) => s.cosmetics)
@@ -166,7 +167,7 @@ export function Board2D({
       >
         <div
           ref={ref}
-          className={`felt relative isolate h-full w-full touch-none overflow-hidden ${boxSelect ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`felt relative isolate h-full w-full overflow-hidden ${still ? '' : `touch-none ${boxSelect ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}`}
           data-testid="board"
           data-focus={focus}
           {...select}

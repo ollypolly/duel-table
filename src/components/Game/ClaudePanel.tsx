@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { MODELS, type ChatEntry, type ClaudeSettings, type ClaudeView } from '../../api/game'
 import { usePlayerStore } from '../../store/playerStore'
 import { CardMarkdown, CardText } from '../CardLink/CardLink'
+import { Demo } from '../Demo/Demo'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
 import { scrollLogTo } from './chatScroll'
 
@@ -39,7 +40,9 @@ function Time({ at }: { at?: number }) {
   return <time className="ml-1.5 whitespace-nowrap text-[10px] font-normal text-faint">{new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
 }
 
-function Entry({ e, outline = '', anchor }: { e: ChatEntry; outline?: string; anchor?: Ref<HTMLElement> }) {
+// live: Claude is still writing, so an example it's playing out fills in as it goes.
+function Entry({ e, outline = '', anchor, live }: { e: ChatEntry; outline?: string; anchor?: Ref<HTMLElement>; live?: boolean }) {
+  if (e.demo) return <Demo demo={e.demo} live={live} />
   return e.from === 'claude' ? (
     <div ref={anchor as Ref<HTMLDivElement>} className={`chat-md ${STYLE.claude} ${outline}`} data-moment={e.moment}>
       <CardMarkdown>{e.text}</CardMarkdown>
@@ -65,6 +68,7 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
   // (and to a moment's note, with the answer to come under it) and stays put.
   // Anything else new is followed at the bottom.
   const last = chat.at(-1)
+  const lastDemo = chat.findLast((e) => e.demo)
   const moment = last?.moment
   const afterNote = last?.from === 'claude' && !!moment && chat.at(-2)?.from === 'note' && chat.at(-2)?.moment === moment
   const anchorAt = last?.from === 'claude' ? chat.length - (afterNote ? 2 : 1) : moment ? chat.length - 1 : -1
@@ -114,7 +118,7 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
       )}
       {chat.length === 0 && <p className="m-auto max-w-60 text-center text-xs text-muted">{empty}</p>}
       {chat.map((e, i) => (
-        <Entry key={i} e={e} outline={e.moment ? outlines?.[e.moment] : undefined} anchor={i === anchorAt ? anchor : undefined} />
+        <Entry key={i} e={e} outline={e.moment ? outlines?.[e.moment] : undefined} anchor={i === anchorAt ? anchor : undefined} live={status === 'thinking' && e === lastDemo} />
       ))}
       {status === 'thinking' &&
         (moment ? (

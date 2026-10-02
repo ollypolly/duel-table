@@ -68,6 +68,7 @@ export const api = {
   deleteDeck: (id: string) => call<{ path: string }>('DELETE', `/decks/${id}`),
   // undefined when the server isn't running.
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),
+  session: (id: string) => call<SessionUpdate>('GET', `/sessions/${id}`),
   renameSession: (id: string, title: string) => call<SessionSummary>('PATCH', `/sessions/${id}`, { title }),
   deleteSession: (id: string) => call<{ deleted: string }>('DELETE', `/sessions/${id}`),
   createSession: (opts: { scenario: string; atStep: number } | { deck: string; opponentDeck?: string; title?: string }) => call<SessionSummary>('POST', '/sessions', opts),
