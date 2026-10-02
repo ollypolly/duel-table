@@ -7,6 +7,7 @@ import type { CardDb } from '../src/data/cardDb'
 import type { GameAnswer, GamePrompt, GameView, ModelChoice, Respond, Skipped } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
+import { placedNames } from './claude/board'
 import { AgentBot, agentCodes, agentUrl } from './ocg/agentBot'
 import { botResponse, seededRng, type Rng } from './ocg/bot'
 import { decodeResponse, encodeResponse, playerOf } from './ocg/duel'
@@ -735,11 +736,3 @@ function positionOf(state: BoardState, db: CardDb): { setup: Setup; lp: Record<P
   }
 }
 
-// Every card a setup places for player, materials included.
-function placedNames(setup: Setup, player: Player): string[] {
-  const names = (e: string | { name: string; materials?: string[] } | null) => (!e ? [] : typeof e === 'string' ? [e] : [e.name, ...(e.materials ?? [])])
-  return [
-    ...Object.values(setup[player] ?? {}).flatMap((zone) => zone.flatMap(names)),
-    ...(setup.extraMonster ?? []).flatMap((e) => (e?.player === player ? names(e) : [])),
-  ]
-}

@@ -15,6 +15,7 @@ import type { DeckFile } from '../../src/scenarios/schema'
 import type { GameService } from '../games'
 import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DemoStart, DuelTools, StartGame } from './agent'
+import { boardFile, boardStep, realNames, type Board } from './board'
 import { memoryClaudeStore, type RecordStore } from './service'
 import { cardText, describeQuestion, describeTable, drawOdds, knownCards, rulesTopic, searchCards } from './view'
 
@@ -46,6 +47,7 @@ export type HomeDeps = {
   saveDeck?: (id: string, name: string, main: Entry[], extra: Entry[]) => Promise<string> // returns the id it was saved under
   misplays?: (deck: string) => string[]
   draftDeck?: (id: string, name: string, main: Entry[], extra: Entry[]) => Promise<DeckFile> // a list of Claude's own, its cards downloaded
+  needCards?: (names: string[]) => Promise<unknown> // downloads the ones the app doesn't have
 }
 
 // An example stops taking moves here, so one that runs away ends.
@@ -187,6 +189,17 @@ export class HomeService {
     const { ctx, rules, findCards, saveDeck, games, sessions } = this.deps
     let moves = 0
     return {
+      board: async (b) => {
+        try {
+          const made = await this.lay(b)
+          this.show(t, made, b.title, b.again)
+          this.save(id, t)
+          return `Shown, in ${b.moves.length} step${b.moves.length === 1 ? '' : 's'}. Where it ends:\n${describeTable(sessions.get(made).state, 'p1', ctx().db, true)}`
+        } catch (e) {
+          const err = e as SessionError
+          return `Not shown: ${err.message}${err.details?.length ? `\n${err.details.join('\n')}` : ''}`
+        }
+      },
       ...(games && {
         demo: async (d) => {
           let made: string | undefined
@@ -199,9 +212,7 @@ export class HomeService {
             const err = e as SessionError
             return `Not set up: ${err.message}${err.details?.length ? `\n${err.details.join('\n')}` : ''}`
           }
-          const last = t.chat.findLastIndex((e) => e.demo)
-          if (d.again && last >= 0) this.drop(t.chat.splice(last, 1)[0].demo!.session)
-          t.chat.push({ from: 'note', text: `Claude's example: ${d.title}`, demo: { session: made, title: d.title } })
+          this.show(t, made, d.title, d.again)
           t.seen = 0
           t.texts = []
           moves = 0
@@ -216,6 +227,7 @@ export class HomeService {
           const demo = this.example(t)
           if (!demo || !sessions.has(demo.session)) return 'No example is open. Start one with demo.'
           if (++moves > DEMO_MOVES) return "That's as long as one example runs. Stop here and sum up what it showed."
+          if (!games.isGame(demo.session)) return 'Your last example was laid out by hand: it has no questions. Start one on the rules engine with demo.'
           const prompt = await this.question(demo.session)
           if (!prompt || prompt.id !== question) return prompt ? `Question ${question} isn't open; question ${prompt.id} is.` : 'Nothing is being asked: the example is over.'
           const before = sessions.export(demo.session).steps.length
@@ -275,6 +287,37 @@ export class HomeService {
         },
       }),
     }
+  }
+
+  // An example goes in the chat, in place of the last one if that went wrong.
+  private show(t: Thread, session: string, title: string, again?: boolean) {
+    const last = t.chat.findLastIndex((e) => e.demo)
+    if (again && last >= 0) this.drop(t.chat.splice(last, 1)[0].demo!.session)
+    t.chat.push({ from: 'note', text: `Claude's example: ${title}`, demo: { session, title } })
+  }
+
+  // A table laid out by hand and its moves, as a hidden free-play session.
+  private async lay(b: Board): Promise<string> {
+    const { ctx, sessions, needCards } = this.deps
+    await needCards?.(realNames(b))
+    const { id } = sessions.createFrom(boardFile(b, ctx().db))
+    try {
+      b.moves.forEach((move, i) => {
+        const where = `Move ${i + 1} (${move.label})`
+        let step
+        try {
+          step = boardStep(move, sessions.get(id).state, ctx().db)
+        } catch (e) {
+          throw new SessionError(422, `${where}: ${(e as Error).message}`)
+        }
+        const done = sessions.apply(id, step)
+        if (!done.ok) throw new SessionError(422, `${where} can't be done`, done.issues.map((x) => x.message))
+      })
+    } catch (e) {
+      this.drop(id)
+      throw e
+    }
+    return id
   }
 
   // The example this chat has open: its latest.

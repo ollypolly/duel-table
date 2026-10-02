@@ -157,7 +157,8 @@ export const ScenarioPlayerSchema = z
     cards: z.array(CardRefSchema).optional().describe('cards owned in addition to the deck'),
   })
   .strict()
-  .refine((p) => p.deck || p.list || p.cards?.length, { message: 'give a deck, cards, or both' })
+  // cards: [] is a player with nothing, on a table Claude lays out by hand.
+  .refine((p) => p.deck || p.list || p.cards, { message: 'give a deck, cards, or both' })
 
 // Where cards start, zone by zone; whatever isn't placed is shuffled into the
 // Deck. A Deck placement is its top cards, top first.

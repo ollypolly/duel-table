@@ -108,4 +108,46 @@ describe('Claude on the home page', () => {
     await home.remove(id)
     expect(sessions.has(shown.session)).toBe(false)
   })
+
+  it('lays an example out by hand, with cards that were never printed', async () => {
+    const sessions = new SessionService(ctx)
+    const requests: AgentRequest[] = []
+    const agent: Agent = (req) => {
+      requests.push(req)
+      async function* run() {
+        yield { type: 'done' as const, costUsd: 0 }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const home = new HomeService({ ctx, sessions, agent, system: () => 'home' })
+    const { id } = home.start('Show me an anime card')
+    await home.idle(id)
+    const { board } = requests[0].tools
+    const custom = [{ name: 'Sword of the Example', text: 'Destroy 1 monster.', kind: 'spell' as const }]
+    const setup = { p1: { hand: ['Sword of the Example'] }, p2: { monster: [{ name: 'Ojama Yellow', position: 'def' as const }] } }
+
+    expect(await board!({ title: 'Nope', setup: { p1: { hand: ['Not A Card At All'] } }, moves: [{ label: 'x', do: [{ do: 'nextTurn' }] }] })).toMatch(/no such card/)
+    expect(await board!({ title: 'Nope', custom, setup, moves: [{ label: 'Play it', do: [{ do: 'move', card: 'Ojama Green', to: 'gy' }] }] })).toMatch(/Move 1 \(Play it\): Ojama Green isn't on the table/)
+    expect(sessions.list()).toEqual([])
+
+    const shown = await board!({
+      title: 'A made-up Spell',
+      custom,
+      setup,
+      lp: { p2: 500 },
+      moves: [
+        { label: 'Activate Sword of the Example', say: 'It goes to the Spell & Trap Zone.', do: [{ do: 'move', card: 'Sword of the Example', to: 'spellTrap' }] },
+        { label: 'Ojama Yellow is destroyed', do: [{ do: 'move', card: 'Ojama Yellow', to: 'gy' }, { do: 'move', card: 'Sword of the Example', to: 'gy' }, { do: 'lp', player: 'p2', delta: -500 }] },
+      ],
+    })
+    expect(shown).toMatch(/^Shown, in 2 steps/)
+    const demo = home.view(id).chat.at(-1)!.demo!
+    const file = sessions.export(demo.session)
+    expect(file.steps.map((s) => s.narration)).toEqual(['It goes to the Spell & Trap Zone.', undefined])
+    const { state } = sessions.get(demo.session)
+    expect(state.players.p2.lp).toBe(0)
+    expect(state.players.p2.zones.gy).toHaveLength(1)
+    expect(state.players.p1.zones.gy).toHaveLength(1)
+    expect(sessions.list()).toEqual([])
+  })
 })

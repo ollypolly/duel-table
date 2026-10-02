@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { ModelChoice } from '../../src/api/game'
 import { MomentSchema, type Moment } from '../../src/api/review'
 import type { Player } from '../../src/engine'
+import { BoardSchema, type Board } from './board'
 import { PlayerSchema, SetupSchema, type Setup } from '../../src/scenarios/schema'
 import type { Handover } from './service'
 
@@ -49,6 +50,7 @@ export type DuelTools = {
   games?(): string
   startGame?(game: StartGame): Promise<string>
   demo?(demo: DemoStart): Promise<string>
+  board?(board: Board): Promise<string>
 }
 
 type Entry = { name: string; count: number }
@@ -127,9 +129,16 @@ export const sdkAgent: Agent = (req) => {
         DemoSchema.shape,
         async (i) => text(await t.demo!(i)),
       ),
+    t.board &&
+      tool(
+        'board',
+        "Show the person an example you lay out by hand, on a board in the chat, for what the rules engine can't play: anime-only or made-up cards, or a position you want exactly so. You place the cards and give every move yourself; nothing checks it against the rules, so it is only as right as you are. Prefer demo whenever the real cards can play it.",
+        BoardSchema.shape,
+        async (i) => text(await t.board!(i)),
+      ),
     t.startGame && tool('startGame', 'Start a game or a lesson for the person. They get a button in the chat to open it. Only when they ask for one.', StartGameSchema.shape, async (i) => text(await t.startGame!(i))),
   ].filter((x) => !!x)
-  const COACH = ['demo', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
+  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',

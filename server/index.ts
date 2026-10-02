@@ -121,6 +121,10 @@ const home = new HomeService({
   findCards,
   saveDeck,
   draftDeck,
+  needCards: async (names) => {
+    const missing = names.filter((n) => !ctx().db.byName(n))
+    if (missing.length) await addCards(missing, ROOT)
+  },
   misplays,
 })
 
