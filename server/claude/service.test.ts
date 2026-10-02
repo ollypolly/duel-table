@@ -193,6 +193,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
         seen.options = await tools.options!()
         const end = /(\d+)\. End turn/.exec(seen.options)
         seen.line = await tools.tryLine!([[Number(end![1])]])
+        seen.shown = await tools.tryLine!([[Number(end![1])]], 'Passing the turn')
         seen.mine = tools.deck!('yours')
         seen.theirs = tools.deck!('opponent')
         seen.history = tools.history!()
@@ -234,7 +235,14 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(sessions.export(v.id).duel!.responses).toHaveLength(answers)
     expect(seen.mine).toMatch(/^Your deck: .*\nMain Deck \(\d+\): .*\nExtra Deck .*\nStill in the Deck \(35/)
     expect(seen.theirs).toMatch(/^Your opponent's deck: .*\nMain Deck .*\nExtra Deck .*\nNot seen yet/)
-    expect(sessions.get(v.id).game?.claude?.chat.map((e) => e.from)).toEqual(['you', 'claude'])
+    // Shown, the line is on a board in the chat: a hidden copy of the game that goes with it.
+    expect(seen.shown).toContain('on a board in the chat')
+    const chat = sessions.get(v.id).game!.claude!.chat
+    expect(chat.map((e) => e.from)).toEqual(['you', 'note', 'claude'])
+    const shown = chat[1].demo!
+    expect(shown).toMatchObject({ title: 'Passing the turn', from: sessions.export(v.id).steps.length, closed: true })
+    expect(sessions.export(shown.session).steps.length).toBeGreaterThan(shown.from!)
+    expect(sessions.list().map((s) => s.id)).toEqual([v.id])
     expect(seen.lethal).toContain('Their LP: 8000. Your attackers: none')
     expect(seen.odds).toMatch(/1 of the 40 cards in the Main Deck are Ojama Yellow\. At least one in 5 draws: 12\.5%/)
     expect(seen.search).toContain('- Ojama Yellow (')
@@ -251,6 +259,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const again = new ClaudeService({ games, sessions, db: () => ctx().db, agent, system: () => 'beside', store })
     expect(again.played(v.id)).toMatchObject({ player: 'p1', watch: true })
     expect(sessions.get(v.id).game).toMatchObject({ claude: { watch: true, knowsDeck: false }, prompt: { player: 'p1' } })
+    sessions.remove(v.id)
+    expect(sessions.has(shown.session)).toBe(false)
   }, 60_000)
 
   it("plays as its deck's character", async () => {

@@ -51,6 +51,7 @@ export const ChatEntrySchema = z.object({
       title: z.string(),
       from: z.int().optional().describe('The step it starts at, when the session has earlier ones'),
       captions: z.record(z.string(), z.string()).optional().describe("Claude's line for a step, by step number"),
+      closed: z.boolean().optional().describe("A line tried in your game: the opponent's hand stays hidden, as it is there"),
     })
     .optional()
     .describe('An example play, shown as a board you step through'),

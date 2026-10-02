@@ -24,7 +24,7 @@ export type DuelTools = {
   history?(last?: number): string
   // A coach beside the person: their open question, and a line of theirs tried on a copy of the game.
   options?(): Promise<string>
-  tryLine?(picks: number[][]): Promise<string>
+  tryLine?(picks: number[][], show?: string): Promise<string>
   lethal?(): string
   odds?(cards: string[], draws?: number, from?: 'deck' | 'opening', deck?: string): string
   searchCards?(query: string): Promise<string>
@@ -176,8 +176,11 @@ export const sdkAgent: Agent = (req) => {
             tool(
               'tryLine',
               "Play a line for the person on a copy of the game and see what the rules engine does with it, without touching the real game. Give the picks in order: the first answers their open question, the next the question that follows, and so on. Each pick is the option numbers chosen. The result shows what would happen, the table after it and the next question, so build a longer line by adding a pick and calling again.",
-              { picks: z.array(z.array(z.int().min(0))).min(1).max(30) },
-              async ({ picks }) => text(await tryLine(picks)),
+              {
+                picks: z.array(z.array(z.int().min(0))).min(1).max(30),
+                show: z.string().optional().describe('A short title: also puts the line on a board in the chat, for the person to step through or open full screen. For the line you settle on, not each attempt'),
+              },
+              async ({ picks, show }) => text(await tryLine(picks, show)),
             ),
           ]
         : []),

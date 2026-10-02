@@ -72,13 +72,13 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
     .map(([k, v]) => [Number(k), v] as const)
     .filter(([k]) => k <= position && k > from)
     .sort((a, b) => b[0] - a[0])[0]
-  const board = (big: boolean) => <Board2D view={buildBoardView(entry.state, cardDb, true)} events={entry.events} focus="all" still={!big} />
+  const board = (big: boolean) => <Board2D view={buildBoardView(entry.state, cardDb, !demo.closed)} events={entry.events} focus="all" still={!big} />
   const go = (to: number) => {
     setPlaying(false)
     setAt(to)
   }
   const controls = (
-    <div className="flex items-center gap-1.5 text-xs">
+    <div className="@container flex items-center gap-1.5 text-xs">
       <button type="button" className="btn px-1.5" disabled={position <= from} onClick={() => go(position - 1)} aria-label="Step back">
         <ChevronLeft size={14} />
       </button>
@@ -97,7 +97,7 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
       <button type="button" className="btn px-1.5" disabled={position >= last} onClick={() => go(position + 1)} aria-label="Step forward">
         <ChevronRight size={14} />
       </button>
-      <span className="tabular-nums text-muted">
+      <span className="shrink-0 whitespace-nowrap tabular-nums text-muted">
         {position - from} / {last - from}
       </span>
       <input
@@ -109,15 +109,15 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
         value={position}
         onChange={(e) => go(Number(e.target.value))}
       />
-      <span className="shrink-0 tabular-nums text-faint max-sm:hidden">
+      <span className="shrink-0 tabular-nums text-faint @max-md:hidden">
         Turn {entry.state.turn} · {entry.state.players.p1.name} {entry.state.players.p1.lp} · {entry.state.players.p2.name} {entry.state.players.p2.lp}
       </span>
     </div>
   )
   const caption = (
     <div className="min-h-9 space-y-0.5 text-xs">
-      <p className="text-muted">{step?.label ? <CardText>{step.label}</CardText> : position === from ? 'The starting position.' : ' '}</p>
-      {(step?.narration ?? said?.[1]) && <p className="text-ink">{step?.narration ?? said![1]}</p>}
+      <p className="text-muted">{position === from ? (from ? 'Where the game is now.' : 'The starting position.') : step?.label ? <CardText>{step.label}</CardText> : ' '}</p>
+      {position > from && (step?.narration ?? said?.[1]) && <p className="text-ink">{step?.narration ?? said![1]}</p>}
     </div>
   )
 

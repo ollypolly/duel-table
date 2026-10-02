@@ -19,7 +19,7 @@ import { stamp, type ChatEntry, type ClaudeSettings, type ClaudeView, type GameP
 import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
 import { PLAYERS, type BoardState, type Player } from '../../src/engine'
-import type { GameService } from '../games'
+import type { GameService, Trial } from '../games'
 import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
 import type { Moment } from '../../src/api/review'
@@ -198,6 +198,8 @@ export class ClaudeService {
       void this.poke(id)
     })
     sessions.onRemove.push((id) => {
+      // The lines Claude showed on a board in this game's chat go with it.
+      for (const e of (this.seats.get(id) ?? this.store.load(id))?.chat ?? []) if (e.demo && sessions.has(e.demo.session)) sessions.remove(e.demo.session)
       void this.seats.get(id)?.run?.interrupt()
       this.seats.delete(id)
       this.store.remove(id)
@@ -519,7 +521,7 @@ export class ClaudeService {
           const q = await this.games.asking(id, seat.player)
           return q ? describeQuestion(q, state(), seat.player, this.db(), 'The person is being asked') : 'Nothing is being asked of the person right now.'
         },
-        tryLine: (picks) => this.tryLine(id, seat, picks),
+        tryLine: (picks, show) => this.tryLine(id, seat, picks, show),
         ...this.coachTools(id, seat),
       }
     return {
@@ -623,7 +625,7 @@ export class ClaudeService {
   }
 
   // A line of the person's played on a copy of the game, for the coach.
-  private async tryLine(id: string, seat: Seat, picks: number[][]): Promise<string> {
+  private async tryLine(id: string, seat: Seat, picks: number[][], show?: string): Promise<string> {
     const before = this.sessions.get(id).state
     const t = await this.games.trial(id, seat.player, picks)
     // Cards the trial drew are the real next cards: kept back, unless the line
@@ -639,8 +641,21 @@ export class ClaudeService {
       t.next ? describeQuestion(t.next, t.state, seat.player, this.db(), `Then the person would be asked (add a pick for it to go on)`) : '',
       t.theirs ? "It stops here: the next decision is the bot's." : '',
       `Nothing was played in the real game. This assumes the bot passes wherever it could respond.${drawn.size ? ' Cards drawn in this line are shown as hidden: nobody knows them yet.' : ''}`,
+      show ? (drawn.size ? "Not put on a board: the line draws cards nobody knows yet, and a board would show them." : this.showLine(id, seat, t, show)) : '',
     ]
     return parts.filter(Boolean).join('\n\n')
+  }
+
+  // A tried line on a board in the chat: a hidden copy of the game with the
+  // line's steps after its own, shown from where the line starts.
+  private showLine(id: string, seat: Seat, t: Trial, title: string): string {
+    if (!t.steps.length) return ''
+    const file = this.sessions.export(id)
+    delete file.duel
+    const made = this.sessions.createFrom({ ...file, title, demo: true, steps: [...file.steps, ...t.steps] })
+    seat.chat.push({ from: 'note', text: `Claude's line: ${title}`, demo: { session: made.id, title, from: file.steps.length, closed: true } })
+    this.changed(id, seat)
+    return 'The person has this line on a board in the chat, to step through.'
   }
 
   // What an answer led to, and the next question if it's Claude's.
@@ -833,7 +848,7 @@ export class ClaudeService {
         const q = await this.games.asking(id, 'p1')
         return q ? describeQuestion(q, (await this.games.get(id)).state, 'p1', this.db(), 'p1 is being asked') : 'Nothing is being asked of p1 right now.'
       },
-      tryLine: async (picks) => {
+      tryLine: async (picks, show) => {
         if (!(await this.games.asking(id, 'p1'))) return 'Nothing is being asked of p1 right now, so there is no line to try.'
         const t = await this.games.trial(id, 'p1', picks)
         const events = t.steps.flatMap((s) => (s.label ? [s.label] : []))
@@ -844,6 +859,7 @@ export class ClaudeService {
           t.next ? describeQuestion(t.next, t.state, 'p1', this.db(), 'Then p1 would be asked (add a pick for it to go on)') : '',
           t.theirs ? "It stops here: the next decision is p2's." : '',
           'Nothing was played in the real game. This assumes p2 passes wherever it could respond.',
+          show ? this.showLine(id, seat, t, show) : '',
         ]
           .filter(Boolean)
           .join('\n\n')
