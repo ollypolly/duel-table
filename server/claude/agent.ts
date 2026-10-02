@@ -124,10 +124,10 @@ export const sdkAgent: Agent = (req) => {
     t.spotlight &&
       tool(
         'spotlight',
-        "Lift one to three cards off the table and show them big on the person's screen, text readable, with your line under them: for when the point is what a card says. They close it, or it goes when the game moves on. An empty list clears it.",
+        "Lift one to three cards off the table and show them big in a panel beside it, text readable, with your line: for when the point is what a card says. It goes after they've had time to read it (they can keep it open), or when the game moves on. An empty list clears it.",
         {
           cards: z.array(z.string()).max(3).describe('By name: cards on the table, in a hand, GY or banished'),
-          say: z.string().optional().describe('One or two short lines, shown under the cards'),
+          say: z.string().optional().describe('One or two short lines, shown with the cards'),
           phrase: z.string().optional().describe("The few words of a card's text that matter, exactly as printed: they are marked on the card"),
         },
         async (i) => text(t.spotlight!(i.cards, i.say, i.phrase)),

@@ -82,7 +82,8 @@ export const ClaudeViewSchema = z.object({
     .object({
       n: z.int().describe('When it was shown, so the same cards can be shown again'),
       cards: z.array(z.string()).describe('iids'),
-      say: z.string().optional().describe("Claude's line under them"),
+      say: z.string().optional().describe("Claude's line with them"),
+      keep: z.boolean().optional().describe("They go with an open question, so they stay rather than timing out"),
       phrase: z.string().optional().describe('The words of their text it is about, to mark'),
     })
     .optional()

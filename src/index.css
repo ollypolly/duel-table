@@ -236,6 +236,12 @@
   color: var(--color-p2);
   background: linear-gradient(to bottom, color-mix(in oklab, var(--color-p2) 30%, transparent), transparent);
 }
+@keyframes drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
 @keyframes side-switch {
   0% { opacity: 0; transform: scale(0.98); }
   15% { opacity: 1; transform: scale(1); }

@@ -236,7 +236,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     if (!spot || spot.n === closedSpot || away || !result?.ok) return null
     const { state } = result.scenario.timeline.at(-1)!
     const cards = spot.cards.flatMap((iid) => (state.cards[iid] ? [{ ...cardFace(state, iid, cardDb, true), visible: true }] : []))
-    return cards.length ? <Spotlight cards={cards} say={spot.say} phrase={spot.phrase} onClose={closeSpot} /> : null
+    return cards.length ? <Spotlight key={spot.n} cards={cards} say={spot.say} phrase={spot.phrase} keep={spot.keep} onClose={closeSpot} /> : null
   })()
 
   // A review of a finished game takes the chat over, with the game's chat above it.

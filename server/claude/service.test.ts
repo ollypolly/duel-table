@@ -409,7 +409,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.lesson.prompt).toBeUndefined()
     expect(s.game?.claude?.chat.map((e) => e.text)).toContain("Your go: you're playing You for one question. Your goal: Bring out Gagaga Magician")
     // It pointed at a card and lifted one off the table to show big (not one that isn't there).
-    expect(shows).toEqual(['Highlighted 1 card(s) on their screen.', 'Shown big on their screen until they close it or the game moves on.'])
+    expect(shows).toEqual(['Highlighted 1 card(s) on their screen.', 'Shown beside the table for long enough to read, or until the game moves on. They can keep it open.'])
     expect(spot).toMatchObject({ say: 'Read its effect.', phrase: 'Special Summon' })
     expect(spot!.cards.map((iid) => ctx().db.byId(s.state.cards[iid].cardId!)?.name)).toEqual(['Goblindbergh'])
     // They see the goal while the player is theirs.
@@ -428,7 +428,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.lesson.prompt).toMatchObject({ type: 'choice', message: 'What does Goblindbergh summon?' })
     expect(s.game?.claude?.goal).toBeUndefined()
     // The card the question is about is shown big with it.
-    expect(s.game?.claude?.spotlight).toMatchObject({ say: 'What does Goblindbergh summon?' })
+    expect(s.game?.claude?.spotlight).toMatchObject({ say: 'What does Goblindbergh summon?', keep: true })
 
     await shown()
     sessions.answer(v.id, { id: s.lesson.prompt!.id, choice: 0 })

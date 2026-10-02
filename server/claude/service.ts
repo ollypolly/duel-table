@@ -35,7 +35,7 @@ export type ClaudeRecord = {
   watch?: boolean
   knowsDeck?: boolean
   point?: string[] // cards Claude is pointing at on the person's screen
-  spotlight?: { n: number; at: number; cards: string[]; say?: string; phrase?: string } // cards it has lifted off the table to show big, at this many steps
+  spotlight?: { n: number; at: number; cards: string[]; say?: string; phrase?: string; keep?: boolean } // cards it has lifted off the table to show big, at this many steps (keep: with a question, so they stay)
   flags?: Moment[] // moments the coach flagged for the review
   model: ModelChoice
   coach: boolean
@@ -217,7 +217,7 @@ export class ClaudeService {
           player: s.player,
           ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true }),
           ...(s.point?.length && { point: s.point }),
-          ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrase: s.spotlight.phrase } }),
+          ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrase: s.spotlight.phrase, keep: s.spotlight.keep } }),
           ...(s.lesson?.handed.some((h) => h.goal) && { goal: s.lesson.handed.find((h) => h.goal)!.goal }),
           model: s.model,
           coach: s.coach,
@@ -680,17 +680,17 @@ export class ClaudeService {
           this.changed(id, seat)
           return 'Cleared.'
         }
-        return this.spotlight(id, seat, cards, say, phrase) ? 'Shown big on their screen until they close it or the game moves on.' : 'None of those are on show.'
+        return this.spotlight(id, seat, cards, say, phrase) ? 'Shown beside the table for long enough to read, or until the game moves on. They can keep it open.' : 'None of those are on show.'
       },
     }
   }
 
   // One of each card named, shown big.
-  private spotlight(id: string, seat: Seat, cards: string[], say?: string, phrase?: string): boolean {
+  private spotlight(id: string, seat: Seat, cards: string[], say?: string, phrase?: string, keep?: boolean): boolean {
     const s = this.sessions.get(id).state
     const one = new Map(this.shown(id, seat, cards).map((iid) => [cardFace(s, iid, this.db(), true).name, iid]))
     if (!one.size) return false
-    seat.spotlight = { n: Date.now(), at: this.sessions.export(id).steps.length, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrase && { phrase }) }
+    seat.spotlight = { n: Date.now(), at: this.sessions.export(id).steps.length, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrase && { phrase }), ...(keep && { keep }) }
     this.changed(id, seat)
     return true
   }
@@ -878,7 +878,7 @@ export class ClaudeService {
         this.withdraw(id, seat)
         try {
           lesson.asking = { id: this.sessions.ask(id, prompt).id, question, ...(correct !== undefined && options?.[correct] && { correct: options[correct] }) }
-          if (cards?.length) this.spotlight(id, seat, cards, question)
+          if (cards?.length) this.spotlight(id, seat, cards, question, undefined, true)
         } catch (e) {
           return `Couldn't ask: ${(e as Error).message}`
         }
