@@ -1,18 +1,22 @@
 // Claude on the home page: a chat about what to play and learn, not tied to
 // a game. It can look up any card, read your decks, notes and games, save a
-// deck and start a game or lesson for you. Each chat is its own thread with
+// deck, start a game or lesson for you, and play out an example on a board in
+// the chat: a game on the rules engine only it plays, kept out of your lists
+// and deleted with the chat. Each chat is its own thread with
 // its own SDK session, so a new one starts light; threads are kept by a
 // RecordStore and listed newest first.
 import { randomBytes } from 'node:crypto'
 import { stamp, type ChatEntry, type ModelChoice } from '../../src/api/game'
 import type { HomeThread, HomeView } from '../../src/api/home'
 import type { CardData } from '../../src/data/cardDb'
+import type { Player } from '../../src/engine'
 import { parseDeck, type ResolveContext } from '../../src/scenarios/resolve'
+import type { DeckFile } from '../../src/scenarios/schema'
 import type { GameService } from '../games'
 import { SessionError, type SessionService } from '../sessions'
-import type { Agent, AgentRun, DuelTools, StartGame } from './agent'
+import type { Agent, AgentRun, DemoStart, DuelTools, StartGame } from './agent'
 import { memoryClaudeStore, type RecordStore } from './service'
-import { cardText, drawOdds, rulesTopic, searchCards } from './view'
+import { cardText, describeQuestion, describeTable, drawOdds, knownCards, rulesTopic, searchCards } from './view'
 
 export type HomeRecord = {
   title: string
@@ -24,7 +28,8 @@ export type HomeRecord = {
 }
 
 // interrupted: stopped by you, so the run ending early isn't an error.
-type Thread = HomeRecord & { status: HomeView['status']; queue: string[]; run?: AgentRun; busy: boolean; interrupted?: boolean }
+// seen, texts: how much of the open example Claude has been told, and the cards it has the text of.
+type Thread = HomeRecord & { status: HomeView['status']; queue: string[]; run?: AgentRun; busy: boolean; interrupted?: boolean; seen?: number; texts?: string[] }
 
 type Entry = { name: string; count: number }
 
@@ -40,7 +45,11 @@ export type HomeDeps = {
   findCards?: (query: string) => Promise<CardData[]> // by name, among every card printed
   saveDeck?: (id: string, name: string, main: Entry[], extra: Entry[]) => Promise<string> // returns the id it was saved under
   misplays?: (deck: string) => string[]
+  draftDeck?: (id: string, name: string, main: Entry[], extra: Entry[]) => Promise<DeckFile> // a list of Claude's own, its cards downloaded
 }
+
+// An example stops taking moves here, so one that runs away ends.
+const DEMO_MOVES = 60
 
 const TITLE_MAX = 60
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'deck'
@@ -116,6 +125,7 @@ export class HomeService {
     t.queue = []
     t.interrupted = true
     await t.run?.interrupt()
+    for (const e of t.chat) if (e.demo) this.drop(e.demo.session)
     this.threads.delete(id)
     this.store.remove(id)
   }
@@ -174,8 +184,52 @@ export class HomeService {
   }
 
   private tools(id: string, t: Thread): DuelTools {
-    const { ctx, rules, findCards, saveDeck, games } = this.deps
+    const { ctx, rules, findCards, saveDeck, games, sessions } = this.deps
+    let moves = 0
     return {
+      ...(games && {
+        demo: async (d) => {
+          let made: string | undefined
+          try {
+            const view = await games.create({ ...(await this.demoDecks(d)), title: d.title, demo: true, bots: [] })
+            made = view.id
+            if (d.setup) await games.restart(made, d.setup, d.lp)
+          } catch (e) {
+            if (made) this.drop(made)
+            const err = e as SessionError
+            return `Not set up: ${err.message}${err.details?.length ? `\n${err.details.join('\n')}` : ''}`
+          }
+          const last = t.chat.findLastIndex((e) => e.demo)
+          if (d.again && last >= 0) this.drop(t.chat.splice(last, 1)[0].demo!.session)
+          t.chat.push({ from: 'note', text: `Claude's example: ${d.title}`, demo: { session: made, title: d.title } })
+          t.seen = 0
+          t.texts = []
+          moves = 0
+          this.save(id, t)
+          return this.demoNow(made, t, true)
+        },
+        table: () => {
+          const sid = this.example(t)?.session
+          return sid && sessions.has(sid) ? describeTable(sessions.get(sid).state, 'p1', ctx().db, true) : 'No example is open. Start one with demo.'
+        },
+        answer: async (question, choices, _batch, say) => {
+          const demo = this.example(t)
+          if (!demo || !sessions.has(demo.session)) return 'No example is open. Start one with demo.'
+          if (++moves > DEMO_MOVES) return "That's as long as one example runs. Stop here and sum up what it showed."
+          const prompt = await this.question(demo.session)
+          if (!prompt || prompt.id !== question) return prompt ? `Question ${question} isn't open; question ${prompt.id} is.` : 'Nothing is being asked: the example is over.'
+          const before = sessions.export(demo.session).steps.length
+          try {
+            await games.answer(demo.session, prompt.player, { id: question, choices })
+          } catch (e) {
+            return `Not accepted: ${(e as Error).message}`
+          }
+          // Shown under the board from the first step this move made.
+          if (say) demo.captions = { ...demo.captions, [before + 1]: say }
+          this.save(id, t)
+          return this.demoNow(demo.session, t)
+        },
+      }),
       // A card the app hasn't downloaded is looked up by name among every card printed.
       card: async (name) => {
         if (ctx().db.byName(name)) return cardText(ctx().db, name)
@@ -220,6 +274,64 @@ export class HomeService {
           }
         },
       }),
+    }
+  }
+
+  // The example this chat has open: its latest.
+  private example(t: Thread) {
+    return t.chat.findLast((e) => e.demo)?.demo
+  }
+
+  private async question(sid: string) {
+    const games = this.deps.games!
+    return (await games.asking(sid, 'p1')) ?? (await games.asking(sid, 'p2'))
+  }
+
+  // Each side's deck in an example: one of the person's by id, or Claude's own list.
+  private async demoDecks({ deck, opponentDeck = deck }: DemoStart) {
+    const lists: Partial<Record<Player, DeckFile>> = {}
+    const ids: { deck?: string; opponentDeck?: string } = {}
+    for (const [p, key, side] of [['p1', 'deck', deck], ['p2', 'opponentDeck', opponentDeck]] as const) {
+      if (typeof side === 'string') {
+        if (!this.deck(side)) throw new SessionError(404, `no deck "${side}". Call decks for the list, or give the cards.`)
+        ids[key] = side
+      } else {
+        if (!this.deps.draftDeck) throw new SessionError(501, 'only decks by id here')
+        lists[p] = await this.deps.draftDeck(`demo-${slug(side.name)}`, side.name, side.main, side.extra)
+      }
+    }
+    return { ...ids, lists }
+  }
+
+  // What Claude hasn't been told of the example yet, and the open question.
+  private async demoNow(sid: string, t: Thread, table = false): Promise<string> {
+    const { ctx, sessions, games } = this.deps
+    const { steps } = sessions.export(sid)
+    const fresh = steps.slice(t.seen ?? 0).flatMap((s) => (s.label ? [s.label] : []))
+    t.seen = steps.length
+    const game = await games!.get(sid)
+    const given = new Set(t.texts)
+    const cards = knownCards(game.state, 'p1', ctx().db, true).filter((n) => !given.has(n))
+    t.texts = [...given, ...cards]
+    const next = await this.question(sid)
+    const winner = game.duel.result
+    return (
+      [
+        fresh.length ? `Then:\n${fresh.map((l) => `- ${l}`).join('\n')}` : '',
+        cards.length ? `Card texts (new to you):\n${cards.map((n) => cardText(ctx().db, n)).join('\n\n')}` : '',
+        table ? describeTable(game.state, 'p1', ctx().db, true) : '',
+        winner ? `The duel is over: ${winner.player} (${game.state.players[winner.player].name}) won.` : next ? `For ${next.player} (${game.state.players[next.player].name}): ${describeQuestion(next, game.state, next.player, ctx().db)}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n') || 'Done.'
+    )
+  }
+
+  private drop(sid: string) {
+    try {
+      this.deps.sessions.remove(sid)
+    } catch {
+      // Already gone.
     }
   }
 

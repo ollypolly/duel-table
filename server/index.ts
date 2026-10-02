@@ -120,6 +120,7 @@ const home = new HomeService({
   rules: () => prompt('rules'),
   findCards,
   saveDeck,
+  draftDeck,
   misplays,
 })
 

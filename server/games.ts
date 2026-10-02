@@ -41,6 +41,9 @@ export type CreateGameOptions = {
   knowsDeck?: boolean
   respond?: Respond
   title?: string
+  // An example in a chat: decks given whole, nobody's opponent, left out of the lists.
+  lists?: Partial<Record<Player, DeckFile>>
+  demo?: boolean
 }
 
 // How long each bot (or Claude) step stays on screen before the next.
@@ -166,10 +169,13 @@ export class GameService {
         : {
             deck: opts.deck,
             opponentDeck: opts.opponentDeck,
+            lists: opts.lists,
+            demo: opts.demo,
             seed: opts.seed,
             title: opts.title ?? `${opts.lesson ? 'Lesson' : 'Game'}: ${opts.deck} vs ${opts.opponentDeck ?? opts.deck}`,
           }),
       ...(bots.includes('p2') && { opponentName: bot ? 'Trained bot' : 'Bot' }),
+      ...(opts.demo && { opponentName: 'Opponent' }),
       // Claude plays as the character its deck belongs to, if it has one.
       ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck ?? ''] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
     })
@@ -178,7 +184,8 @@ export class GameService {
     try {
       game = new OcgGame(ocg, this.setup(file))
     } catch (e) {
-      throw new SessionError(422, (e as Error).message)
+      this.sessions.remove(id)
+      throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
     const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond })
     this.onCreate?.(id, opts)

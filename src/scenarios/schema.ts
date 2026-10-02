@@ -184,6 +184,7 @@ export const ScenarioSchema = z
     id: z.string().regex(/^[a-z0-9-]+$/, 'ids are lowercase-with-dashes'),
     title: z.string().min(1),
     description: z.string().optional(),
+    demo: z.boolean().optional().describe('An example Claude plays out in a chat: shown there, and left out of your lists'),
     seed: z.int().optional(),
     extends: z
       .object({ scenario: z.string(), atStep: z.int().min(-1) })

@@ -2733,6 +2733,18 @@
       "archetype": "Fire King"
     },
     {
+      "id": 51858306,
+      "name": "Eclipse Wyvern",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If this card is sent to the Graveyard: Banish 1 Level 7 or higher LIGHT or DARK Dragon-Type monster from your Deck. If this card is banished from your Graveyard: You can add the monster banished by this card's effect to your hand.",
+      "atk": 1600,
+      "def": 1000,
+      "level": 4,
+      "attribute": "LIGHT",
+      "race": "Dragon"
+    },
+    {
       "id": 61173621,
       "name": "Edge Imp Chain",
       "type": "Effect Monster",
@@ -8811,6 +8823,19 @@
       "linkval": 4,
       "attribute": "WATER",
       "race": "Sea Serpent"
+    },
+    {
+      "id": 58996430,
+      "name": "Wulf, Lightsworn Beast",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must be Special Summoned by a card effect. If this card is sent from your Deck to the GY: Special Summon it.",
+      "atk": 2100,
+      "def": 300,
+      "level": 4,
+      "attribute": "LIGHT",
+      "race": "Beast-Warrior",
+      "archetype": "Lightsworn"
     },
     {
       "id": 62651957,

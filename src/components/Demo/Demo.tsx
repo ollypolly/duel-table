@@ -122,7 +122,7 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
   )
 
   return (
-    <div className="my-1 w-full max-w-2xl overflow-hidden rounded-lg border border-line bg-surface" data-testid="demo">
+    <div className="my-1 w-full max-w-2xl shrink-0 overflow-hidden rounded-lg border border-line bg-surface" data-testid="demo">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
         <p className="min-w-0 flex-1 truncate font-display text-xs font-semibold">{demo.title}</p>
         <button type="button" className="btn flex items-center gap-1 px-1.5 text-xs" onClick={() => setFull(true)} title="Full screen">

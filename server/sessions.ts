@@ -9,7 +9,7 @@
 import { randomBytes } from 'node:crypto'
 import { validateStep, tableRules, type BoardState, type EngineEvent, type Issue, type Step } from '../src/engine'
 import { resolveScenario, type ResolveContext, type ResolvedScenario } from '../src/scenarios/resolve'
-import type { ScenarioFile } from '../src/scenarios/schema'
+import type { DeckFile, ScenarioFile } from '../src/scenarios/schema'
 import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { Lesson, type AnswerEvent } from './lesson'
@@ -37,6 +37,8 @@ export type CreateOptions = {
   seed?: number
   title?: string
   opponentName?: string // defaults to Friend
+  lists?: Partial<Record<Player, DeckFile>> // a player's deck given whole, rather than by id
+  demo?: boolean // an example in a chat, left out of the lists
 }
 
 export type SessionSummary = {
@@ -95,7 +97,12 @@ export class SessionService {
   }
 
   list(): SessionSummary[] {
-    return [...this.sessions.values()].map((s) => this.summary(s))
+    // Examples Claude plays out in a chat belong to that chat.
+    return [...this.sessions.values()].filter((s) => !s.file.demo).map((s) => this.summary(s))
+  }
+
+  has(id: string): boolean {
+    return this.sessions.has(id)
   }
 
   get(id: string): SessionView {
@@ -124,12 +131,14 @@ export class SessionService {
       const at = opts.atStep ?? last
       if (at < 0 || at > last) throw new SessionError(400, `atStep must be 0-${last} for ${opts.scenario}`)
       file = { id, title: opts.title ?? `${parent.scenario.title} (live)`, extends: { scenario: opts.scenario, atStep: at - 1 }, steps: [] }
-    } else if (opts.deck) {
+    } else if (opts.deck || opts.lists?.p1) {
+      const seat = (p: Player, deck = opts.deck) => (opts.lists?.[p] ? { deck: opts.lists[p].id, list: opts.lists[p] } : this.deck(deck ?? ''))
       file = {
         id,
         title: opts.title ?? `Live: ${opts.deck}`,
+        ...(opts.demo && { demo: true }),
         seed: opts.seed ?? Math.floor(Math.random() * 2 ** 31),
-        players: { p1: { name: 'You', ...this.deck(opts.deck) }, p2: { name: opts.opponentName ?? 'Friend', ...this.deck(opts.opponentDeck ?? opts.deck) } },
+        players: { p1: { name: 'You', ...seat('p1') }, p2: { name: opts.opponentName ?? 'Friend', ...seat('p2', opts.opponentDeck ?? opts.deck) } },
         steps: [],
       }
     } else {

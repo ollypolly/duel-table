@@ -48,6 +48,7 @@ export type DuelTools = {
   decks?(id?: string): string
   games?(): string
   startGame?(game: StartGame): Promise<string>
+  demo?(demo: DemoStart): Promise<string>
 }
 
 type Entry = { name: string; count: number }
@@ -59,6 +60,18 @@ const StartGameSchema = z.object({
   topic: z.string().optional().describe('For a lesson: what it should teach'),
 })
 export type StartGame = z.infer<typeof StartGameSchema>
+const side = z.union([z.string(), z.object({ name: z.string(), main: entries, extra: entries })])
+const DemoSchema = z.object({
+  title: z.string().describe('What the example shows, in a few words'),
+  deck: side.describe("p1's deck: the id of one of the person's decks, or a list of your own"),
+  opponentDeck: side.optional().describe("p2's deck; the same as p1's if not given"),
+  setup: SetupSchema.optional().describe(
+    'A position to start from, on p1\'s turn in Main Phase 1. Zones per player: hand, monster and spellTrap (5 slots, left to right; null for an empty slot), fieldSpell, gy, banished, deck (its top cards, top first), extraDeck. A monster can be { name, position: "atk" | "def", faceUp, materials }. Anything not placed stays in their Deck, shuffled; a card a deck doesn\'t have is added.',
+  ),
+  lp: z.object({ p1: z.int().min(1).optional(), p2: z.int().min(1).optional() }).optional().describe('Life points, with a setup (8000 each if not given)'),
+  again: z.boolean().optional().describe('Your last example went wrong: take it out of the chat and show this one in its place'),
+})
+export type DemoStart = z.infer<typeof DemoSchema>
 
 export type AgentEvent =
   { type: 'text'; text: string } | { type: 'tool'; name: string; input: unknown } | { type: 'done'; sessionId?: string; costUsd: number; error?: string }
@@ -107,9 +120,16 @@ export const sdkAgent: Agent = (req) => {
     t.evaluate && tool('evaluate', "The trained bot's view of the person's open question, as a second opinion: its estimate of their chance to win, and the option it would pick in their place. Only for decks it knows.", {}, async () => text(await t.evaluate!())),
     t.decks && tool('decks', "The person's decks. With no id: the list. With one: its cards, and their notes on it.", { id: z.string().optional() }, async (i) => text(t.decks!(i.id))),
     t.games && tool('games', "The person's games so far, newest first: decks, who they played, the result, and what reviews marked.", {}, async () => text(t.games!())),
+    t.demo &&
+      tool(
+        'demo',
+        "Show the person an example on a board in the chat: start a game on the rules engine that only you play, both sides. Give each side a deck of theirs by id, or a list of your own (any real cards; it isn't saved). With no setup it starts from a shuffled opening hand; with one, from the position you describe. Then play it with answer, saying what each move is for. Returns the table and the first question.",
+        DemoSchema.shape,
+        async (i) => text(await t.demo!(i)),
+      ),
     t.startGame && tool('startGame', 'Start a game or a lesson for the person. They get a button in the chat to open it. Only when they ask for one.', StartGameSchema.shape, async (i) => text(await t.startGame!(i))),
   ].filter((x) => !!x)
-  const COACH = ['lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
+  const COACH = ['demo', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
@@ -124,6 +144,7 @@ export const sdkAgent: Agent = (req) => {
                 question: z.number().int().describe('The question number'),
                 choices: z.array(z.number().int().min(0)).describe('Option numbers'),
                 // Lessons stop after each move unless Claude batches it.
+                ...(t.demo && { say: z.string().optional().describe('In an example: one short line shown under the board at this move, on what it is for') }),
                 ...(setup && {
                   batch: z
                     .boolean()
@@ -131,7 +152,7 @@ export const sdkAgent: Agent = (req) => {
                     .describe('Keep playing after this move instead of stopping for the person, for routine moves you will sum up together afterwards'),
                 }),
               },
-              async ({ question, choices, batch }) => text(await answer(question, choices, batch)),
+              async ({ question, choices, batch, say }) => text(await answer(question, choices, batch, say)),
             ),
           ]
         : []),

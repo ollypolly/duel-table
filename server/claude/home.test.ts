@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { repoContext } from '../files'
+import { GameService } from '../games'
 import { SessionService } from '../sessions'
 import type { Agent, AgentRequest } from './agent'
 import { HomeService } from './home'
@@ -75,5 +76,36 @@ describe('Claude on the home page', () => {
     expect(await suggestDeck!('My New Deck', [{ name: 'Super Quantum Red Layer', count: 3 }], [], 'to try')).toContain('Saved as my-new-deck')
     expect(saved).toEqual(['my-new-deck'])
     expect(home.view(id).chat.at(-1)).toMatchObject({ from: 'note' })
+  })
+
+  it('plays an example out in a hidden game, which goes with the chat', async () => {
+    const sessions = new SessionService(ctx)
+    const requests: AgentRequest[] = []
+    const agent: Agent = (req) => {
+      requests.push(req)
+      async function* run() {
+        yield { type: 'done' as const, costUsd: 0 }
+      }
+      return { events: run(), interrupt: async () => {} }
+    }
+    const home = new HomeService({ ctx, sessions, games: new GameService(sessions, ctx), agent, system: () => 'home' })
+    const { id } = home.start('Show me how my deck opens')
+    await home.idle(id)
+    const { demo, answer, table } = requests[0].tools
+
+    expect(await demo!({ title: 'Nope', deck: 'no-such-deck' })).toMatch(/no deck/)
+    const first = await demo!({ title: 'An opening hand', deck: 'super-quant' })
+    const shown = home.view(id).chat.at(-1)!.demo!
+    expect(shown.title).toBe('An opening hand')
+    expect(sessions.list().map((s) => s.id)).not.toContain(shown.session)
+    expect(table!()).toContain('Hand')
+
+    const question = Number(/Question (\d+)/.exec(first)![1])
+    expect(await answer!(question + 1, [0])).toMatch(/isn't open/)
+    expect(await answer!(question, [0], false, 'The first move.')).not.toMatch(/Not accepted/)
+    expect(Object.values(home.view(id).chat.at(-1)!.demo!.captions ?? {})).toEqual(['The first move.'])
+
+    await home.remove(id)
+    expect(sessions.has(shown.session)).toBe(false)
   })
 })
