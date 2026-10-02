@@ -347,7 +347,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             normalUsed={turn?.normalUsed}
             onHover={(i) => setHot({ for: prompt?.id, i })}
             onRematch={rematch}
-            onAttempt={claudeOn && rematch && game.winner?.player === 'p2' && game.bots.includes('p2') && !(claude && !claude.watch) ? (tries) => report(api.attempt(id, tries).then((s) => openSession(s.id, Infinity))) : undefined}
+            onAttempt={claudeOn && rematch && game.winner?.player === 'p2' && game.bots.includes('p2') && !(claude && !claude.watch) ? (tries) => report(api.attempt(id, tries, claude?.model).then((s) => openSession(s.id, Infinity))) : undefined}
             onReview={review || claudeLesson ? undefined : startReview}
             onHint={game.claude && !claudeLesson && !game.claude.attempt ? () => report(api.chat(id, 'What should I do here, and why?', true)) : undefined}
             lesson={claudeLesson}
