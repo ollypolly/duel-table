@@ -371,6 +371,12 @@ A test plays a whole game through the board with the panel never opened. **To de
 - **A duel log** that reads as sentences, filterable to the plays (the step list is most of this already).
 - **Chain order and zone placement** asked only when it matters, with a setting to always ask.
 
+**Planned: web push notifications.** Claude's turns can take a minute, so you put the phone down: tell you when it's your move again.
+- When: Claude has answered in a chat, it's your move or a question is waiting in a game or lesson, a game has ended. Only when no tab has that game or chat open and visible.
+- What it takes: a service worker (there's a manifest and icons already, but no worker), a `PushSubscription` per device kept on the server, and the server sending with VAPID keys from where it already notices these changes (`games.onChange`, the Home chat going idle). A tap opens `?session=<id>` or `?chat=<id>`.
+- Limits: needs HTTPS, so the olly.live address and not a LAN one. On iOS it only works once the app is added to the Home Screen. The VAPID private key is a secret: it goes in the chezmoi data file, not the repo.
+- A switch in settings to turn it on, which is where the browser's permission prompt comes from, and off.
+
 **Later polish: packs, a collection and a shop.** Not needed to learn the game, but it would make the app feel like one. Open packs with the real sets' contents and pull rates (YGOPRODeck: `cardsets.php` lists sets, `cardinfo.php?cardset=<name>` gives a set's cards and rarities), with an opening worth watching (tear the wrapper, cards fanned face-down and turned one at a time, the rare last with its foil and a sound), keep what you pull as a collection, and build decks from it or from everything, as a switch. Sleeves, deck boxes and playmats are picked per deck (the cosmetics store has sleeves and boxes already). A shop front ties them together: packs on a shelf, earned by playing and finishing lessons. Official artwork for accessories has the same terms question as card images, so it stays a personal-server feature.
 
 1. **Being led, in lessons and reviews.** Both should feel like Claude is taking you through something: a short run of beats, one at a time, and you do something at each.
