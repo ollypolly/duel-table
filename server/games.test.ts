@@ -33,6 +33,47 @@ describe.skipIf(!hasData)('games on the rules engine', () => {
     expect(v.lesson.queued).toBeGreaterThan(0)
   }, 60_000)
 
+  it('carries a free-play board into a game with the rules on, and a game back out to free play', async () => {
+    const sessions = new SessionService(ctx)
+    const games = new GameService(sessions, ctx)
+    const table = sessions.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 5 })
+    const [a, b, c] = table.state.players.p1.zones.deck
+    const theirs = table.state.players.p2.zones.deck[0]
+    sessions.apply(table.id, {
+      label: 'Lay it out',
+      author: 'user',
+      actions: [
+        { type: 'move', card: a, to: { player: 'p1', zone: 'hand' } },
+        { type: 'move', card: b, to: { player: 'p1', zone: 'gy' } },
+        { type: 'move', card: c, to: { player: 'p1', zone: 'monster', slot: 2 } },
+        { type: 'move', card: theirs, to: { player: 'p2', zone: 'spellTrap', slot: 0 }, faceUp: false },
+        { type: 'lp', player: 'p2', delta: -3000 },
+      ],
+    })
+    const where = (v: { state: typeof table.state }) => {
+      const id = (iid: string | null) => (iid ? v.state.cards[iid].cardId : null)
+      const { p1, p2 } = v.state.players
+      return { hand: p1.zones.hand.map(id), gy: p1.zones.gy.map(id), monster: p1.zones.monster.map(id), set: p2.zones.spellTrap.map(id), deck: p1.zones.deck.length, lp: p2.lp }
+    }
+    const laid = where(sessions.get(table.id))
+
+    const game = await games.fromTable(table.id)
+    expect(game.id).not.toBe(table.id)
+    expect(game.file.duel).toBeDefined()
+    expect(where(game)).toEqual(laid)
+    expect(game.state.cards[game.state.players.p2.zones.spellTrap[0]!].faceUp).toBe(false)
+    expect(game.state.phase).toBe('main1')
+    expect(game.game?.prompt?.player).toBe('p1')
+
+    const back = games.toTable(game.id)
+    expect(back.file.duel).toBeUndefined()
+    expect(where(back)).toEqual(laid)
+    // Free again: anything moves.
+    expect(sessions.apply(back.id, { label: 'Anything', author: 'user', actions: [{ type: 'move', card: back.state.players.p1.zones.deck[0], to: { player: 'p1', zone: 'banished' } }] }).ok).toBe(true)
+    await expect(games.fromTable(game.id)).rejects.toThrow(/already a game/)
+    expect(() => games.toTable(table.id)).toThrow(/isn't a game/)
+  }, 60_000)
+
   it('plays the trained bot only with decks it knows, and falls back to the random bot when it has no pick', async () => {
     // A stand-in for ygo-agent that is up but never has a prediction.
     let calls = 0

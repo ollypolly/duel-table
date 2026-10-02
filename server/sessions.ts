@@ -176,6 +176,13 @@ export class SessionService {
     return this.get(file.id)
   }
 
+  // A new session from a whole file (a game's board taken to free play).
+  createFrom(file: Omit<ScenarioFile, 'id'>): SessionView {
+    const id = this.newId()
+    this.commit({ ...file, id })
+    return this.get(id)
+  }
+
   rename(id: string, title: string): SessionView {
     this.commit({ ...this.live(id).file, title })
     return this.notify(id)

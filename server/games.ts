@@ -2,7 +2,8 @@
 // the core, plus the answers given to the core so far (saved in the session
 // file as duel.responses). After a restart a game is rebuilt by replaying
 // those answers the first time it's needed.
-import { PLAYERS, type BoardState, type Player, type Step } from '../src/engine'
+import { PLAYERS, type BoardState, type Iid, type Player, type Step } from '../src/engine'
+import type { CardDb } from '../src/data/cardDb'
 import type { GameAnswer, GamePrompt, GameView, ModelChoice, Respond, Skipped } from '../src/api/game'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { DeckFile, ScenarioFile, Setup } from '../src/scenarios/schema'
@@ -219,9 +220,24 @@ export class GameService {
   async restart(id: string, setup: Setup, lp: Partial<Record<Player, number>> = {}): Promise<SessionView> {
     const old = await this.live(id)
     const file = this.sessions.export(id)
+    const from = { players: this.owning(file.players!, setup, lp), setup, start: { phase: 'main1' as const } }
+    let game: OcgGame
+    try {
+      game = new OcgGame(old.ocg, this.setup({ ...file, ...from }))
+    } catch (e) {
+      throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
+    }
+    this.sessions.restartGame(id, from)
+    const { bots, bot, claude, lesson, shuffled, respond } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond })
+    return this.advance(id, live, game.start())
+  }
+
+  // The players, owning whatever a setup places beyond their decks.
+  private owning(of: NonNullable<ScenarioFile['players']>, setup: Setup, lp: Partial<Record<Player, number>>) {
     const { db, decks } = this.ctx()
-    const players = structuredClone(file.players!)
-    for (const p of ['p1', 'p2'] as const) {
+    const players = structuredClone(of)
+    for (const p of PLAYERS) {
       const deck = players[p].list ?? (decks[players[p].deck ?? ''] as DeckFile | undefined)
       const have = new Map<string, number>()
       for (const e of [...(deck?.main ?? []), ...(deck?.extra ?? [])]) have.set(e.name, (have.get(e.name) ?? 0) + e.count)
@@ -234,17 +250,38 @@ export class GameService {
       players[p] = { ...players[p], cards, ...(lp[p] !== undefined && { lp: lp[p] }) }
       if (!cards.length) delete players[p].cards
     }
-    const from = { players, setup, start: { phase: 'main1' as const } }
-    let game: OcgGame
+    return players
+  }
+
+  // Rules on: a free-play table carries on as a game from the board as it
+  // lies, against the simple bot, on your turn in Main Phase 1. A new session;
+  // the table is left as it was.
+  async fromTable(id: string): Promise<SessionView> {
+    const table = this.sessions.get(id)
+    if (table.file.duel) throw new SessionError(409, `session ${id} is already a game on the rules engine`)
+    const { p1, p2 } = this.sessions.export(id).players ?? {}
+    if (!p1?.deck || !p2?.deck) throw new SessionError(422, 'a game needs both players to have a deck')
+    const { setup, lp } = positionOf(table.state, this.ctx().db)
+    const made = await this.create({ deck: p1.deck, opponentDeck: p2.deck, title: `Game: ${plain(table.file.title)}` })
     try {
-      game = new OcgGame(old.ocg, this.setup({ ...file, ...from }))
+      return await this.restart(made.id, setup, lp)
     } catch (e) {
-      throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
+      this.sessions.remove(made.id)
+      throw e
     }
-    this.sessions.restartGame(id, from)
-    const { bots, bot, claude, lesson, shuffled, respond } = old
-    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond })
-    return this.advance(id, live, game.start())
+  }
+
+  // Rules off: the game's board, as it lies now, on a free-play table where
+  // anything can be moved. A new session; the game is left as it was.
+  toTable(id: string): SessionView {
+    const game = this.sessions.get(id)
+    const file = this.sessions.export(id)
+    if (!file.duel || !file.players) throw new SessionError(409, `session ${id} isn't a game that can be taken to free play`)
+    const { setup, lp } = positionOf(game.state, this.ctx().db)
+    const { turn, activePlayer, phase } = game.state
+    const players = this.owning(file.players, setup, lp)
+    players.p2.name = 'Friend'
+    return this.sessions.createFrom({ title: `Free play: ${plain(file.title)}`, seed: file.seed, players, setup, start: { turn, activePlayer, phase }, steps: [] })
   }
 
   // Take back the person's last move: the game goes back to the question it
@@ -654,6 +691,29 @@ function startsMove(prompt: PromptMsg | undefined, response: Uint8Array): boolea
   if (!(prompt instanceof M.YGOProMsgSelectChain)) return false
   const pass = prompt.defaultResponse()
   return !!pass && encodeResponse(response) !== encodeResponse(pass)
+}
+
+const plain = (title: string) => title.replace(/^(Game|Free play|Practice|Live): /, '')
+
+// The board as a setup: every card where it lies, piles in their order, so
+// nothing is left over to shuffle.
+function positionOf(state: BoardState, db: CardDb): { setup: Setup; lp: Record<Player, number> } {
+  const name = (iid: Iid) => {
+    const c = state.cards[iid]
+    const n = c.cardId !== undefined && db.byId(c.cardId)?.name
+    if (!n) throw new SessionError(422, `${c.custom?.name ?? iid} isn't a card the rules engine knows`)
+    return n
+  }
+  const placed = (iid: Iid | null) => {
+    if (!iid) return null
+    const c = state.cards[iid]
+    return { name: name(iid), faceUp: c.faceUp, position: c.position, ...(c.materials.length && { materials: c.materials.map(name) }) }
+  }
+  const side = (p: Player) => Object.fromEntries(Object.entries(state.players[p].zones).map(([zone, cards]) => [zone, cards.map(placed)]))
+  return {
+    setup: { p1: side('p1'), p2: side('p2'), extraMonster: state.extraMonster.map((iid) => (iid ? { ...placed(iid)!, player: state.cards[iid].owner } : null)) } as Setup,
+    lp: { p1: state.players.p1.lp, p2: state.players.p2.lp },
+  }
 }
 
 // Every card a setup places for player, materials included.

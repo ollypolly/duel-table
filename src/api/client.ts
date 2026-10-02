@@ -73,6 +73,8 @@ export const api = {
   undo: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/undo`, { author: 'user' }),
   next: (id: string) => call<SessionSummary>('POST', `/sessions/${id}/next`),
   answer: (id: string, answer: Answer) => call<SessionSummary>('POST', `/sessions/${id}/prompt/answer`, answer),
+  // The board carried to a new session: a game from a free-play table (on), or free play from a game.
+  rules: (id: string, on: boolean) => call<SessionSummary>('POST', `/sessions/${id}/rules`, { on }),
   fork: (id: string, atStep: number) => call<SessionSummary>('POST', `/sessions/${id}/fork`, { atStep }),
   createGame: (opts: ({ deck: string; opponentDeck: string } | { scenario: string }) & { bot?: 'random' | 'agent'; claude?: 'p2'; lesson?: boolean; topic?: string; model?: ModelChoice; coach?: boolean; knowsDeck?: boolean; respond?: Respond }) =>
     call<SessionSummary>('POST', '/games', opts),
