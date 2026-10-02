@@ -126,7 +126,21 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
             (games.length === 0 ? (
               <Empty action={tables && { label: 'New game', run: onNewGame }}>{tables ? 'No games yet. Your games against the bot and Claude show up here.' : 'Games need the local API running.'}</Empty>
             ) : shown.length ? (
-              <div className={GRID}>{shown.map(card)}</div>
+              // Games still to finish first, apart from the ones that are over.
+              <div className="space-y-6">
+                {[
+                  ['In progress', shown.filter((t) => !t.winner)] as const,
+                  ['Finished', shown.filter((t) => t.winner)] as const,
+                ].map(
+                  ([title, list]) =>
+                    list.length > 0 && (
+                      <div key={title}>
+                        <Heading>{title}</Heading>
+                        <div className={GRID}>{list.map(card)}</div>
+                      </div>
+                    ),
+                )}
+              </div>
             ) : (
               <Empty>No games here.</Empty>
             ))}
