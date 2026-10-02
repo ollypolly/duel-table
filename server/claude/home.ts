@@ -12,9 +12,9 @@ import type { CardData } from '../../src/data/cardDb'
 import type { Player } from '../../src/engine'
 import { parseDeck, type ResolveContext } from '../../src/scenarios/resolve'
 import type { DeckFile } from '../../src/scenarios/schema'
-import type { GameService } from '../games'
-import { SessionError, type SessionService } from '../sessions'
-import type { Agent, AgentRun, DemoStart, DuelTools, StartGame } from './agent'
+import type { CreateGameOptions, GameService } from '../games'
+import { SessionError, type SessionService, type SessionView } from '../sessions'
+import type { Agent, AgentRun, DemoStart, DuelTools } from './agent'
 import { boardFile, boardStep, realNames, type Board } from './board'
 import { memoryClaudeStore, type RecordStore } from './service'
 import { cardText, describeQuestion, describeTable, drawOdds, knownCards, rulesTopic, searchCards } from './view'
@@ -188,7 +188,25 @@ export class HomeService {
   private tools(id: string, t: Thread): DuelTools {
     const { ctx, rules, findCards, saveDeck, games, sessions } = this.deps
     let moves = 0
+    // A button in the chat opens what was started.
+    const opened = (what: string, made: SessionView, fallback: string) => {
+      t.chat.push({ from: 'note', text: `Claude set up ${what} for you.`, open: { session: made.id, title: what === 'a free-play table' ? made.title : what === 'a lesson' ? `the lesson on ${made.players.p1.deckName ?? fallback}` : `${made.players.p1.deckName ?? fallback} vs ${made.players.p2.name}` } })
+      this.save(id, t)
+      return `Started (${made.id}). They have a button in the chat to open it.`
+    }
+    const start = async (what: string, opts: CreateGameOptions) => {
+      try {
+        return opened(what, await games!.create(opts), opts.deck ?? '')
+      } catch (e) {
+        return `Not started: ${(e as Error).message}`
+      }
+    }
     return {
+      startFreePlay: ({ deck, opponentDeck = deck }) => {
+        const d = this.deck(deck)
+        if (!d || !this.deck(opponentDeck)) return `No deck "${d ? opponentDeck : deck}". Call decks for the list.`
+        return opened('a free-play table', sessions.create({ deck, opponentDeck, title: `Free play: ${d.name}` }), deck)
+      },
       board: async (b) => {
         try {
           const made = await this.lay(b)
@@ -275,16 +293,9 @@ export class HomeService {
         },
       }),
       ...(games && {
-        startGame: async (g) => {
-          try {
-            const made = await games.create(this.gameOptions(g))
-            t.chat.push({ from: 'note', text: g.opponent === 'lesson' ? 'Claude set up a lesson for you.' : 'Claude set up a game for you.', open: { session: made.id, title: `${made.players.p1.deckName ?? g.deck} vs ${made.players.p2.name}` } })
-            this.save(id, t)
-            return `Started (${made.id}). They have a button in the chat to open it.`
-          } catch (e) {
-            return `Not started: ${(e as Error).message}`
-          }
-        },
+        startGame: ({ deck, opponentDeck = deck, opponent, brief }) =>
+          start('a game', opponent === 'claude' ? { deck, opponentDeck, brief, claude: 'p2', coach: true } : { deck, opponentDeck, brief, bot: opponent === 'trained' ? 'agent' : 'random', watch: true }),
+        startLesson: ({ deck, opponentDeck = deck, topic, brief }) => start('a lesson', { deck, opponentDeck, lesson: true, topic, brief }),
       }),
     }
   }
@@ -376,12 +387,6 @@ export class HomeService {
     } catch {
       // Already gone.
     }
-  }
-
-  private gameOptions({ deck, opponentDeck = deck, opponent, topic }: StartGame) {
-    if (opponent === 'lesson') return { deck, opponentDeck, lesson: true, ...(topic && { topic }) }
-    if (opponent === 'claude') return { deck, opponentDeck, claude: 'p2' as const, coach: true }
-    return { deck, opponentDeck, bot: opponent === 'trained' ? ('agent' as const) : ('random' as const), watch: true }
   }
 
   private deck(id: string) {

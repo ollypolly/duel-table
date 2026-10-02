@@ -13,6 +13,7 @@ import {
   EmptyState,
 } from "./components/ScenarioErrors/ScenarioErrors";
 import { Home } from "./components/Home/Home";
+import { ChatPage } from "./components/Home/HomeChat";
 import { Logo } from "./components/Logo/Logo";
 import { scenarioTitle, tableName } from "./components/Home/names";
 import { Table } from "./components/Table/Table";
@@ -24,7 +25,7 @@ import { useBranchStore } from "./store/branchStore";
 import { usePlayerStore } from "./store/playerStore";
 
 export default function App() {
-  const { scenarioId, sessionId, open, openSession, goHome } = usePlayerStore();
+  const { scenarioId, sessionId, chatId, open, openSession, goHome } = usePlayerStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
@@ -157,7 +158,9 @@ export default function App() {
       ) : (
         <>
           <TopBar nav={nav} />
-          {!result ? (
+          {!result && chatId ? (
+            <ChatPage key={chatId} id={chatId} />
+          ) : !result ? (
             all.length ? (
               <Home
                 tables={liveSessions}

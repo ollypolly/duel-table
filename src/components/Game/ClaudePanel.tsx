@@ -32,6 +32,7 @@ type ChatProps = {
   footer?: ReactNode
   footerKey?: string
   outlines?: Record<number, string>
+  wide?: boolean // on a page of its own: the column is centred, the scrollbar at the window's edge
 }
 
 // When an entry was said, small and after it.
@@ -61,7 +62,7 @@ function Entry({ e, outline = '', anchor, live }: { e: ChatEntry; outline?: stri
   )
 }
 
-export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier, footer, footerKey, outlines }: ChatProps) {
+export function ClaudeChat({ claude, empty = 'Claude is across the table. Say hello, or ask it anything about the game.', earlier, footer, footerKey, outlines, wide }: ChatProps) {
   const list = useRef<HTMLDivElement>(null)
   const { chat, status } = claude
   // A new message from Claude is read from its top, so the chat goes there
@@ -105,7 +106,7 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
   }, [hasFooter])
 
   return (
-    <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
+    <div ref={list} role="log" aria-label="Chat with Claude" className={`flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm ${wide ? 'sm:px-[max(1.5rem,calc((100%-64rem)/2))]' : ''}`}>
       {earlier && earlier.chat.length > 0 && (
         <>
           <div className="flex flex-col gap-1.5 opacity-60">

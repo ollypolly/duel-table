@@ -225,7 +225,7 @@ export class ClaudeService {
 
   // Seat Claude in a new game (before its first move). A lesson starts with
   // what you asked to learn.
-  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean; lesson?: boolean; topic?: string; watch?: boolean; knowsDeck?: boolean } = {}) {
+  join(id: string, player: Player, opts: { model?: ModelChoice; coach?: boolean; lesson?: boolean; topic?: string; brief?: string; watch?: boolean; knowsDeck?: boolean } = {}) {
     const watch = !!opts.watch && !opts.lesson
     const character = watch ? undefined : this.sessions.export(id).players?.[player].list?.character
     const seat: Seat = {
@@ -242,6 +242,12 @@ export class ClaudeService {
       queue: [],
       busy: false,
       ...(opts.lesson && { lesson: { holds: ['p1', 'p2'], handed: [] } }),
+    }
+    // Set up from a chat on the home page: what was said there carries over.
+    const brief = opts.brief?.trim()
+    if (brief) {
+      seat.chat.push({ from: 'note', text: `Carried over from your chat with Claude: ${brief}` })
+      seat.notes = [`The person set this ${opts.lesson ? 'lesson' : 'game'} up from a chat with Claude on the app's home page. What that chat passed on to you: ${brief}\nPick up from there: they shouldn't have to explain it again.`]
     }
     const topic = opts.topic?.trim()
     if (opts.lesson) {

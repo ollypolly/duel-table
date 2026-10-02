@@ -1,5 +1,5 @@
 // Deep links: ?scenario=<id>&step=<n> opens that moment (?session=<id> for a
-// live session), and the URL follows along as you step, so a link can point
+// live session, ?chat=<id> for a chat with Claude), and the URL follows along as you step, so a link can point
 // at an exact position. Opening something else, or going home, is a new entry
 // in the browser's history, so Back and Forward move between them; stepping
 // within one isn't. ?decks=<id> opens the deck hub on a deck, and
@@ -13,14 +13,16 @@ export function initUrlSync() {
     const step = Math.max(0, Number(params.get('step')) || 0)
     const scenario = params.get('scenario')
     const session = params.get('session')
-    const { open, openSession, goHome } = usePlayerStore.getState()
+    const chat = params.get('chat')
+    const { open, openSession, openChat, goHome } = usePlayerStore.getState()
     if (session) openSession(session, params.has('step') ? step : Infinity)
+    else if (chat) openChat(chat)
     else if (scenario) open(scenario, step)
     else goHome()
   }
   const opened = () => {
-    const { scenarioId, sessionId } = usePlayerStore.getState()
-    return sessionId ? `session ${sessionId}` : (scenarioId ?? '')
+    const { scenarioId, sessionId, chatId } = usePlayerStore.getState()
+    return sessionId ? `session ${sessionId}` : chatId ? `chat ${chatId}` : (scenarioId ?? '')
   }
 
   let reading = true
@@ -30,8 +32,10 @@ export function initUrlSync() {
 
   const write = () => {
     if (reading) return
-    const { scenarioId, sessionId, position } = usePlayerStore.getState()
+    const { scenarioId, sessionId, chatId, position } = usePlayerStore.getState()
     const url = new URL(window.location.href)
+    if (chatId) url.searchParams.set('chat', chatId)
+    else url.searchParams.delete('chat')
     if (sessionId) {
       url.searchParams.set('session', sessionId)
       url.searchParams.delete('scenario')

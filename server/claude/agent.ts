@@ -49,19 +49,31 @@ export type DuelTools = {
   decks?(id?: string): string
   games?(): string
   startGame?(game: StartGame): Promise<string>
+  startLesson?(lesson: StartLesson): Promise<string>
+  startFreePlay?(table: StartFreePlay): string
   demo?(demo: DemoStart): Promise<string>
   board?(board: Board): Promise<string>
 }
 
 type Entry = { name: string; count: number }
 const entries = z.array(z.object({ name: z.string(), count: z.int().min(1).max(3) }))
+const brief = z.string().optional().describe('For the Claude in it, who has not seen this chat: what the person wants from it and what you two worked out, in a few lines. They see it too')
 const StartGameSchema = z.object({
   deck: z.string().describe("The person's deck, by id"),
   opponentDeck: z.string().optional().describe('By id; the same deck if not given'),
-  opponent: z.enum(['bot', 'trained', 'claude', 'lesson']).describe('bot: picks at random. trained: the trained bot, only with a deck it knows. claude: Claude plays and coaches. lesson: Claude runs a lesson on the deck, playing both sides and handing over'),
-  topic: z.string().optional().describe('For a lesson: what it should teach'),
+  opponent: z.enum(['bot', 'trained', 'claude']).describe('bot: picks at random. trained: the trained bot, only with a deck it knows. claude: Claude plays and coaches'),
+  brief,
 })
 export type StartGame = z.infer<typeof StartGameSchema>
+const StartLessonSchema = z.object({
+  deck: z.string().describe('The deck to teach, by id'),
+  opponentDeck: z.string().optional().describe('By id; the same deck if not given'),
+  topic: z.string().describe('What it should teach, as the person would ask for it'),
+  brief,
+})
+export type StartLesson = z.infer<typeof StartLessonSchema>
+const StartFreePlaySchema = z.object({ deck: z.string().describe("The person's deck, by id"), opponentDeck: z.string().optional().describe('By id; the same deck if not given') })
+export type StartFreePlay = z.infer<typeof StartFreePlaySchema>
 const side = z.union([z.string(), z.object({ name: z.string(), main: entries, extra: entries })])
 const DemoSchema = z.object({
   title: z.string().describe('What the example shows, in a few words'),
@@ -136,9 +148,12 @@ export const sdkAgent: Agent = (req) => {
         BoardSchema.shape,
         async (i) => text(await t.board!(i)),
       ),
-    t.startGame && tool('startGame', 'Start a game or a lesson for the person. They get a button in the chat to open it. Only when they ask for one.', StartGameSchema.shape, async (i) => text(await t.startGame!(i))),
+    t.startGame && tool('startGame', 'Start a game on the rules engine for the person. They get a button in the chat to open it. Only when they ask for one.', StartGameSchema.shape, async (i) => text(await t.startGame!(i))),
+    t.startLesson && tool('startLesson', 'Start a lesson for the person: Claude plays both sides of a game on a deck, explains, and hands them the moves. They get a button in the chat to open it. Only when they ask for one.', StartLessonSchema.shape, async (i) => text(await t.startLesson!(i))),
+    t.startFreePlay &&
+      tool('startFreePlay', 'Open a free-play table for the person: both decks on a board with no rules enforced, to move cards by hand and try things out. They get a button in the chat to open it. Only when they ask for one.', StartFreePlaySchema.shape, async (i) => text(t.startFreePlay!(i))),
   ].filter((x) => !!x)
-  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame'] as const
+  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame', 'startLesson', 'startFreePlay'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',

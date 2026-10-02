@@ -36,6 +36,7 @@ export type CreateGameOptions = {
   claude?: Player
   lesson?: boolean
   topic?: string
+  brief?: string // from the chat that set the game up, for the Claude in it
   model?: ModelChoice
   coach?: boolean
   watch?: boolean

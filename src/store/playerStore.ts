@@ -11,6 +11,7 @@ export const BASE_STEP_MS = 2500
 type PlayerState = {
   scenarioId?: string
   sessionId?: string // live mode
+  chatId?: string // a chat with Claude, open on its own page
   position: number
   speed: number
   playing: boolean
@@ -18,6 +19,7 @@ type PlayerState = {
   followFocus: boolean // the camera follows each step's action, or is yours to pan and zoom; back on at each load and each scenario or game opened
   open: (scenarioId: string, position?: number) => void
   openSession: (sessionId: string | undefined, position?: number) => void
+  openChat: (chatId: string) => void // a chat with Claude from the home page, on its own page
   goHome: () => void // nothing open
   goTo: (position: number) => void
   setSpeed: (speed: number) => void
@@ -45,9 +47,10 @@ export const usePlayerStore = create<PlayerState>()(
       followFocus: true,
       pinHand: true,
       progress: {},
-      open: (scenarioId, position = 0) => set((s) => ({ scenarioId, sessionId: undefined, position, playing: false, followFocus: true, ...reached(s, scenarioId, position) })),
-      openSession: (sessionId, position = 0) => set({ sessionId, position, playing: false, followFocus: true }),
-      goHome: () => set({ scenarioId: undefined, sessionId: undefined, position: 0, playing: false }),
+      open: (scenarioId, position = 0) => set((s) => ({ scenarioId, sessionId: undefined, chatId: undefined, position, playing: false, followFocus: true, ...reached(s, scenarioId, position) })),
+      openSession: (sessionId, position = 0) => set({ sessionId, chatId: undefined, position, playing: false, followFocus: true }),
+      openChat: (chatId) => set({ chatId, scenarioId: undefined, sessionId: undefined, position: 0, playing: false }),
+      goHome: () => set({ scenarioId: undefined, sessionId: undefined, chatId: undefined, position: 0, playing: false }),
       goTo: (position) => set((s) => ({ position, ...reached(s, s.sessionId ? undefined : s.scenarioId, position) })),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),

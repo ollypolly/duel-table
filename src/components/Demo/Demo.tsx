@@ -1,17 +1,23 @@
 // An example play Claude shows in a chat: a small read-only board you step
 // through, with what happened at each step under it, and a button to open it
-// full screen. Its steps are a hidden session's; while Claude is still
+// full screen. The camera follows each step to the side it's about (Focus
+// off shows the whole table), and a card you can see opens big on a click. Its steps are a hidden session's; while Claude is still
 // playing it out (live), it's fetched again and follows the latest step.
-import { ChevronLeft, ChevronRight, Maximize2, Pause, Play, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Focus, Maximize2, Pause, Play, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../../api/client'
 import type { ChatEntry } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
 import type { ScenarioFile } from '../../scenarios/schema'
-import { buildBoardView } from '../../view/boardView'
+import type { Iid } from '../../engine'
+import { useUiStore } from '../../store/uiStore'
+import { buildBoardView, cardFace, type CardFace } from '../../view/boardView'
+import { stepFocus } from '../../view/focus'
 import { Board2D } from '../Board/Board2D'
+import { CardInspector } from '../CardInspector/CardInspector'
 import { CardText } from '../CardLink/CardLink'
 
 const POLL_MS = 1500
@@ -25,7 +31,10 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
   const [at, setAt] = useState<number>() // undefined: follow the latest step
   const [playing, setPlaying] = useState(false)
   const [full, setFull] = useState(false)
-  const dialog = useRef<HTMLDialogElement>(null)
+  // follow: the camera goes to the side each step is about. free: you moved it (full screen).
+  const [cam, setCam] = useState<'follow' | 'all' | 'free'>('follow')
+  const [inspected, setInspected] = useState<Iid>()
+  const linked = useUiStore((s) => s.inspectedCard)
 
   useEffect(() => {
     const load = () =>
@@ -59,9 +68,14 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
     return () => clearTimeout(timer)
   }, [playing, position, last])
 
+  // Esc closes the full screen, once any card opened over it is closed.
+  const covered = inspected !== undefined || linked !== undefined
   useEffect(() => {
-    if (full && !dialog.current?.open) dialog.current?.showModal()
-  }, [full])
+    if (!full || covered) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setFull(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [full, covered])
 
   if (gone) return <p className="text-xs text-faint">{demo.title} (this example is no longer kept)</p>
   if (!scenario) return <p className="text-xs text-muted">{file ? `${demo.title} doesn't load here.` : 'Setting up the example…'}</p>
@@ -72,7 +86,20 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
     .map(([k, v]) => [Number(k), v] as const)
     .filter(([k]) => k <= position && k > from)
     .sort((a, b) => b[0] - a[0])[0]
-  const board = (big: boolean) => <Board2D view={buildBoardView(entry.state, cardDb, !demo.closed)} events={entry.events} focus="all" still={!big} />
+  const open = !demo.closed
+  const face = (iid: Iid): CardFace | undefined => (entry.state.cards[iid] ? cardFace(entry.state, iid, cardDb, open) : undefined)
+  // The starting position shows the whole table; after that, the side in play.
+  const focus = cam === 'free' ? 'free' : cam === 'follow' && position > from ? stepFocus(entry.state, step, entry.events) : 'all'
+  const board = (big: boolean) => (
+    <Board2D
+      view={buildBoardView(entry.state, cardDb, open)}
+      events={entry.events}
+      focus={focus}
+      still={!big}
+      onCameraMove={() => big && setCam('free')}
+      onCardClick={(iid) => face(iid)?.visible && setInspected(iid)}
+    />
+  )
   const go = (to: number) => {
     setPlaying(false)
     setAt(to)
@@ -96,6 +123,16 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
       </button>
       <button type="button" className="btn px-1.5" disabled={position >= last} onClick={() => go(position + 1)} aria-label="Step forward">
         <ChevronRight size={14} />
+      </button>
+      <button
+        type="button"
+        className={`btn px-1.5 ${cam === 'follow' ? 'border-gold text-gold' : ''}`}
+        aria-pressed={cam === 'follow'}
+        onClick={() => setCam(cam === 'follow' ? 'all' : 'follow')}
+        title={cam === 'follow' ? 'Following the play: show the whole table' : 'Follow the play'}
+        aria-label="Focus"
+      >
+        <Focus size={14} />
       </button>
       <span className="shrink-0 whitespace-nowrap tabular-nums text-muted">
         {position - from} / {last - from}
@@ -135,26 +172,27 @@ export function Demo({ demo, live = false }: { demo: DemoRef; live?: boolean }) 
         {caption}
         {controls}
       </div>
-      {full && (
-        <dialog
-          ref={dialog}
-          aria-label={demo.title}
-          onClose={() => setFull(false)}
-          className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none flex-col bg-bg p-0 text-ink"
-          data-testid="demo-full"
-        >
-          <div className="flex items-center gap-2 border-b border-line px-4 py-2">
-            <h2 className="min-w-0 flex-1 truncate font-display font-semibold">{demo.title}</h2>
-            <button type="button" className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink" aria-label="Close" onClick={() => dialog.current?.close()}>
-              <X size={16} />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">{board(true)}</div>
-          <div className="space-y-2 border-t border-line px-4 pb-[max(0.75rem,var(--safe-bottom))] pt-3">
-            {caption}
-            {controls}
-          </div>
-        </dialog>
+      {/* Over the page, not inside the chat's panel: a panel's backdrop filter would hold a fixed element in. */}
+      {full &&
+        createPortal(
+          <div role="dialog" aria-modal aria-label={demo.title} className="fixed inset-0 z-40 flex flex-col bg-bg text-ink" data-testid="demo-full">
+            <div className="flex items-center gap-2 border-b border-line px-4 py-2">
+              <h2 className="min-w-0 flex-1 truncate font-display font-semibold">{demo.title}</h2>
+              <button type="button" className="rounded p-1.5 text-muted hover:bg-raised hover:text-ink" aria-label="Close" onClick={() => setFull(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">{board(true)}</div>
+            <div className="space-y-2 border-t border-line px-4 pb-[max(0.75rem,var(--safe-bottom))] pt-3">
+              {caption}
+              {controls}
+            </div>
+          </div>,
+          document.body,
+        )}
+      {createPortal(
+        <CardInspector card={inspected === undefined ? undefined : face(inspected)} materialsOf={(c) => (entry.state.cards[c.iid]?.materials ?? []).flatMap((m) => face(m) ?? [])} onClose={() => setInspected(undefined)} />,
+        document.body,
       )}
     </div>
   )

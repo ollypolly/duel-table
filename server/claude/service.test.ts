@@ -359,7 +359,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       return { events: run(), interrupt: async () => {} }
     }
     const { sessions, games, claude } = setup(lessonAgent)
-    const v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Teach me Goblindbergh', seed: 1 })
+    const v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Teach me Goblindbergh', brief: 'They keep bricking on turn one.', seed: 1 })
     // A lesson prompt is answered once the steps before it have shown.
     const shown = async () => {
       while (sessions.get(v.id).lesson.queued) await new Promise((r) => setTimeout(r, 20))
@@ -375,6 +375,9 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     ])
     expect(sessions.get(v.id).game?.claude?.plan).toEqual({ points: ['Summoning it', 'What it brings out'], now: 2 })
     expect(requests[0].message).toContain('The person says: Teach me Goblindbergh')
+    // Set up from a chat on the home page, what was said there comes along.
+    expect(requests[0].message).toContain('What that chat passed on to you: They keep bricking on turn one.')
+    expect(sessions.get(v.id).game!.claude!.chat[0]).toMatchObject({ from: 'note', text: 'Carried over from your chat with Claude: They keep bricking on turn one.' })
     expect(results[0]).toMatch(/^Set up\./)
     expect(results[0]).toContain('For p1')
     expect(results[1]).toMatch(/^Wait:/)

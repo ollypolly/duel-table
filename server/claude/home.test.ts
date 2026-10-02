@@ -100,10 +100,18 @@ describe('Claude on the home page', () => {
     expect(sessions.list().map((s) => s.id)).not.toContain(shown.session)
     expect(table!()).toContain('Hand')
 
+    // A free-play table is yours, so it is listed; it opens from the chat.
+    const { startFreePlay } = requests[0].tools
+    expect(startFreePlay!({ deck: 'nope' })).toMatch(/No deck/)
+    expect(startFreePlay!({ deck: 'super-quant' })).toMatch(/^Started/)
+    const opened = home.view(id).chat.at(-1)!.open!
+    expect(sessions.list().map((s) => [s.id, s.kind])).toEqual([[opened.session, 'board']])
+    sessions.remove(opened.session)
+
     const question = Number(/Question (\d+)/.exec(first)![1])
     expect(await answer!(question + 1, [0])).toMatch(/isn't open/)
     expect(await answer!(question, [0], false, 'The first move.')).not.toMatch(/Not accepted/)
-    expect(Object.values(home.view(id).chat.at(-1)!.demo!.captions ?? {})).toEqual(['The first move.'])
+    expect(Object.values(home.view(id).chat.findLast((e) => e.demo)!.demo!.captions ?? {})).toEqual(['The first move.'])
 
     await home.remove(id)
     expect(sessions.has(shown.session)).toBe(false)
