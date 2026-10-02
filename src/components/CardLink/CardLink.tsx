@@ -1,17 +1,28 @@
 // Card names in narration, lesson questions and Claude's chat: hover one for
-// its text, click it for the full-screen inspector.
+// its text, click it for the full-screen inspector. In Claude's chat a deck's
+// name or id is a link too, which opens the deck hub on it.
 import * as Tooltip from '@radix-ui/react-tooltip'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { CardData } from '../../data/cardDb'
 import { cardDb } from '../../data/cards'
 import { useUiStore } from '../../store/uiStore'
 import { catalogFace } from '../../view/boardView'
-import { CARD_HREF, cardNames } from '../../view/cardLinks'
+import { rawDecks } from '../../scenarios/load'
+import { CARD_HREF, DECK_HREF, cardNames, deckNames } from '../../view/cardLinks'
 import { CardInspector } from '../CardInspector/CardInspector'
 
 const names = cardNames(cardDb)
+const decks = deckNames(Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id })))
+
+function DeckLink({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <button type="button" className="cursor-pointer font-[inherit] text-gold underline decoration-gold/40 underline-offset-2 hover:decoration-gold" title="Open this deck" onClick={() => useUiStore.getState().openDecks(id)}>
+      {children}
+    </button>
+  )
+}
 
 export function CardLink({ card, children }: { card: CardData; children: string }) {
   const stars = card.level ?? card.rank
@@ -64,18 +75,24 @@ const components: ComponentProps<typeof Markdown>['components'] = {
   a: ({ href, children }) => {
     const card = href?.startsWith(CARD_HREF) ? cardDb.byId(Number(href.slice(CARD_HREF.length))) : undefined
     if (card) return <CardLink card={card}>{card.name}</CardLink>
+    if (href?.startsWith(DECK_HREF)) return <DeckLink id={href.slice(DECK_HREF.length)}>{children}</DeckLink>
     return (
       <a href={href} target="_blank" rel="noreferrer">
         {children}
       </a>
     )
   },
+  // Claude writes a deck's id as code: that links too.
+  code: ({ children, className }) => {
+    const id = typeof children === 'string' && !className ? decks.id(children) : undefined
+    return id ? <DeckLink id={id}>{children}</DeckLink> : <code className={className}>{children}</code>
+  },
 }
 
 // Markdown with its card names linked.
 export function CardMarkdown({ children }: { children: string }) {
   return (
-    <Markdown remarkPlugins={[remarkGfm, names.remark]} components={components}>
+    <Markdown remarkPlugins={[remarkGfm, names.remark, decks.remark]} components={components}>
       {children}
     </Markdown>
   )

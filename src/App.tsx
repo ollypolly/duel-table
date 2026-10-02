@@ -4,7 +4,7 @@ import { Layers, Plus, Settings } from "lucide-react";
 import { SettingsDialog } from "./components/Settings/SettingsDialog";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
-import { deckFromUrl } from "./hooks/urlSync";
+import { useUiStore } from "./store/uiStore";
 import { Menu } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
 import { NewGameDialog } from "./components/Game/NewGameDialog";
@@ -34,7 +34,7 @@ export default function App() {
   // Whether there's a Claude login, rechecked when you come home.
   const [claudeOn, setClaudeOn] = useState(false);
   // Reopens after a deck save reloads the page.
-  const [deckHubOpen, setDeckHubOpen] = useState(() => deckFromUrl() !== undefined);
+  const { decks: deckHub, openDecks, closeDecks } = useUiStore();
   const { scenarios, branches, branchIds } = useScenarios();
   const { add, appendStep, undo } = useBranchStore();
   const all = [...scenarios, ...branches];
@@ -99,7 +99,7 @@ export default function App() {
         </button>
       )}
       {liveSessions && (
-        <button type="button" className="btn flex shrink-0 items-center gap-1" title="Decks" onClick={() => setDeckHubOpen(true)}>
+        <button type="button" className="btn flex shrink-0 items-center gap-1" title="Decks" onClick={() => openDecks()}>
           <Layers size={14} aria-hidden />
           <span className="max-sm:sr-only">Decks</span>
         </button>
@@ -111,9 +111,10 @@ export default function App() {
         <ImportBranch takenIds={all.map(resultId)} onImported={() => setSettingsOpen(false)} />
       </SettingsDialog>
       <DeckHub
-        open={deckHubOpen}
-        initial={deckFromUrl()}
-        onClose={() => setDeckHubOpen(false)}
+        key={deckHub?.deck}
+        open={!!deckHub}
+        initial={deckHub?.deck}
+        onClose={closeDecks}
         onPlay={(deck) => {
           setNewGameDeck(deck);
           setNewGameOpen(true);

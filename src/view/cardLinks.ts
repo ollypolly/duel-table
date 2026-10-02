@@ -1,6 +1,7 @@
 // Card names in text (narration, Claude's chat, lesson questions) become links
 // to the card. Names match whole and exactly as printed, longest first, so
-// "Dark Magician Girl" wins over "Dark Magician".
+// "Dark Magician Girl" wins over "Dark Magician". Your decks are linked the
+// same way, by name or id, wherever the words aren't a card's.
 import type { Root } from 'mdast'
 import { findAndReplace } from 'mdast-util-find-and-replace'
 import type { CardData, CardDb } from '../data/cardDb'
@@ -36,4 +37,19 @@ export function cardNames(db: CardDb) {
     })
 
   return { split, remark }
+}
+
+export const DECK_HREF = '#deck-'
+
+// Deck names and ids in text become links to DECK_HREF + the deck's id. Run
+// after the cards' plugin, so a card's name is never read as a deck's.
+export function deckNames(decks: { id: string; name: string }[]) {
+  const byText = new Map(decks.flatMap((d) => [[d.id, d.id], [d.name, d.id]] as const).filter(([text]) => text.length >= 4))
+  const texts = [...byText.keys()].sort((a, b) => b.length - a.length)
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}-])(?:${texts.map(escape).join('|')})(?![\\p{L}\\p{N}-])`, 'gu')
+  const remark = () => (tree: Root) =>
+    texts.length
+      ? findAndReplace(tree, [pattern, (text: string) => ({ type: 'link', url: `${DECK_HREF}${byText.get(text)!}`, children: [{ type: 'text', value: text }] })], { ignore: ['link', 'linkReference', 'inlineCode', 'code'] })
+      : undefined
+  return { remark, id: (text: string) => byText.get(text) }
 }
