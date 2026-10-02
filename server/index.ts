@@ -107,6 +107,8 @@ const review: ReviewService = new ReviewService({
   system: () => prompt('review'),
   played: (id) => service.played(id),
   store: diskClaudeStore<ReviewRecord>(join(ROOT, 'sessions', 'review')),
+  rules: () => prompt('rules'),
+  findCards,
 })
 
 const notesOn = (deck: string) => (existsSync(join(ROOT, 'sessions', 'notes', `${deck}.md`)) ? readFileSync(join(ROOT, 'sessions', 'notes', `${deck}.md`), 'utf8') : '')

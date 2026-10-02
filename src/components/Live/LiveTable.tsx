@@ -234,19 +234,34 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const away = strayed || (!!lesson && !session?.review && position < live && lesson.cursor.position < live && lesson.cursor.from === undefined)
   const backToLive = () => goTo(live)
 
+  // A review of a finished game takes the chat over, with the game's chat above it.
+  const review = session?.review
+  // In a review Claude moves you to a step itself, and marks up the table there.
+  // Not a move made before the page loaded: you open a review where you left the game.
+  const went = review?.go
+  const lastGo = useRef<number>(undefined)
+  const loaded = !!session
+  useEffect(() => {
+    if (!loaded) return
+    const first = lastGo.current === undefined
+    if (went?.n === lastGo.current) return
+    lastGo.current = went?.n ?? 0
+    if (went && !first) goTo(went.step)
+  }, [loaded, went, goTo])
+  const marked = review ? review.marks : game?.claude
+  const markedAt = review ? (review.marks?.step ?? -1) : Math.min(lesson?.cursor.position ?? live, live)
+
   // Cards Claude lifted off the table to show, until closed. Not while you've gone off to look at another step.
-  const spot = game?.claude?.spotlight
+  const spot = review ? review.spotlight : game?.claude?.spotlight
   const [closedSpot, setClosedSpot] = useState<number>()
   const closeSpot = useCallback(() => setClosedSpot(spot?.n), [spot?.n])
   const spotlight = (() => {
-    if (!spot || spot.n === closedSpot || strayed || !result?.ok) return null
-    const { state } = result.scenario.timeline.at(-1)!
+    const off = review?.spotlight ? position !== review.spotlight.step : strayed
+    if (!spot || spot.n === closedSpot || off || !result?.ok) return null
+    const { state } = (review?.spotlight && result.scenario.timeline[review.spotlight.step]) || result.scenario.timeline.at(-1)!
     const cards = spot.cards.flatMap((iid) => (state.cards[iid] ? [{ ...cardFace(state, iid, cardDb, true), visible: true }] : []))
-    return cards.length ? <Spotlight key={spot.n} cards={cards} say={spot.say} phrases={spot.phrases} keep={spot.keep} onClose={closeSpot} /> : null
+    return cards.length ? <Spotlight key={spot.n} cards={cards} say={spot.say} phrases={spot.phrases} keep={'keep' in spot && spot.keep} onClose={closeSpot} /> : null
   })()
-
-  // A review of a finished game takes the chat over, with the game's chat above it.
-  const review = session?.review
   const steps = result?.ok ? result.scenario.game.steps.length : 0
   // Going to a moment Claude marked shows the table just before the move,
   // and has Claude take you through it, or goes back to where it already did.
@@ -390,8 +405,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       <>
       {spotlight}
       <Table
-        scenario={pointed(result.scenario, game?.claude ?? {}, Math.min(lesson?.cursor.position ?? live, live))}
-        circled={strayed ? undefined : game?.claude?.zones}
+        scenario={pointed(result.scenario, marked ?? {}, markedAt)}
+        circled={(review ? position !== markedAt : strayed) ? undefined : marked?.zones}
         nav={liveNav}
         chat={
           reviewChat ||

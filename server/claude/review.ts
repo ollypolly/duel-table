@@ -10,12 +10,13 @@
 // restart.
 import { stamp, type ChatEntry, type ModelChoice } from '../../src/api/game'
 import { reviewable, type Moment, type ReviewView } from '../../src/api/review'
-import type { CardDb } from '../../src/data/cardDb'
-import type { BoardState } from '../../src/engine'
+import type { CardData, CardDb } from '../../src/data/cardDb'
+import { PLAYERS, type BoardState, type Iid } from '../../src/engine'
+import { cardFace } from '../../src/view/boardView'
 import { SessionError, type SessionService } from '../sessions'
-import type { Agent, AgentRun } from './agent'
+import type { Agent, AgentRun, DuelTools } from './agent'
 import { memoryClaudeStore, type ClaudeRecord, type RecordStore } from './service'
-import { cardText, describeTable, knownCards } from './view'
+import { cardText, describeTable, knownCards, rulesTopic, searchCards } from './view'
 
 export type ReviewRecord = {
   open: boolean // shown in place of the game's chat
@@ -39,6 +40,10 @@ type Review = ReviewRecord & {
   status: ReviewView['status']
   queue: Asked[]
   position: number
+  // What Claude is showing on their screen, until the next thing they ask.
+  go?: ReviewView['go']
+  marks?: ReviewView['marks']
+  spotlight?: ReviewView['spotlight']
   run?: AgentRun
   busy: boolean
   scanning?: boolean
@@ -53,6 +58,8 @@ export type ReviewDeps = {
   // The side Claude played and the game's chat, when Claude played or ran a lesson.
   played?: (id: string) => Pick<ClaudeRecord, 'player' | 'chat' | 'watch' | 'flags'> | undefined
   store?: RecordStore<ReviewRecord>
+  rules?: () => string
+  findCards?: (query: string) => Promise<CardData[]> // by name, among every card printed
 }
 
 const fresh = (model: ModelChoice = 'opus'): ReviewRecord => ({ open: true, model, chat: [], costUsd: 0, read: 0, heard: 0, moments: [], scanned: false })
@@ -86,9 +93,11 @@ export class ReviewService {
   private system: () => string
   private played: NonNullable<ReviewDeps['played']>
   private store: RecordStore<ReviewRecord>
+  private extras: Pick<ReviewDeps, 'rules' | 'findCards'>
 
-  constructor({ sessions, db, agent, system, played = () => undefined, store = memoryClaudeStore<ReviewRecord>() }: ReviewDeps) {
+  constructor({ sessions, db, agent, system, played = () => undefined, store = memoryClaudeStore<ReviewRecord>(), rules, findCards }: ReviewDeps) {
     this.sessions = sessions
+    this.extras = { rules, findCards }
     this.played = played
     this.db = db
     this.agent = agent
@@ -192,8 +201,8 @@ export class ReviewService {
     while (this.find(id)?.busy) await new Promise((res) => setTimeout(res, 5))
   }
 
-  private view({ model, status, chat, costUsd, moments, scanned }: Review): ReviewView {
-    return { model, status, chat: stamp(chat), costUsd, moments, scanned }
+  private view({ model, status, chat, costUsd, moments, scanned, go, marks, spotlight }: Review): ReviewView {
+    return { model, status, chat: stamp(chat), costUsd, moments, scanned, ...(go && { go }), ...(marks && { marks }), ...(spotlight && { spotlight }) }
   }
 
   // Claude's first look, unless it's had one or is having it.
@@ -234,6 +243,7 @@ export class ReviewService {
         const asked = r.queue.splice(0, n === 0 ? 1 : n < 0 ? r.queue.length : n)
         const first = asked[0]
         r.position = asked.at(-1)!.position
+        r.go = r.marks = r.spotlight = undefined
         if ('scan' in first) {
           r.scanning = true
           r.moments = []
@@ -325,6 +335,9 @@ export class ReviewService {
         card: (name) => cardText(this.db(), name),
         tableAt: (step) => describeTable(this.sessions.stateAt(id, step), 'p1', this.db(), true),
         mark: (m) => this.mark(id, r, m),
+        searchCards: (query) => searchCards(this.db(), query, this.extras.findCards),
+        ...(this.extras.rules && { rules: (topic) => rulesTopic(this.extras.rules!(), topic) }),
+        ...this.showTools(id, r),
       },
     })
     r.run = run
@@ -347,6 +360,61 @@ export class ReviewService {
       r.interrupted = false
     }
     return ok
+  }
+
+  // The cards by these names at the step they're on. The game's over, so
+  // either side's; out of the Decks unless piles is set.
+  private named(id: string, r: Review, names: string[], piles = false): Iid[] {
+    const want = new Set(names.map((c) => this.db().byName(c)?.name ?? c))
+    const s = this.state(id, r)
+    const piled = new Set(PLAYERS.flatMap((p) => [...s.players[p].zones.deck, ...s.players[p].zones.extraDeck]))
+    const found = Object.keys(s.cards).filter((iid) => want.has(cardFace(s, iid, this.db(), true).name))
+    return piles ? found.sort((a, b) => Number(piled.has(a)) - Number(piled.has(b))) : found.filter((iid) => !piled.has(iid))
+  }
+
+  // Showing things on the person's screen: moving them to a step, marking up
+  // the table there, and lifting cards off it to read.
+  private showTools(id: string, r: Review): Pick<DuelTools, 'goTo' | 'point' | 'spotlight'> {
+    return {
+      goTo: (step) => {
+        const { steps } = this.sessions.get(id).file
+        if (step > steps.length) return `There are only ${steps.length} steps.`
+        r.position = step
+        r.go = { n: Date.now(), step }
+        r.marks = undefined
+        this.changed(id, r)
+        return `Their screen shows the table ${step ? `after step ${step} (${steps[step - 1].label ?? 'a move'})` : 'at the start'}.\n\n${[this.texts(this.state(id, r), r), describeTable(this.state(id, r), 'p1', this.db(), true)].filter(Boolean).join('\n\n')}`
+      },
+      point: (cards, arrows = [], zones = []) => {
+        if (!cards.length && !arrows.length && !zones.length) {
+          r.marks = undefined
+          this.changed(id, r)
+          return 'Cleared.'
+        }
+        // Calls add up until it's cleared, so marking up in several calls works.
+        const at = r.position ? `step ${r.position}` : 'the start'
+        const one = (name: string) => this.named(id, r, [name])[0]
+        const drawn = arrows.flatMap((a) => {
+          const [from, to] = [one(a.from), one(a.to)]
+          return from && to ? [{ from, to }] : []
+        })
+        const found = this.named(id, r, cards)
+        if (!found.length && !drawn.length && !zones.length) return `None of those are on the table at ${at}, which is what their screen shows. goTo the step you mean first.`
+        const m = r.marks ?? { step: r.position, point: [], arrows: [], zones: [] }
+        r.marks = { step: r.position, point: [...new Set([...m.point, ...found])], arrows: [...m.arrows, ...drawn], zones: [...m.zones, ...zones] }
+        this.changed(id, r)
+        const now = [r.marks.point.length && `${r.marks.point.length} card(s) highlighted`, r.marks.arrows.length && `${r.marks.arrows.length} arrow(s) drawn`, r.marks.zones.length && `${r.marks.zones.length} zone(s) circled`].filter(Boolean)
+        const lost = arrows.length - drawn.length
+        return `On their screen, at ${at}: ${now.join(', ')}.${lost ? ` ${lost} arrow(s) left out: a card at one end isn't on the table there.` : ''}`
+      },
+      spotlight: (cards, say, phrases) => {
+        const s = this.state(id, r)
+        const one = new Map(this.named(id, r, cards, true).reverse().map((iid) => [cardFace(s, iid, this.db(), true).name, iid]))
+        r.spotlight = one.size ? { n: Date.now(), step: r.position, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrases?.length && { phrases }) } : undefined
+        this.changed(id, r)
+        return !cards.length ? 'Cleared.' : one.size ? `Shown beside the table at ${r.position ? `step ${r.position}` : 'the start'}, where their screen is, for long enough to read. They can keep it open.` : "None of those are in this game."
+      },
+    }
   }
 
   private mark(id: string, r: Review, m: Moment): string {

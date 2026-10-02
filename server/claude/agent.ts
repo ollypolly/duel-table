@@ -47,6 +47,7 @@ export type DuelTools = {
   // Reviewing a finished game: the table after any step, and marking key moments.
   tableAt?(step: number): string
   mark?(moment: Moment): string
+  goTo?(step: number): string
   // The chat on the home page: the person's decks and games, and starting a game for them.
   decks?(id?: string): string
   games?(): string
@@ -102,7 +103,7 @@ const MAX_TURNS = 60
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
 export const sdkAgent: Agent = (req) => {
-  const { answer, setup, handOver, takeBack, ask, plan, tableAt, mark, deck, history, options, tryLine } = req.tools
+  const { answer, setup, handOver, takeBack, ask, plan, tableAt, mark, goTo, deck, history, options, tryLine } = req.tools
   const t = req.tools
   // The coach's other tools, each there only when the service gives it.
   const coach = [
@@ -297,6 +298,16 @@ export const sdkAgent: Agent = (req) => {
             ),
           ]
         : []),
+      ...(goTo
+        ? [
+            tool(
+              'goTo',
+              "Move the person's screen to the table after a step (0 for the start), and get that table. For when the point is at another step than the one they're on. What you point at and spotlight next lands there.",
+              { step: z.int().min(0) },
+              async ({ step }) => text(goTo(step)),
+            ),
+          ]
+        : []),
     ],
   })
   const q = query({
@@ -315,6 +326,7 @@ export const sdkAgent: Agent = (req) => {
         ...COACH.filter((n) => t[n]).map((n) => `mcp__duel__${n}`),
         ...(setup ? ['mcp__duel__setup', 'mcp__duel__handOver', 'mcp__duel__takeBack', 'mcp__duel__ask', 'mcp__duel__plan'] : []),
         ...(mark ? ['mcp__duel__tableAt', 'mcp__duel__mark'] : []),
+        ...(goTo ? ['mcp__duel__goTo'] : []),
       ],
       settingSources: [],
       // Only the duel's own tools: not the account's claude.ai connectors (Gmail and

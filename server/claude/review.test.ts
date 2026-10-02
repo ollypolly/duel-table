@@ -106,8 +106,27 @@ describe.skipIf(!hasData)('reviewing a game with Claude', () => {
     // The note and Claude's replies carry the moment, so the app can find them again.
     expect(sessions.get(id).review!.chat.filter((e) => e.moment === 4).map((e) => e.from)).toEqual(['note', 'claude'])
     expect(() => review.moment(id, 3)).toThrow(/didn't mark step 3/)
-    expect(sessions.get(id).review?.chat.map((e) => e.from)).toEqual(['claude', 'you', 'claude', 'you', 'claude', 'note', 'claude'])
-    expect(sessions.get(id).review?.costUsd).toBeCloseTo(0.08)
+
+    // Claude moves them to a step and shows things there, until they ask the next thing.
+    const t = requests[3].tools
+    expect(t.goTo!(99999)).toMatch(/^There are only/)
+    expect(t.goTo!(steps.length)).toContain(`after step ${steps.length}`)
+    const end = sessions.stateAt(id, steps.length)
+    const inGy = ctx().db.byId(end.cards[[...end.players.p1.zones.gy, ...end.players.p2.zones.gy][0]].cardId!)!.name
+    expect(t.point!([inGy, 'No Such Card'], [{ from: inGy, to: 'No Such Card' }], [{ player: 'p1', zone: 'monster', slot: 2 }])).toMatch(/card\(s\) highlighted, 1 zone\(s\) circled\. 1 arrow\(s\) left out/)
+    expect(t.spotlight!([inGy], 'Read this', ['once per turn'])).toMatch(/^Shown/)
+    expect(await t.searchCards!('Ojama')).toContain('Ojama')
+    expect(sessions.get(id).review).toMatchObject({
+      go: { step: steps.length },
+      marks: { step: steps.length, zones: [{ slot: 2 }] },
+      spotlight: { step: steps.length, say: 'Read this', phrases: ['once per turn'] },
+    })
+    review.chat(id, 'Thanks', 2)
+    await review.idle(id)
+    expect(sessions.get(id).review).not.toHaveProperty('marks')
+    expect(sessions.get(id).review).not.toHaveProperty('spotlight')
+    expect(sessions.get(id).review?.chat.map((e) => e.from)).toEqual(['claude', 'you', 'claude', 'you', 'claude', 'note', 'claude', 'you', 'claude'])
+    expect(sessions.get(id).review?.costUsd).toBeCloseTo(0.1)
   }, 60_000)
 
   it('closes and reopens with the chat kept, and starts over when cleared', async () => {
