@@ -11,23 +11,25 @@ import { CardArt } from '../CardDetail/CardDetail'
 // Long enough to read it all, at an easy pace.
 const readMs = (words: number) => Math.min(60_000, 8000 + words * 450)
 
-// The text with the phrase marked, whatever its case or spacing.
-function Marked({ text, phrase }: { text: string; phrase?: string }) {
-  const words = phrase?.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const at = words?.length ? new RegExp(words.join('\\s+'), 'i').exec(text) : null
-  if (!at) return text
-  return (
-    <>
-      {text.slice(0, at.index)}
-      <mark className="rounded-sm bg-gold/30 px-0.5 text-ink">{at[0]}</mark>
-      {text.slice(at.index + at[0].length)}
-    </>
+// The text with each phrase it has marked, whatever its case or spacing.
+function Marked({ text, phrases = [] }: { text: string; phrases?: string[] }) {
+  const each = phrases.map((p) => p.trim().split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+')).filter(Boolean)
+  if (!each.length) return text
+  // Split on a capture group: the odd pieces are the matches.
+  return text.split(new RegExp(`(${each.join('|')})`, 'i')).map((piece, i) =>
+    i % 2 ? (
+      <mark key={i} className="rounded-sm bg-gold/30 px-0.5 text-ink">
+        {piece}
+      </mark>
+    ) : (
+      piece
+    ),
   )
 }
 
 const textOf = (card: CardFace) => card.data?.desc ?? card.custom?.text ?? ''
 
-export function Spotlight({ cards, say, phrase, keep = false, onClose }: { cards: CardFace[]; say?: string; phrase?: string; keep?: boolean; onClose: () => void }) {
+export function Spotlight({ cards, say, phrases, keep = false, onClose }: { cards: CardFace[]; say?: string; phrases?: string[]; keep?: boolean; onClose: () => void }) {
   const [kept, setKept] = useState(keep)
   const [held, setHeld] = useState(false)
   useEffect(() => {
@@ -82,7 +84,7 @@ export function Spotlight({ cards, say, phrase, keep = false, onClose }: { cards
                 <h3 className="font-display text-sm font-bold leading-tight">{card.name}</h3>
                 {stats && <p className="text-[11px] text-muted">{stats}</p>}
                 <p className="whitespace-pre-line text-xs leading-snug text-ink/90">
-                  <Marked text={textOf(card)} phrase={phrase} />
+                  <Marked text={textOf(card)} phrases={phrases} />
                 </p>
               </div>
             </article>

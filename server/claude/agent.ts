@@ -5,9 +5,9 @@ import { createSdkMcpServer, query, tool, type SDKMessage } from '@anthropic-ai/
 import { z } from 'zod'
 import type { ModelChoice } from '../../src/api/game'
 import { MomentSchema, type Moment } from '../../src/api/review'
-import type { Player } from '../../src/engine'
+import type { Player, ZoneRef } from '../../src/engine'
 import { BoardSchema, type Board } from './board'
-import { PlayerSchema, SetupSchema, type Setup } from '../../src/scenarios/schema'
+import { PlayerSchema, SetupSchema, ZoneRefSchema, type Setup } from '../../src/scenarios/schema'
 import type { Handover } from './service'
 
 export const MODELS: Record<ModelChoice, string> = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5', haiku: 'claude-haiku-4-5-20251001' }
@@ -30,8 +30,9 @@ export type DuelTools = {
   odds?(cards: string[], draws?: number, from?: 'deck' | 'opening', deck?: string): string
   searchCards?(query: string): Promise<string>
   rules?(topic?: string): string
-  point?(cards: string[]): string
-  spotlight?(cards: string[], say?: string, phrase?: string): string
+  point?(cards: string[], arrows?: { from: string; to: string }[], zones?: ZoneRef[]): string
+  lookBack?(step?: number): string
+  spotlight?(cards: string[], say?: string, phrases?: string[]): string
   offerTakeBack?(why: string): string
   flag?(kind: Moment['kind'], title: string): string
   note?(text: string): string
@@ -120,7 +121,24 @@ export const sdkAgent: Agent = (req) => {
       ),
     t.searchCards && tool('searchCards', "Find cards by words in their name or text among the cards this app has, or by name among every card printed when it has none.", { query: z.string() }, async (i) => text(await t.searchCards!(i.query))),
     t.rules && tool('rules', 'A short rules reference: with no topic, the list of topics; with one, that section.', { topic: z.string().optional() }, async (i) => text(t.rules!(i.topic))),
-    t.point && tool('point', "Highlight cards on the person's screen by name while you explain (only ones they can see). An empty list clears it.", { cards: z.array(z.string()) }, async (i) => text(t.point!(i.cards))),
+    t.point &&
+      tool(
+        'point',
+        "Mark up the table on the person's screen while you explain: highlight cards, draw arrows from one card to another (what attacks, targets or tributes what), and circle zones (where a card will go, the zone a Link arrow points to). Only cards they can see. Calls add up; with nothing, it clears. It all goes when they next answer or write.",
+        {
+          cards: z.array(z.string()).default([]).describe('Cards to highlight, by name'),
+          arrows: z.array(z.object({ from: z.string(), to: z.string() })).max(4).optional().describe('Card names: an arrow from one to the other'),
+          zones: z.array(ZoneRefSchema).max(6).optional().describe('Zones to circle: { player, zone, slot } (slots 0 to 4, in the order setup places them; extraMonster takes slot 0 or 1 and no player)'),
+        },
+        async (i) => text(t.point!(i.cards, i.arrows, i.zones)),
+      ),
+    t.lookBack &&
+      tool(
+        'lookBack',
+        "Move the person's view back to the table as it was after an earlier step, to talk about a moment that has passed (\"this is where you could have chained\"). With no step, lists the steps and their numbers. Then point at what you mean. Their view returns to the present when they answer or play on.",
+        { step: z.int().min(0).optional().describe('From the list; 0 is the starting position') },
+        async (i) => text(t.lookBack!(i.step)),
+      ),
     t.spotlight &&
       tool(
         'spotlight',
@@ -128,9 +146,9 @@ export const sdkAgent: Agent = (req) => {
         {
           cards: z.array(z.string()).max(3).describe('By name: cards on the table, in a hand, GY or banished'),
           say: z.string().optional().describe('One or two short lines, shown with the cards'),
-          phrase: z.string().optional().describe("The few words of a card's text that matter, exactly as printed: they are marked on the card"),
+          phrases: z.array(z.string()).max(4).optional().describe("The few words of the cards' text that matter, exactly as printed: each is marked on whichever card has it, so two cards can be compared (\"If this card is\" on one, \"When this card is\" on the other)"),
         },
-        async (i) => text(t.spotlight!(i.cards, i.say, i.phrase)),
+        async (i) => text(t.spotlight!(i.cards, i.say, i.phrases)),
       ),
     t.offerTakeBack && tool('offerTakeBack', 'Suggest the person takes back their last move, with a one-line reason. They decide.', { why: z.string() }, async (i) => text(t.offerTakeBack!(i.why))),
     t.flag && tool('flag', 'Flag what just happened as a moment to come back to in the review after the game.', { kind: z.enum(['blunder', 'mistake', 'missed', 'good']), title: z.string().describe('One short line') }, async (i) => text(t.flag!(i.kind, i.title))),
@@ -165,7 +183,7 @@ export const sdkAgent: Agent = (req) => {
     t.startFreePlay &&
       tool('startFreePlay', 'Open a free-play table for the person: both decks on a board with no rules enforced, to move cards by hand and try things out. They get a button in the chat to open it. Only when they ask for one.', StartFreePlaySchema.shape, async (i) => text(t.startFreePlay!(i))),
   ].filter((x) => !!x)
-  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'spotlight', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame', 'startLesson', 'startFreePlay'] as const
+  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'lookBack', 'spotlight', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame', 'startLesson', 'startFreePlay'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',

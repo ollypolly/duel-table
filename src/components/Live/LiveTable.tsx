@@ -31,10 +31,13 @@ import { MOMENT } from './moment'
 import { Moments } from './Moments'
 
 // The scenario with the cards Claude is pointing at highlighted on the latest table.
-function pointed<S extends { timeline: { state: { highlights: string[] } }[] }>(scenario: S, point?: string[]): S {
-  if (!point?.length) return scenario
-  const last = scenario.timeline.at(-1)!
-  return { ...scenario, timeline: [...scenario.timeline.slice(0, -1), { ...last, state: { ...last.state, highlights: [...new Set([...last.state.highlights, ...point])] } }] }
+// at: the step it's showing them, which is the latest unless it moved their view back.
+type Marks = { point?: string[]; arrows?: { from: string; to: string }[] }
+function pointed<S extends { timeline: { state: { highlights: string[]; arrows: { from: string; to: string }[] } }[] }>(scenario: S, { point = [], arrows = [] }: Marks, at: number): S {
+  const entry = scenario.timeline[at]
+  if (!entry || !(point.length || arrows.length)) return scenario
+  const state = { ...entry.state, highlights: [...new Set([...entry.state.highlights, ...point])], arrows: [...entry.state.arrows, ...arrows] }
+  return { ...scenario, timeline: scenario.timeline.with(at, { ...entry, state }) }
 }
 
 export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
@@ -224,19 +227,22 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
 
   const lesson = session?.lesson
   // Inside a replay's range counts as following it.
-  const away =
+  const strayed =
     !!lesson && position !== lesson.cursor.position && !(lesson.cursor.from !== undefined && position >= lesson.cursor.from && position < lesson.cursor.position)
-  const backToLive = () => lesson && goTo(lesson.cursor.position)
+  // Claude can move your view back to an earlier step: that's not where the game is either.
+  const live = result?.ok ? result.scenario.timeline.length - 1 : 0
+  const away = strayed || (!!lesson && !session?.review && position < live && lesson.cursor.position < live && lesson.cursor.from === undefined)
+  const backToLive = () => goTo(live)
 
-  // Cards Claude lifted off the table to show, until closed. Not while you're looking back.
+  // Cards Claude lifted off the table to show, until closed. Not while you've gone off to look at another step.
   const spot = game?.claude?.spotlight
   const [closedSpot, setClosedSpot] = useState<number>()
   const closeSpot = useCallback(() => setClosedSpot(spot?.n), [spot?.n])
   const spotlight = (() => {
-    if (!spot || spot.n === closedSpot || away || !result?.ok) return null
+    if (!spot || spot.n === closedSpot || strayed || !result?.ok) return null
     const { state } = result.scenario.timeline.at(-1)!
     const cards = spot.cards.flatMap((iid) => (state.cards[iid] ? [{ ...cardFace(state, iid, cardDb, true), visible: true }] : []))
-    return cards.length ? <Spotlight key={spot.n} cards={cards} say={spot.say} phrase={spot.phrase} keep={spot.keep} onClose={closeSpot} /> : null
+    return cards.length ? <Spotlight key={spot.n} cards={cards} say={spot.say} phrases={spot.phrases} keep={spot.keep} onClose={closeSpot} /> : null
   })()
 
   // A review of a finished game takes the chat over, with the game's chat above it.
@@ -384,7 +390,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
       <>
       {spotlight}
       <Table
-        scenario={pointed(result.scenario, game?.claude?.point)}
+        scenario={pointed(result.scenario, game?.claude ?? {}, Math.min(lesson?.cursor.position ?? live, live))}
+        circled={strayed ? undefined : game?.claude?.zones}
         nav={liveNav}
         chat={
           reviewChat ||

@@ -107,6 +107,7 @@ type TableProps = {
   onChoose?: (iid: Iid) => boolean
   // And zones, when zones are the question: lit, and a click picks one.
   choosableZones?: { ref: ZoneRef; picked: boolean }[]
+  circled?: ZoneRef[] // zones Claude has circled
   onChooseZone?: (ref: ZoneRef) => void
   cardActions?: (iid: Iid, close: () => void) => ReactNode
   draggable?: Iid[]
@@ -136,6 +137,7 @@ export function Table({
   choosable,
   onChoose,
   choosableZones,
+  circled,
   onChooseZone,
   cardActions,
   draggable,
@@ -256,6 +258,7 @@ export function Table({
           selected={freePlay ? selected : undefined}
           choosable={choosable}
           choosableZones={freePlay ? undefined : choosableZones}
+          circled={circled}
           focus={focus}
           insetLeft={panelOpen ? SCENE_PANEL_PX : 0}
           pinnedHand={pinHand}

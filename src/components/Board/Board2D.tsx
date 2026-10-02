@@ -41,6 +41,7 @@ export function Board2D({
   onCardDrop,
   onZoneClick,
   choosableZones = [],
+  circled = [],
   boxSelect = false,
   multi = [],
   onMultiSelect,
@@ -191,7 +192,7 @@ export function Board2D({
             {PLAYERS.map((p) => cosmetics(p).playmat && <Playmat key={p} player={p} src={cosmetics(p).playmat!} />)}
             <div className="pointer-events-none absolute inset-x-[4%] top-1/2 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
             {view.zones.map((z) => (
-              <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`) || !!zoneChoice(z.ref)} picked={zoneChoice(z.ref)?.picked} onClick={() => onZoneClick?.(z.ref)} />
+              <ZoneOutline key={z.key} zone={z} placing={!!selected} lit={litPiles.has(`${z.ref.player}:${z.ref.zone}`) || !!zoneChoice(z.ref)} picked={zoneChoice(z.ref)?.picked} circled={circled.some((r) => r.zone === z.ref.zone && r.player === z.ref.player && (r.slot ?? 0) === (z.ref.slot ?? 0))} onClick={() => onZoneClick?.(z.ref)} />
             ))}
             {PLAYERS.map(
               (p) =>
@@ -296,7 +297,7 @@ function Playmat({ player, src }: { player: Player; src: string }) {
 
 // Piles (Deck, GY…) sit above their top card so the whole stack is the click
 // target, and light up with a "View" chip on hover.
-function ZoneOutline({ zone, placing, lit, picked, onClick }: { zone: ZoneView; placing: boolean; lit: boolean; picked?: boolean; onClick: () => void }) {
+function ZoneOutline({ zone, placing, lit, picked, circled, onClick }: { zone: ZoneView; placing: boolean; lit: boolean; picked?: boolean; circled?: boolean; onClick: () => void }) {
   const pile = zone.kind === 'pile'
   const { setNodeRef, isOver, active } = useDroppable({ id: zone.key })
   return (
@@ -307,7 +308,7 @@ function ZoneOutline({ zone, placing, lit, picked, onClick }: { zone: ZoneView; 
       aria-label={`${zone.ref.player ?? ''} ${zone.label}${pile ? ` (${zone.count})` : ''}`}
       className={`zone group absolute cursor-pointer rounded-[6%] border transition-[background-color,border-color,box-shadow] ${
         zone.ref.zone === 'extraMonster' ? 'border-gold/40 text-gold/50' : zone.ref.player === 'p2' ? 'border-p2/25 text-p2/40' : 'border-p1/25 text-p1/40'
-      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''} ${picked ? 'border-gold bg-gold/25 text-gold shadow-[0_0_1.4cqw_var(--color-gold)]' : lit ? 'border-accent shadow-[0_0_1.2cqw_var(--color-accent)]' : ''} ${
+      } ${pile ? 'z-[25] hover:border-gold hover:shadow-[0_0_1.2cqw_var(--color-gold)]' : ''} ${pile && zone.count > 0 ? 'bg-transparent hover:bg-bg/40' : ''} ${picked ? 'border-gold bg-gold/25 text-gold shadow-[0_0_1.4cqw_var(--color-gold)]' : lit ? 'border-accent shadow-[0_0_1.2cqw_var(--color-accent)]' : circled ? 'animate-pulse border-gold outline outline-[0.25cqw] outline-offset-[0.3cqw] outline-gold' : ''} ${
         isOver ? 'border-gold bg-gold/15 shadow-[0_0_1.2cqw_var(--color-gold)]' : active ? 'border-dashed' : ''
       }`}
       style={box(zone.placement)}

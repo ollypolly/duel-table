@@ -78,13 +78,15 @@ export const ClaudeViewSchema = z.object({
   watch: z.boolean().optional().describe("Claude isn't playing: it sits on player's side as their coach, in a game against a bot"),
   knowsDeck: z.boolean().optional().describe("For that coach: it can look at the bot's decklist"),
   point: z.array(z.string()).optional().describe('Cards (iids) Claude is pointing at, to highlight'),
+  arrows: z.array(z.object({ from: z.string(), to: z.string() })).optional().describe('Arrows (iids) it has drawn between cards'),
+  zones: z.array(ZoneRefSchema).optional().describe('Zones it has circled'),
   spotlight: z
     .object({
       n: z.int().describe('When it was shown, so the same cards can be shown again'),
       cards: z.array(z.string()).describe('iids'),
       say: z.string().optional().describe("Claude's line with them"),
       keep: z.boolean().optional().describe("They go with an open question, so they stay rather than timing out"),
-      phrase: z.string().optional().describe('The words of their text it is about, to mark'),
+      phrases: z.array(z.string()).optional().describe("Words of the cards' text to mark"),
     })
     .optional()
     .describe('Cards Claude has lifted off the table to show big, until you close it or the game moves on'),

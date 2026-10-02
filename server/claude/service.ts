@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { stamp, type ChatEntry, type ClaudeSettings, type ClaudeView, type GamePrompt, type ModelChoice } from '../../src/api/game'
 import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
-import { PLAYERS, type BoardState, type Iid, type Player } from '../../src/engine'
+import { PLAYERS, type BoardState, type Iid, type Player, type ZoneRef } from '../../src/engine'
 import type { GameService, Trial } from '../games'
 import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
@@ -35,7 +35,10 @@ export type ClaudeRecord = {
   watch?: boolean
   knowsDeck?: boolean
   point?: string[] // cards Claude is pointing at on the person's screen
-  spotlight?: { n: number; at: number; cards: string[]; say?: string; phrase?: string; keep?: boolean } // cards it has lifted off the table to show big, at this many steps (keep: with a question, so they stay)
+  arrows?: { from: string; to: string }[] // and arrows it has drawn between cards
+  zones?: ZoneRef[] // and zones it has circled
+  back?: boolean // it moved their view back to an earlier step, until the next message
+  spotlight?: { n: number; at: number; cards: string[]; say?: string; phrases?: string[]; keep?: boolean } // cards it has lifted off the table to show big, at this many steps (keep: with a question, so they stay)
   flags?: Moment[] // moments the coach flagged for the review
   model: ModelChoice
   coach: boolean
@@ -217,7 +220,9 @@ export class ClaudeService {
           player: s.player,
           ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true }),
           ...(s.point?.length && { point: s.point }),
-          ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrase: s.spotlight.phrase, keep: s.spotlight.keep } }),
+          ...(s.arrows?.length && { arrows: s.arrows }),
+          ...(s.zones?.length && { zones: s.zones }),
+          ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrases: s.spotlight.phrases, keep: s.spotlight.keep } }),
           ...(s.lesson?.handed.some((h) => h.goal) && { goal: s.lesson.handed.find((h) => h.goal)!.goal }),
           model: s.model,
           coach: s.coach,
@@ -436,7 +441,7 @@ export class ClaudeService {
     const game = await this.games.get(id)
     const { state } = game
     const parts: string[] = seat.notes?.splice(0) ?? []
-    seat.point = undefined
+    this.unmark(id, seat)
     seat.spotlight = undefined
     const deck = this.sessions.export(id).players?.[seat.player].deck
     if (!seat.sessionId && deck) {
@@ -667,30 +672,66 @@ export class ClaudeService {
   }
 
   // Pointing at cards on the person's screen, and lifting them off the table to show big.
-  private showTools(id: string, seat: Seat): Pick<DuelTools, 'point' | 'spotlight'> {
+  private showTools(id: string, seat: Seat): Pick<DuelTools, 'point' | 'spotlight' | 'lookBack'> {
     return {
-      point: (cards) => {
-        seat.point = this.shown(id, seat, cards)
+      point: (cards, arrows = [], zones = []) => {
+        if (!cards.length && !arrows.length && !zones.length) {
+          seat.point = seat.arrows = seat.zones = undefined
+          this.changed(id, seat)
+          return 'Cleared.'
+        }
+        // Calls add up until it's cleared, so marking up in several calls works.
+        const one = (name: string) => this.shown(id, seat, [name])[0]
+        const drawn = arrows.flatMap((a) => {
+          const [from, to] = [one(a.from), one(a.to)]
+          return from && to ? [{ from, to }] : []
+        })
+        seat.point = [...new Set([...(seat.point ?? []), ...this.shown(id, seat, cards)])]
+        seat.arrows = [...(seat.arrows ?? []), ...drawn]
+        seat.zones = [...(seat.zones ?? []), ...zones]
         this.changed(id, seat)
-        return seat.point.length ? `Highlighted ${seat.point.length} card(s) on their screen.` : cards.length ? 'None of those are on show to point at.' : 'Cleared.'
+        const now = [seat.point.length && `${seat.point.length} card(s) highlighted`, seat.arrows.length && `${seat.arrows.length} arrow(s) drawn`, seat.zones.length && `${seat.zones.length} zone(s) circled`].filter(Boolean)
+        const lost = arrows.length - drawn.length
+        if (!now.length) return 'None of those are on show to point at.'
+        return `On their screen: ${now.join(', ')}.${lost ? ` ${lost} arrow(s) left out: a card at one end isn't on show.` : ''}`
       },
-      spotlight: (cards, say, phrase) => {
+      // Their view moved back to an earlier step, where pointing then lands. It
+      // comes back to the present with their next message or move.
+      lookBack: (step) => {
+        const { steps } = this.sessions.export(id)
+        const shown = this.sessions.get(id).lesson.revealed
+        if (step === undefined)
+          return shown ? `Steps so far (give one's number to show the table as it was after it):\n${steps.slice(0, shown).map((s, i) => `${i + 1}. ${s.label ?? 'A move'}`).slice(-40).join('\n')}` : 'Nothing has happened yet.'
+        if (step < 0 || step >= shown) return step === shown ? "That's where the game is now." : `There are ${shown} steps so far: give 1 to ${shown - 1}, or 0 for the starting position.`
+        this.sessions.present(id, { position: step })
+        seat.back = true
+        return `Their screen shows the table as it was after step ${step}${step ? ` (${steps[step - 1].label ?? 'a move'})` : ', the starting position'}. Point at what you mean and say what to look at. It comes back to the present when they answer or play on.`
+      },
+      spotlight: (cards, say, phrases) => {
         if (!cards.length) {
           seat.spotlight = undefined
           this.changed(id, seat)
           return 'Cleared.'
         }
-        return this.spotlight(id, seat, cards, say, phrase) ? 'Shown beside the table for long enough to read, or until the game moves on. They can keep it open.' : 'None of those are on show.'
+        return this.spotlight(id, seat, cards, say, phrases) ? 'Shown beside the table for long enough to read, or until the game moves on. They can keep it open.' : 'None of those are on show.'
       },
     }
   }
 
+  // What Claude pointed at goes with its last message, and a view it moved back returns to the present.
+  private unmark(id: string, seat: Seat) {
+    seat.point = seat.arrows = seat.zones = undefined
+    if (!seat.back) return
+    seat.back = undefined
+    this.sessions.present(id, { position: this.sessions.get(id).lesson.revealed })
+  }
+
   // One of each card named, shown big.
-  private spotlight(id: string, seat: Seat, cards: string[], say?: string, phrase?: string, keep?: boolean): boolean {
+  private spotlight(id: string, seat: Seat, cards: string[], say?: string, phrases?: string[], keep?: boolean): boolean {
     const s = this.sessions.get(id).state
     const one = new Map(this.shown(id, seat, cards).map((iid) => [cardFace(s, iid, this.db(), true).name, iid]))
     if (!one.size) return false
-    seat.spotlight = { n: Date.now(), at: this.sessions.export(id).steps.length, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrase && { phrase }), ...(keep && { keep }) }
+    seat.spotlight = { n: Date.now(), at: this.sessions.export(id).steps.length, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrases?.length && { phrases }), ...(keep && { keep }) }
     this.changed(id, seat)
     return true
   }
@@ -757,7 +798,7 @@ export class ClaudeService {
   private async lessonMessage(id: string, seat: Seat, prompt: GamePrompt | undefined): Promise<string> {
     const { state } = await this.games.get(id)
     const parts: string[] = []
-    seat.point = undefined
+    this.unmark(id, seat)
     parts.push(...(seat.notes?.splice(0) ?? []))
     for (const text of seat.queue.splice(0)) parts.push(`The person says: ${text}`)
     const events = this.catchUp(id, seat)
