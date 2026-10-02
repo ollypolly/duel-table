@@ -92,10 +92,16 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
               Review
             </button>
           )}
-          {onAttempt && (
+          {onAttempt && !tried && (
             <button type="button" className="btn flex items-center gap-1.5" onClick={() => setTrying(true)} title="Claude plays your side from the same opening, to see if it could be won, then teaches you how">
               <Swords size={14} className="text-gold" aria-hidden />
               Can Claude win it?
+            </button>
+          )}
+          {onAttempt && tried && (
+            <button type="button" className="btn btn-primary flex items-center gap-1.5" onClick={() => onAttempt(1)} title="Claude plays it again from the same opening, with what it learned from this try">
+              <Swords size={14} aria-hidden />
+              Go again
             </button>
           )}
           {onRematch && (

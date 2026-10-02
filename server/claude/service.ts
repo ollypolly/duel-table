@@ -342,6 +342,15 @@ export class ClaudeService {
   // Have Claude play the person's side of a finished game against the same
   // bot, from the same shuffle. A new game, which it plays by itself.
   async attempt(of: string, opts: { tries?: number; model?: ModelChoice }, earlier?: Pick<Attempt, 'n' | 'carried'>): Promise<SessionView> {
+    // Asked of a try that's over: another go at the same game, with what that one learned.
+    const tried = this.seat(of)
+    if (tried?.attempt) {
+      const a = tried.attempt
+      if (a.over !== 'done') throw new SessionError(409, "Claude's try at this game isn't over yet")
+      const from = tried.chat.findLastIndex((e) => e.from === 'note' && /^Claude (won|lost)/.test(e.text))
+      const learned = tried.chat.slice(from + 1).filter((e) => e.from === 'claude').map((e) => e.text).join('\n')
+      return this.attempt(a.of, { tries: a.n + (opts.tries ?? 1), model: opts.model ?? tried.model }, { n: a.n, carried: [...(a.carried ?? []), learned].filter(Boolean) })
+    }
     const file = this.sessions.export(of)
     const { duel, players } = file
     if (!duel?.winner || duel.lesson || duel.claude || !duel.bots?.includes('p2') || !players?.p1.deck || !players.p2.deck)

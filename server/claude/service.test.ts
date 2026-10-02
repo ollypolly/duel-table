@@ -510,7 +510,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     // Bots play a game that p1 loses.
     const lost = await games.create({ deck: 'chazz-armed-ojama', opponentDeck: 'super-quant', seed: 3, bots: ['p1', 'p2'] })
     expect(sessions.export(lost.id).duel?.winner).toBe('p2')
-    await expect(claude.attempt(lost.id, {}, undefined).then((v) => claude.attempt(v.id, {}))).rejects.toThrow(/finished game of yours against a bot/)
+    await expect(claude.attempt(lost.id, {}, undefined).then((v) => claude.attempt(v.id, {}))).rejects.toThrow(/isn't over yet/)
 
     const tries: string[] = []
     let v = await claude.attempt(lost.id, { tries: 2, model: 'haiku' })
@@ -530,6 +530,11 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       if (!next) break
       v = sessions.get(next.session)
     }
+    // Going again from a try that's over is the next try of the same game, with what that one learned.
+    const again = await claude.attempt(tries.at(-1)!, {})
+    expect(sessions.get(again.id).game!.claude!.attempt).toMatchObject({ of: lost.id, n: tries.length + 1, max: tries.length + 1 })
+    await claude.idle(again.id)
+    expect(fake.requests.some((r) => r.message.includes(`This is try ${tries.length + 1} of ${tries.length + 1}`) && r.message.includes(`Try ${tries.length}: Hello from the fake.`))).toBe(true)
     const first = fake.requests.find((r) => r.message.includes('This is try 1 of 2'))!
     expect(first.message).toContain("The bot's decklist")
     expect(first.tools.tryLine && first.tools.evaluate && first.tools.lookBack && first.tools.spotlight).toBeTruthy()
