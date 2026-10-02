@@ -5,7 +5,7 @@
 // In a lesson, steps still queued are left out, and the presenter cursor
 // moves viewers who are following along. Anyone who has scrubbed away stays
 // put and gets a Back to live button.
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import type { Cursor } from '../../api/lesson'
@@ -65,8 +65,10 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   useEffect(() => () => clearInterval(replay.current), [])
 
   // Follow the presenter cursor if you were where it last pointed. Not in a
-  // review, where you move about the game yourself.
-  useEffect(() => {
+  // review, where you move about the game yourself. Before the paint, so a
+  // move that just landed never shows for a frame as one you're behind on
+  // (Back to live would flash).
+  useLayoutEffect(() => {
     if (!result?.ok || !session) return
     const cursor = session.lesson.cursor
     const prev = followed.current
