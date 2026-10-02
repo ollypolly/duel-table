@@ -138,7 +138,7 @@ export function Ideas({ where }: { where?: string }) {
         aria-label="Ideas"
         onClose={() => setOpen(false)}
         onClick={(e) => e.target === ref.current && ref.current.close()}
-        className="panel m-auto h-full max-h-none w-full max-w-none flex-col rounded-none p-0 text-ink max-sm:bg-bg! backdrop:bg-bg/70 backdrop:backdrop-blur-md open:flex sm:h-[calc(100%-3rem)] sm:w-[min(42rem,94vw)] sm:rounded-xl"
+        className="panel m-auto h-[var(--safe-h)] max-h-none w-full max-w-none flex-col rounded-none p-0 text-ink max-sm:bg-bg! backdrop:bg-bg/70 backdrop:backdrop-blur-md open:flex sm:h-[calc(100%-3rem)] sm:w-[min(42rem,94vw)] sm:rounded-xl"
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-3 sm:px-5">
           <Lightbulb size={16} className="text-gold" aria-hidden />
