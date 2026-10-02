@@ -77,7 +77,17 @@ export const ClaudeViewSchema = z.object({
   player: PlayerSchema,
   watch: z.boolean().optional().describe("Claude isn't playing: it sits on player's side as their coach, in a game against a bot"),
   knowsDeck: z.boolean().optional().describe("For that coach: it can look at the bot's decklist"),
-  point: z.array(z.string()).optional().describe('Cards (iids) that coach is pointing at, to highlight'),
+  point: z.array(z.string()).optional().describe('Cards (iids) Claude is pointing at, to highlight'),
+  spotlight: z
+    .object({
+      n: z.int().describe('When it was shown, so the same cards can be shown again'),
+      cards: z.array(z.string()).describe('iids'),
+      say: z.string().optional().describe("Claude's line under them"),
+      phrase: z.string().optional().describe('The words of their text it is about, to mark'),
+    })
+    .optional()
+    .describe('Cards Claude has lifted off the table to show big, until you close it or the game moves on'),
+  goal: z.string().optional().describe('In a lesson: what Claude asked you to reach while you play'),
   model: ModelChoiceSchema,
   coach: z.boolean().describe('Also points out your misplays and explains its plays'),
   share: z.boolean().describe('You show Claude your hidden cards (hand, face-down cards, Extra Deck) and your open question, so it can advise you'),

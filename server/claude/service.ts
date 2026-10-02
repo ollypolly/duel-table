@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { stamp, type ChatEntry, type ClaudeSettings, type ClaudeView, type GamePrompt, type ModelChoice } from '../../src/api/game'
 import type { CardData, CardDb } from '../../src/data/cardDb'
 import type { Character } from '../../src/scenarios/schema'
-import { PLAYERS, type BoardState, type Player } from '../../src/engine'
+import { PLAYERS, type BoardState, type Iid, type Player } from '../../src/engine'
 import type { GameService, Trial } from '../games'
 import { SessionError, type SessionService } from '../sessions'
 import type { Agent, AgentRun, DuelTools } from './agent'
@@ -34,7 +34,8 @@ export type ClaudeRecord = {
   player: Player
   watch?: boolean
   knowsDeck?: boolean
-  point?: string[] // cards the coach is pointing at on the person's screen
+  point?: string[] // cards Claude is pointing at on the person's screen
+  spotlight?: { n: number; at: number; cards: string[]; say?: string; phrase?: string } // cards it has lifted off the table to show big, at this many steps
   flags?: Moment[] // moments the coach flagged for the review
   model: ModelChoice
   coach: boolean
@@ -52,12 +53,13 @@ export type ClaudeRecord = {
 // A player Claude has handed to the person, until they've answered one
 // question, until the turn ends (at is the turn it was handed over on), or
 // until Claude takes it back.
-export type Handover = { player: Player; until: 'answer' | 'turn' | 'takeBack'; at: number }
+// goal: what Claude asked them to reach while they play, which it judges when the player comes back.
+export type Handover = { player: Player; until: 'answer' | 'turn' | 'takeBack'; at: number; goal?: string }
 // waitingOn: the question Claude left open when it last stopped, so it isn't
 // woken again for it. asking: the lesson prompt open for the person, Next or
 // a question from Claude.
 // plan: what the lesson covers, and the point it's on.
-export type LessonSeats = { holds: Player[]; handed: Handover[]; waitingOn?: number; asking?: { id: string; question?: string }; plan?: { points: string[]; now: number } }
+export type LessonSeats = { holds: Player[]; handed: Handover[]; waitingOn?: number; asking?: { id: string; question?: string; correct?: string }; plan?: { points: string[]; now: number } }
 
 const HANDOVER_NOTE: Record<Handover['until'], string> = {
   answer: 'for one question',
@@ -142,6 +144,9 @@ export class ClaudeService {
       }
     }
     games.onChange = (id) => {
+      // Cards shown big go back once the game has moved on.
+      const shown = this.seats.get(id)
+      if (shown?.spotlight && this.sessions.export(id).steps.length > shown.spotlight.at) shown.spotlight = undefined
       this.log(id)
       void this.poke(id)
     }
@@ -191,7 +196,8 @@ export class ClaudeService {
       else {
         const said = e.choice?.option ?? e.text ?? ''
         seat.chat.push({ from: 'you', text: said })
-        seat.notes = [...(seat.notes ?? []), `The person answered your question "${asking.question}": ${said}`]
+        const marked = asking.correct === undefined ? '' : said === asking.correct ? ' (the option you marked as right)' : ` (not the option you marked as right, "${asking.correct}")`
+        seat.notes = [...(seat.notes ?? []), `The person answered your question "${asking.question}": ${said}${marked}`]
       }
       if (seat.status === 'stopped') seat.status = 'idle'
       this.changed(id, seat)
@@ -209,7 +215,10 @@ export class ClaudeService {
       return (
         s && {
           player: s.player,
-          ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true, ...(s.point?.length && { point: s.point }) }),
+          ...(s.watch && { watch: true, knowsDeck: s.knowsDeck ?? true }),
+          ...(s.point?.length && { point: s.point }),
+          ...(s.spotlight && { spotlight: { n: s.spotlight.n, cards: s.spotlight.cards, say: s.spotlight.say, phrase: s.spotlight.phrase } }),
+          ...(s.lesson?.handed.some((h) => h.goal) && { goal: s.lesson.handed.find((h) => h.goal)!.goal }),
           model: s.model,
           coach: s.coach,
           share: s.share,
@@ -428,6 +437,7 @@ export class ClaudeService {
     const { state } = game
     const parts: string[] = seat.notes?.splice(0) ?? []
     seat.point = undefined
+    seat.spotlight = undefined
     const deck = this.sessions.export(id).players?.[seat.player].deck
     if (!seat.sessionId && deck) {
       const notes = this.extras.notes?.read(deck).trim()
@@ -568,13 +578,7 @@ export class ClaudeService {
       },
       searchCards: (query) => searchCards(this.db(), query, findCards),
       ...(rules && { rules: (topic) => rulesTopic(rules(), topic) }),
-      point: (cards) => {
-        const want = new Set(cards.map((c) => this.db().byName(c)?.name ?? c))
-        const s = state()
-        seat.point = Object.keys(s.cards).filter((iid) => want.has(cardFace(s, iid, this.db()).name) && seenBy(s, iid, seat.player, this.db()) && !s.players.p1.zones.deck.includes(iid) && !s.players.p2.zones.deck.includes(iid))
-        this.changed(id, seat)
-        return seat.point.length ? `Highlighted ${seat.point.length} card(s) on their screen.` : cards.length ? 'None of those are on show to point at.' : 'Cleared.'
-      },
+      ...this.showTools(id, seat),
       offerTakeBack: (why) => {
         const left = this.sessions.get(id).game?.undos
         if (!left) return "They can't take a move back right now (none of theirs to take back, or all take-backs used)."
@@ -652,6 +656,45 @@ export class ClaudeService {
     return parts.filter(Boolean).join('\n\n')
   }
 
+  // The cards by these names that are out of the Decks: any of them in a
+  // lesson (a staged game, both hands open), only what the person sees beside
+  // them in a real one.
+  private shown(id: string, seat: Seat, names: string[]): Iid[] {
+    const want = new Set(names.map((c) => this.db().byName(c)?.name ?? c))
+    const s = this.sessions.get(id).state
+    const piled = new Set(PLAYERS.flatMap((p) => [...s.players[p].zones.deck, ...s.players[p].zones.extraDeck]))
+    return Object.keys(s.cards).filter((iid) => want.has(cardFace(s, iid, this.db(), true).name) && !piled.has(iid) && (!!seat.lesson || seenBy(s, iid, seat.player, this.db())))
+  }
+
+  // Pointing at cards on the person's screen, and lifting them off the table to show big.
+  private showTools(id: string, seat: Seat): Pick<DuelTools, 'point' | 'spotlight'> {
+    return {
+      point: (cards) => {
+        seat.point = this.shown(id, seat, cards)
+        this.changed(id, seat)
+        return seat.point.length ? `Highlighted ${seat.point.length} card(s) on their screen.` : cards.length ? 'None of those are on show to point at.' : 'Cleared.'
+      },
+      spotlight: (cards, say, phrase) => {
+        if (!cards.length) {
+          seat.spotlight = undefined
+          this.changed(id, seat)
+          return 'Cleared.'
+        }
+        return this.spotlight(id, seat, cards, say, phrase) ? 'Shown big on their screen until they close it or the game moves on.' : 'None of those are on show.'
+      },
+    }
+  }
+
+  // One of each card named, shown big.
+  private spotlight(id: string, seat: Seat, cards: string[], say?: string, phrase?: string): boolean {
+    const s = this.sessions.get(id).state
+    const one = new Map(this.shown(id, seat, cards).map((iid) => [cardFace(s, iid, this.db(), true).name, iid]))
+    if (!one.size) return false
+    seat.spotlight = { n: Date.now(), at: this.sessions.export(id).steps.length, cards: [...one.values()].slice(0, 3), ...(say && { say }), ...(phrase && { phrase }) }
+    this.changed(id, seat)
+    return true
+  }
+
   // A tried line on a board in the chat: a hidden copy of the game with the
   // line's steps after its own, shown from where the line starts.
   private showLine(id: string, seat: Seat, t: Trial, title: string): string {
@@ -699,7 +742,10 @@ export class ClaudeService {
 
   private takeBack(id: string, seat: Seat, player: Player) {
     const lesson = seat.lesson!
-    if (!lesson.handed.some((h) => h.player === player)) return
+    const handed = lesson.handed.find((h) => h.player === player)
+    if (!handed) return
+    if (handed.goal)
+      seat.notes = [...(seat.notes ?? []), `${player} is yours again. You gave the person a goal while they played: "${handed.goal}". From the table and what they played, say plainly whether they reached it. If they didn't, show the line that does (tryLine with show), and offer to set the position up again for another go.`]
     lesson.handed = lesson.handed.filter((h) => h.player !== player)
     lesson.holds = [...lesson.holds, player]
     const name = this.sessions.get(id).state.players[player].name
@@ -711,6 +757,7 @@ export class ClaudeService {
   private async lessonMessage(id: string, seat: Seat, prompt: GamePrompt | undefined): Promise<string> {
     const { state } = await this.games.get(id)
     const parts: string[] = []
+    seat.point = undefined
     parts.push(...(seat.notes?.splice(0) ?? []))
     for (const text of seat.queue.splice(0)) parts.push(`The person says: ${text}`)
     const events = this.catchUp(id, seat)
@@ -824,24 +871,26 @@ export class ClaudeService {
           "Wait: before playing from here, tell the person what they're looking at and stop. They press Next when they're ready.",
         ].join('\n\n')
       },
-      ask: (question, options) => {
+      ...this.showTools(id, seat),
+      ask: (question, options, cards, correct) => {
         if (paused === 'asked') return wait()
         const prompt = options?.length ? { type: 'choice' as const, message: question, options } : { type: 'text' as const, message: question }
         this.withdraw(id, seat)
         try {
-          lesson.asking = { id: this.sessions.ask(id, prompt).id, question }
+          lesson.asking = { id: this.sessions.ask(id, prompt).id, question, ...(correct !== undefined && options?.[correct] && { correct: options[correct] }) }
+          if (cards?.length) this.spotlight(id, seat, cards, question)
         } catch (e) {
           return `Couldn't ask: ${(e as Error).message}`
         }
         paused = 'asked'
         return 'Asked. Stop here; their answer comes as a message.'
       },
-      handOver: async (player, until) => {
+      handOver: async (player, until, goal) => {
         if (!lesson.holds.includes(player)) return `You aren't playing ${player} right now.`
         const { state } = await this.games.get(id)
         lesson.holds = lesson.holds.filter((p) => p !== player)
-        lesson.handed = [...lesson.handed, { player, until, at: state.turn }]
-        seat.chat.push({ from: 'note', text: `Your go: you're playing ${state.players[player].name} ${HANDOVER_NOTE[until]}.` })
+        lesson.handed = [...lesson.handed, { player, until, at: state.turn, ...(goal && { goal }) }]
+        seat.chat.push({ from: 'note', text: `Your go: you're playing ${state.players[player].name} ${HANDOVER_NOTE[until]}.${goal ? ` Your goal: ${goal}` : ''}` })
         this.changed(id, seat)
         const next = await this.question(id, seat)
         return next

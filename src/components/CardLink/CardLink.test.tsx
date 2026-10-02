@@ -27,4 +27,14 @@ describe('CardMarkdown', () => {
     await userEvent.click(screen.getByRole('button', { name: 'super-quant' }))
     expect(useUiStore.getState().decks).toEqual({ deck: 'super-quant' })
   })
+
+  it('explains a game term on a tap, once per message, and not inside a card name', async () => {
+    render(<CardMarkdown>{'Set up the board, then Normal Summon it. A Normal Summon is once per turn; Edge Imp Chain is a card.'}</CardMarkdown>)
+    // "Set up" is English, and the second Normal Summon is left alone.
+    expect(screen.queryByRole('button', { name: 'Set' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Normal Summon' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Chain' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'once per turn' }))
+    expect((await screen.findAllByText(/whichever copy it is/)).length).toBeGreaterThan(0)
+  })
 })

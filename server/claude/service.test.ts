@@ -316,6 +316,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const batched: string[] = []
     const requests: AgentRequest[] = []
     const plans: string[] = []
+    const shows: string[] = []
+    let spot: { cards: string[]; say?: string; phrase?: string } | undefined
     const lessonAgent: Agent = (req) => {
       requests.push(req)
       async function* run(): AsyncIterable<AgentEvent> {
@@ -337,10 +339,12 @@ describe.skipIf(!hasData)('Claude as a player', () => {
           // Normal Summon Goblindbergh, then give p1 to the person.
           const summon = /Question (\d+):[^]*?\n {2}(\d+)\. Goblindbergh: Normal Summon/.exec(req.message)!
           results.push(await req.tools.answer!(+summon[1], [+summon[2]]))
-          results.push(await req.tools.handOver!('p1', 'answer'))
+          shows.push(req.tools.point!(['Gagaga Magician']), req.tools.spotlight!(['Goblindbergh', 'Blue-Eyes White Dragon'], 'Read its effect.', 'Special Summon'))
+          spot = sessions.get(v.id).game?.claude?.spotlight
+          results.push(await req.tools.handOver!('p1', 'answer', 'Bring out Gagaga Magician'))
           yield { type: 'text', text: 'Your go.' }
         } else if (requests.length === 3) {
-          results.push(req.tools.ask!('What does Goblindbergh summon?', ['A Level 4 or lower monster', 'Anything']))
+          results.push(req.tools.ask!('What does Goblindbergh summon?', ['A Level 4 or lower monster', 'Anything'], ['Goblindbergh'], 1))
           results.push(await req.tools.answer!(0, [0]))
           yield { type: 'text', text: 'Nice.' }
         } else if (requests.length === 6) {
@@ -359,7 +363,8 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       return { events: run(), interrupt: async () => {} }
     }
     const { sessions, games, claude } = setup(lessonAgent)
-    const v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Teach me Goblindbergh', brief: 'They keep bricking on turn one.', seed: 1 })
+    let v!: Awaited<ReturnType<typeof games.create>>
+    v = await games.create({ deck: 'yuma-utopia', opponentDeck: 'yugi-dark-magician', lesson: true, topic: 'Teach me Goblindbergh', brief: 'They keep bricking on turn one.', seed: 1 })
     // A lesson prompt is answered once the steps before it have shown.
     const shown = async () => {
       while (sessions.get(v.id).lesson.queued) await new Promise((r) => setTimeout(r, 20))
@@ -402,7 +407,13 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.game?.claude?.holds).toEqual(['p2'])
     expect(s.game?.prompt?.player).toBe('p1')
     expect(s.lesson.prompt).toBeUndefined()
-    expect(s.game?.claude?.chat.map((e) => e.text)).toContain("Your go: you're playing You for one question.")
+    expect(s.game?.claude?.chat.map((e) => e.text)).toContain("Your go: you're playing You for one question. Your goal: Bring out Gagaga Magician")
+    // It pointed at a card and lifted one off the table to show big (not one that isn't there).
+    expect(shows).toEqual(['Highlighted 1 card(s) on their screen.', 'Shown big on their screen until they close it or the game moves on.'])
+    expect(spot).toMatchObject({ say: 'Read its effect.', phrase: 'Special Summon' })
+    expect(spot!.cards.map((iid) => ctx().db.byId(s.state.cards[iid].cardId!)?.name)).toEqual(['Goblindbergh'])
+    // They see the goal while the player is theirs.
+    expect(s.game?.claude?.goal).toBe('Bring out Gagaga Magician')
 
     await games.answer(v.id, undefined, { id: s.game!.prompt!.id, choices: [0] })
     await claude.idle(v.id)
@@ -410,15 +421,20 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     expect(s.game?.claude?.holds).toEqual(['p2', 'p1'])
     expect(requests.length).toBe(3)
     expect(requests[2].message).toContain('Since you last looked')
+    // The player is back with Claude, who is told to judge the goal, and it's off their screen.
+    expect(requests[2].message).toContain('You gave the person a goal while they played: "Bring out Gagaga Magician"')
     // It asked something, so it waits for the answer rather than a Next.
     expect(results.at(-1)).toMatch(/^Wait:/)
     expect(s.lesson.prompt).toMatchObject({ type: 'choice', message: 'What does Goblindbergh summon?' })
+    expect(s.game?.claude?.goal).toBeUndefined()
+    // The card the question is about is shown big with it.
+    expect(s.game?.claude?.spotlight).toMatchObject({ say: 'What does Goblindbergh summon?' })
 
     await shown()
     sessions.answer(v.id, { id: s.lesson.prompt!.id, choice: 0 })
     await claude.idle(v.id)
     expect(requests.length).toBe(4)
-    expect(requests[3].message).toContain('The person answered your question "What does Goblindbergh summon?": A Level 4 or lower monster')
+    expect(requests[3].message).toContain('The person answered your question "What does Goblindbergh summon?": A Level 4 or lower monster (not the option you marked as right, "Anything")')
     // Its question is still open, so it gets a Next again, and chatting withdraws it.
     s = sessions.get(v.id)
     expect(s.lesson.prompt).toMatchObject({ type: 'ack' })

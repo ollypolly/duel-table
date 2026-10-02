@@ -5,7 +5,7 @@
 // In a lesson, steps still queued are left out, and the presenter cursor
 // moves viewers who are following along. Anyone who has scrubbed away stays
 // put and gets a Back to live button.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { api, subscribeSession, type SessionUpdate } from '../../api/client'
 import type { Cursor } from '../../api/lesson'
@@ -13,7 +13,7 @@ import type { Iid, ZoneRef } from '../../engine'
 import { cardDb } from '../../data/cards'
 import { isMonster } from '../../data/cardDb'
 import { useUiStore } from '../../store/uiStore'
-import { VIEWER } from '../../view/boardView'
+import { VIEWER, cardFace } from '../../view/boardView'
 import { turnSoFar } from '../../view/plays'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import { resolveScenario } from '../../scenarios/resolve'
@@ -25,6 +25,7 @@ import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
+import { Spotlight } from '../Spotlight/Spotlight'
 import { LessonPanel, LessonPlan } from './LessonPanel'
 import { MOMENT } from './moment'
 import { Moments } from './Moments'
@@ -227,6 +228,17 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     !!lesson && position !== lesson.cursor.position && !(lesson.cursor.from !== undefined && position >= lesson.cursor.from && position < lesson.cursor.position)
   const backToLive = () => lesson && goTo(lesson.cursor.position)
 
+  // Cards Claude lifted off the table to show, until closed. Not while you're looking back.
+  const spot = game?.claude?.spotlight
+  const [closedSpot, setClosedSpot] = useState<number>()
+  const closeSpot = useCallback(() => setClosedSpot(spot?.n), [spot?.n])
+  const spotlight = (() => {
+    if (!spot || spot.n === closedSpot || away || !result?.ok) return null
+    const { state } = result.scenario.timeline.at(-1)!
+    const cards = spot.cards.flatMap((iid) => (state.cards[iid] ? [{ ...cardFace(state, iid, cardDb, true), visible: true }] : []))
+    return cards.length ? <Spotlight cards={cards} say={spot.say} phrase={spot.phrase} onClose={closeSpot} /> : null
+  })()
+
   // A review of a finished game takes the chat over, with the game's chat above it.
   const review = session?.review
   const steps = result?.ok ? result.scenario.game.steps.length : 0
@@ -292,6 +304,11 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     lesson &&
     (game || away || lesson.queued > 0 || !!lesson.prompt) && (
       <>
+        {game?.claude?.goal && (
+          <p className="rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs" data-testid="lesson-goal">
+            <span className="font-semibold text-gold">Your goal</span> {game.claude.goal}
+          </p>
+        )}
         <LessonPanel
           lesson={lesson}
           away={away && !review}
@@ -364,6 +381,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   }
   if (result?.ok)
     return (
+      <>
+      {spotlight}
       <Table
         scenario={pointed(result.scenario, game?.claude?.point)}
         nav={liveNav}
@@ -435,6 +454,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         onBranch={game ? undefined : (position) => report(api.fork(id, position).then((s) => openSession(s.id, position)))}
         branchLabel="Fork"
       />
+      </>
     )
   return (
     <>

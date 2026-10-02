@@ -1,8 +1,9 @@
 // Card names in narration, lesson questions and Claude's chat: hover one for
 // its text, click it for the full-screen inspector. In Claude's chat a deck's
-// name or id is a link too, which opens the deck hub on it.
+// name or id is a link too, which opens the deck hub on it, and a game term
+// shows what it means on hover or a tap.
 import * as Tooltip from '@radix-ui/react-tooltip'
-import type { ComponentProps, ReactNode } from 'react'
+import { useState, type ComponentProps, type ReactNode } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { CardData } from '../../data/cardDb'
@@ -11,6 +12,7 @@ import { useUiStore } from '../../store/uiStore'
 import { catalogFace } from '../../view/boardView'
 import { rawDecks } from '../../scenarios/load'
 import { CARD_HREF, DECK_HREF, cardNames, deckNames } from '../../view/cardLinks'
+import { TERM_HREF, glossary, term } from '../../view/glossary'
 import { CardInspector } from '../CardInspector/CardInspector'
 
 const names = cardNames(cardDb)
@@ -21,6 +23,36 @@ function DeckLink({ id, children }: { id: string; children: ReactNode }) {
     <button type="button" className="cursor-pointer font-[inherit] text-gold underline decoration-gold/40 underline-offset-2 hover:decoration-gold" title="Open this deck" onClick={() => useUiStore.getState().openDecks(id)}>
       {children}
     </button>
+  )
+}
+
+// Controlled, so a tap opens it too: a tooltip alone never shows on touch.
+function Term({ term: name, meaning, children }: { term: string; meaning: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Tooltip.Provider delayDuration={200}>
+      <Tooltip.Root open={open} onOpenChange={setOpen}>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            className="cursor-help font-[inherit] underline decoration-muted/60 decoration-dotted underline-offset-2 hover:decoration-ink"
+            onClick={(e) => {
+              e.preventDefault()
+              setOpen(!open)
+            }}
+            onBlur={() => setOpen(false)}
+          >
+            {children}
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content side="top" sideOffset={6} collisionPadding={8} className="panel z-50 w-[min(20rem,92vw)] space-y-1 p-3 text-ink" onPointerDownOutside={() => setOpen(false)}>
+            <p className="font-display text-xs font-bold">{name}</p>
+            <p className="text-xs leading-snug text-ink/90">{meaning}</p>
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   )
 }
 
@@ -75,6 +107,8 @@ const components: ComponentProps<typeof Markdown>['components'] = {
   a: ({ href, children }) => {
     const card = href?.startsWith(CARD_HREF) ? cardDb.byId(Number(href.slice(CARD_HREF.length))) : undefined
     if (card) return <CardLink card={card}>{card.name}</CardLink>
+    const meant = href?.startsWith(TERM_HREF) ? term(href.slice(TERM_HREF.length)) : undefined
+    if (meant) return <Term {...meant}>{children}</Term>
     if (href?.startsWith(DECK_HREF)) return <DeckLink id={href.slice(DECK_HREF.length)}>{children}</DeckLink>
     return (
       <a href={href} target="_blank" rel="noreferrer">
@@ -89,10 +123,10 @@ const components: ComponentProps<typeof Markdown>['components'] = {
   },
 }
 
-// Markdown with its card names linked.
+// Markdown with its card names, decks and game terms linked.
 export function CardMarkdown({ children }: { children: string }) {
   return (
-    <Markdown remarkPlugins={[remarkGfm, names.remark, decks.remark]} components={components}>
+    <Markdown remarkPlugins={[remarkGfm, names.remark, decks.remark, glossary]} components={components}>
       {children}
     </Markdown>
   )

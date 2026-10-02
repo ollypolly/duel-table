@@ -31,6 +31,7 @@ export type DuelTools = {
   searchCards?(query: string): Promise<string>
   rules?(topic?: string): string
   point?(cards: string[]): string
+  spotlight?(cards: string[], say?: string, phrase?: string): string
   offerTakeBack?(why: string): string
   flag?(kind: Moment['kind'], title: string): string
   note?(text: string): string
@@ -38,9 +39,9 @@ export type DuelTools = {
   botMove?(): string
   evaluate?(): Promise<string>
   setup?(setup: Setup, lp?: Partial<Record<Player, number>>): Promise<string>
-  handOver?(player: Player, until: Handover['until']): Promise<string>
+  handOver?(player: Player, until: Handover['until'], goal?: string): Promise<string>
   takeBack?(player: Player): string
-  ask?(question: string, options?: string[]): string
+  ask?(question: string, options?: string[], cards?: string[], correct?: number): string
   plan?(points?: string[], now?: number): string
   // Reviewing a finished game: the table after any step, and marking key moments.
   tableAt?(step: number): string
@@ -120,6 +121,17 @@ export const sdkAgent: Agent = (req) => {
     t.searchCards && tool('searchCards', "Find cards by words in their name or text among the cards this app has, or by name among every card printed when it has none.", { query: z.string() }, async (i) => text(await t.searchCards!(i.query))),
     t.rules && tool('rules', 'A short rules reference: with no topic, the list of topics; with one, that section.', { topic: z.string().optional() }, async (i) => text(t.rules!(i.topic))),
     t.point && tool('point', "Highlight cards on the person's screen by name while you explain (only ones they can see). An empty list clears it.", { cards: z.array(z.string()) }, async (i) => text(t.point!(i.cards))),
+    t.spotlight &&
+      tool(
+        'spotlight',
+        "Lift one to three cards off the table and show them big on the person's screen, text readable, with your line under them: for when the point is what a card says. They close it, or it goes when the game moves on. An empty list clears it.",
+        {
+          cards: z.array(z.string()).max(3).describe('By name: cards on the table, in a hand, GY or banished'),
+          say: z.string().optional().describe('One or two short lines, shown under the cards'),
+          phrase: z.string().optional().describe("The few words of a card's text that matter, exactly as printed: they are marked on the card"),
+        },
+        async (i) => text(t.spotlight!(i.cards, i.say, i.phrase)),
+      ),
     t.offerTakeBack && tool('offerTakeBack', 'Suggest the person takes back their last move, with a one-line reason. They decide.', { why: z.string() }, async (i) => text(t.offerTakeBack!(i.why))),
     t.flag && tool('flag', 'Flag what just happened as a moment to come back to in the review after the game.', { kind: z.enum(['blunder', 'mistake', 'missed', 'good']), title: z.string().describe('One short line') }, async (i) => text(t.flag!(i.kind, i.title))),
     t.note && tool('note', "Save a short note to the person's notes on this deck (a rule of thumb, a card to cut). You are given the notes at the start of each game.", { text: z.string() }, async (i) => text(t.note!(i.text))),
@@ -153,7 +165,7 @@ export const sdkAgent: Agent = (req) => {
     t.startFreePlay &&
       tool('startFreePlay', 'Open a free-play table for the person: both decks on a board with no rules enforced, to move cards by hand and try things out. They get a button in the chat to open it. Only when they ask for one.', StartFreePlaySchema.shape, async (i) => text(t.startFreePlay!(i))),
   ].filter((x) => !!x)
-  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame', 'startLesson', 'startFreePlay'] as const
+  const COACH = ['demo', 'board', 'lethal', 'odds', 'searchCards', 'rules', 'point', 'spotlight', 'offerTakeBack', 'flag', 'note', 'suggestDeck', 'botMove', 'evaluate', 'decks', 'games', 'startGame', 'startLesson', 'startFreePlay'] as const
   const server = createSdkMcpServer({
     name: 'duel',
     version: '1.0.0',
@@ -224,16 +236,25 @@ export const sdkAgent: Agent = (req) => {
             ),
             tool(
               'handOver',
-              "Let the person play a player: until they've answered one question, until the end of this turn, or until you take it back.",
-              { player: PlayerSchema, until: z.enum(['answer', 'turn', 'takeBack']) },
-              async (input) => text(await handOver(input.player, input.until)),
+              "Let the person play a player: until they've answered one question, until the end of this turn, or until you take it back. With a goal it's an exercise: they see the goal while they play, and when the player comes back to you, you say whether they reached it.",
+              {
+                player: PlayerSchema,
+                until: z.enum(['answer', 'turn', 'takeBack']),
+                goal: z.string().optional().describe('What they should reach, in a line they can check on the table: "end the turn with Utopia on the field", "get their life points to 0 this turn"'),
+              },
+              async (input) => text(await handOver(input.player, input.until, input.goal)),
             ),
             tool('takeBack', 'Play a player you handed over again.', { player: PlayerSchema }, async (input) => text(takeBack(input.player))),
             tool(
               'ask',
-              'Ask the person a question to check they have followed: give options for multiple choice, or none for a written answer. Their answer comes as a message.',
-              { question: z.string(), options: z.array(z.string()).max(6).optional() },
-              async (input) => text(ask(input.question, input.options)),
+              'Ask the person a question to check they have followed: give options for multiple choice, or none for a written answer. Their answer comes as a message. With cards, those are shown big beside the question, so you can ask about what a card says.',
+              {
+                question: z.string(),
+                options: z.array(z.string()).max(6).optional(),
+                cards: z.array(z.string()).max(3).optional().describe('By name: cards on the table the question is about, to show big'),
+                correct: z.int().min(0).optional().describe("The right option's number, from 0: you are told whether they picked it"),
+              },
+              async (input) => text(ask(input.question, input.options, input.cards, input.correct)),
             ),
             ...(plan
               ? [
