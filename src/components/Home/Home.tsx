@@ -13,7 +13,7 @@ import { usePlayerStore } from '../../store/playerStore'
 import { MOMENT } from '../Live/moment'
 import { Logo } from '../Logo/Logo'
 import { Menu, MenuItem } from '../Menu/Menu'
-import { ago, autoTitle, scenarioKey, scenarioTitle, tableName } from './names'
+import { autoTitle, scenarioKey, scenarioTitle, tableName, when } from './names'
 
 type Props = {
   tables?: SessionSummary[] // undefined: the API isn't running
@@ -312,7 +312,8 @@ function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged 
   const named = !autoTitle(t)
   const title = named ? t.title : t.kind === 'game' ? yourDeck(t) : tableName(t)
   const under = t.kind === 'game' && (named ? `${yourDeck(t)} ${against(t)}` : t.claudeLesson ? `Lesson · ${against(t)}` : against(t))
-  const meta = [t.kind === 'game' ? `Turn ${t.turn}` : `${t.steps} steps`, ago(t.updatedAt)].join(' · ')
+  const meta = t.kind === 'game' ? `Turn ${t.turn}` : `${t.steps} steps`
+  const times = [t.createdAt && `Started ${when(t.createdAt)}`, `Last played ${when(t.updatedAt)}`].filter(Boolean).join(' · ')
 
   if (mode === 'rename') {
     return (
@@ -356,6 +357,7 @@ function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged 
         </p>
         {under && <p className="text-sm text-muted">{under}</p>}
         <p className="text-xs text-faint">{meta}</p>
+        <p className="text-xs text-faint">{times}</p>
         {t.reviewed && <Reviewed reviewed={t.reviewed} />}
       </div>
       <div className="relative mt-auto flex justify-end">

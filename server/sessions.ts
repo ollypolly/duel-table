@@ -24,6 +24,7 @@ export type SessionStore = {
   save(file: ScenarioFile): void
   remove(id: string): void
   updatedAt?(id: string): number | undefined // when it was last saved, if known
+  createdAt?(id: string): number | undefined // when it was first saved, if known
 }
 
 export const memoryStore = (): SessionStore => ({ load: () => [], save: () => {}, remove: () => {} })
@@ -44,6 +45,7 @@ export type SessionSummary = {
   steps: number
   basedOn?: string
   updatedAt: string
+  createdAt?: string // when it began, where that's known
   players: Record<Player, { name: string; deck?: string; deckName?: string }>
   turn: number
   kind: 'game' | 'board' // a game on the rules engine, or a free board
@@ -319,6 +321,7 @@ export class SessionService {
   }
 
   private summary({ file, resolved, updatedAt }: Live): SessionSummary {
+    const created = this.store.createdAt?.(file.id) ?? file.duel?.startedAt
     const last = resolved.timeline.at(-1)!.state
     const decks = this.ctx().decks as Record<string, { name?: string } | undefined>
     const player = (p: Player) => {
@@ -336,6 +339,7 @@ export class SessionService {
       steps: resolved.game.steps.length,
       ...(file.extends && { basedOn: file.extends.scenario }),
       updatedAt: new Date(updatedAt).toISOString(),
+      ...(created && { createdAt: new Date(created).toISOString() }),
       players: { p1: player('p1'), p2: player('p2') },
       turn: last.turn,
       // A table with the rules on is still a table.

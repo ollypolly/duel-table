@@ -32,6 +32,7 @@ const SummarySchema = z.object({
   steps: z.number(),
   basedOn: z.string().optional(),
   updatedAt: z.string().openapi({ description: 'When it was last saved (ISO)' }),
+  createdAt: z.string().optional().openapi({ description: 'When it began (ISO), where known' }),
   players: z.object({ p1: SeatSchema, p2: SeatSchema }),
   turn: z.number(),
   kind: z.enum(['game', 'board']).openapi({ description: 'A game on the rules engine, or a free board' }),

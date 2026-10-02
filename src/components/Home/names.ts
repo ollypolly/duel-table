@@ -11,6 +11,9 @@ export const matchup = (t: SessionSummary) => `${seat(t.players.p1)} vs ${seat(t
 export const autoTitle = (t: SessionSummary) => t.kind === 'game' && /^(Game|Lesson): /.test(t.title)
 export const tableName = (t: SessionSummary) => (autoTitle(t) ? matchup(t) : t.title)
 
+// The day as ago() gives it, with the time of day: "today 08:44", "30 Sep 16:26".
+export const when = (iso: string, now = new Date()) => `${ago(iso, now)} ${new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+
 // "today", "yesterday", "3 days ago", then the date.
 export function ago(iso: string, now = new Date()) {
   const then = new Date(iso)

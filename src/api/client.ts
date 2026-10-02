@@ -14,6 +14,7 @@ export type SessionSummary = {
   steps: number
   basedOn?: string
   updatedAt: string
+  createdAt?: string // when it began, where that's known
   players: Record<Player, { name: string; deck?: string; deckName?: string }>
   turn: number
   kind: 'game' | 'board'

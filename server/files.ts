@@ -49,6 +49,8 @@ export function diskStore(dir: string): SessionStore {
     },
     remove: (id) => rmSync(join(dir, `${id}.json`), { force: true }),
     updatedAt: (id) => (existsSync(join(dir, `${id}.json`)) ? statSync(join(dir, `${id}.json`)).mtimeMs : undefined),
+    // The file is written in place, so its birth is when the session began (0 where the disk doesn't keep one).
+    createdAt: (id) => (existsSync(join(dir, `${id}.json`)) ? statSync(join(dir, `${id}.json`)).birthtimeMs || undefined : undefined),
   }
 }
 
