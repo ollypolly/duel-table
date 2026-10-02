@@ -246,8 +246,8 @@ export function FreePlayBar({ fp, onRulesOn }: { fp: FreePlay; onRulesOn?: () =>
         Clear the board
       </button>
       {onRulesOn && (
-        <button type="button" className="btn text-xs" onClick={onRulesOn} title="Start a game with these decks on the rules engine, against the simple bot">
-          Restart with rules
+        <button type="button" className="btn text-xs" onClick={onRulesOn} title="Play on from this board under the rules, against the simple bot: your turn, Main Phase 1. Rules off in the game's menu brings you back to move things freely">
+          Rules on
         </button>
       )}
     </div>

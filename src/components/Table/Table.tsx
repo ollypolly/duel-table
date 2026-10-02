@@ -72,7 +72,7 @@ type TableProps = {
   onStep?: (step: Step) => void
   onUndo?: () => void
   menuItems?: ReactNode // extra entries for the scene panel's More menu
-  onRulesOn?: () => void // free play: start a rules-engine game with these decks
+  onRulesOn?: () => void // free play: carry on from this board as a rules-engine game
   // Start a branch at a position, from anywhere free-play isn't available.
   onBranch?: (position: number) => void
   branchLabel?: string

@@ -315,6 +315,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
             onForfeit={claudeLesson ? undefined : () => report(api.forfeitGame(id))}
+            onFreePlay={claudeLesson ? undefined : () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity)))}
             onRespond={(respond) => report(api.gameSettings(id, { respond }))}
             onReopen={(at) => {
               setBusy(true)
@@ -419,7 +420,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         // Your moves wait until the queued steps have shown.
         onStep={game || lesson?.queued ? undefined : (step) => report(api.applyStep(id, step))}
         onUndo={game ? undefined : () => report(api.undo(id))}
-        onRulesOn={!game && players?.p1.deck && players.p2.deck ? () => report(api.createGame({ deck: players.p1.deck!, opponentDeck: players.p2.deck! }).then((s) => openSession(s.id, Infinity))) : undefined}
+        onRulesOn={game ? undefined : () => report(api.rules(id, true).then((s) => openSession(s.id, Infinity)))}
         choosable={prompt && !away ? prompt.options.flatMap((o) => (o.card ? [o.card] : [])) : undefined}
         onChoose={prompt && !away ? chooseCard : undefined}
         choosableZones={zoneOptions.length && !away ? zoneOptions : undefined}

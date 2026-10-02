@@ -35,6 +35,7 @@ type Props = {
   onUndo?: () => void // take back your last move
   lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
   onForfeit?: () => void // give the game up
+  onFreePlay?: () => void // rules off: this board on a free-play table
   onRespond?: (level: Respond) => void // change when you're asked to respond
   onReopen?: (at: number) => void // be asked a passed chance after all
   claudeOn?: boolean // the levels that ask Claude can be picked
@@ -43,7 +44,7 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, lesson, onForfeit, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onHint, onUndo, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const name = (iid: Iid) => {
     // Your own cards are named even in your decks: an Extra Deck summon, or a search.
@@ -100,7 +101,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </button>
     </span>
   ) : (
-    lesson ? undo : (onForfeit || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
+    lesson ? undo : (onForfeit || onFreePlay || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
       <Menu label={<MoreHorizontal size={14} />} title="More" side="top" className="btn text-xs">
         {onRespond && game.respond && (
           <>
@@ -118,6 +119,11 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
         {onUndo && !!game.undos && (
           <MenuItem disabled={busy} onClick={onUndo} title="Go back to before your last move">
             Take back ({game.undos} left)
+          </MenuItem>
+        )}
+        {onFreePlay && (
+          <MenuItem disabled={busy} onClick={onFreePlay} title="This board on a free-play table, where anything can be moved. Rules on there carries it back into a game. This game stays as it is">
+            Rules off (free play from here)
           </MenuItem>
         )}
         {onForfeit && (
