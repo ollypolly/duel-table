@@ -693,6 +693,12 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     ideas.save([...ideas.list(), { id: `i-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, text, at: Date.now(), ...(where && { where }) }])
     return c.json(ideas.list(), 200)
   })
+  app.openapi(createRoute({ method: 'patch', path: '/ideas/{id}', summary: 'Reword an idea', request: { params: IdParam, ...body(NewIdeaSchema.pick({ text: true })) }, responses: ideasResponse }), (c) => {
+    const { id } = c.req.valid('param')
+    if (!ideas.list().some((i) => i.id === id)) throw new SessionError(404, 'no such idea')
+    ideas.save(ideas.list().map((i) => (i.id === id ? { ...i, text: c.req.valid('json').text } : i)))
+    return c.json(ideas.list(), 200)
+  })
   app.openapi(createRoute({ method: 'delete', path: '/ideas/{id}', summary: 'Delete an idea', request: { params: IdParam }, responses: ideasResponse }), (c) => {
     ideas.save(ideas.list().filter((i) => i.id !== c.req.valid('param').id))
     return c.json(ideas.list(), 200)

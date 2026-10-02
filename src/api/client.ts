@@ -114,6 +114,7 @@ export const api = {
   // The scratch pad of ideas in the header.
   ideas: () => call<Idea[]>('GET', '/ideas'),
   addIdea: (text: string, where?: string) => call<Idea[]>('POST', '/ideas', { text, ...(where && { where }) }),
+  changeIdea: (id: string, text: string) => call<Idea[]>('PATCH', `/ideas/${id}`, { text }),
   removeIdea: (id: string) => call<Idea[]>('DELETE', `/ideas/${id}`),
   // Reviewing a finished game with Claude; the review arrives over the session's SSE.
   startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
