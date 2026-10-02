@@ -179,4 +179,14 @@ describe('API', () => {
     expect(after.events.map((e: { type: string }) => e.type)).toEqual(['step', 'revealed', 'undo'])
     expect((await call('GET', `${at}/wait?timeout=9999`)).status).toBe(400)
   })
+
+  it('keeps ideas jotted down from the header, and deletes one', async () => {
+    const { call } = setup()
+    expect((await call('GET', '/ideas')).json).toEqual([])
+    await call('POST', '/ideas', { text: 'Bigger card text', where: 'Home' })
+    const { json: two } = await call('POST', '/ideas', { text: 'A hint button' })
+    expect(two).toMatchObject([{ text: 'Bigger card text', where: 'Home' }, { text: 'A hint button' }])
+    expect((await call('POST', '/ideas', { text: '' })).status).toBe(400)
+    expect((await call('DELETE', `/ideas/${two[0].id}`)).json).toMatchObject([{ text: 'A hint button' }])
+  })
 })

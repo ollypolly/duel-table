@@ -21,6 +21,7 @@ import { HomeAskSchema, HomeThreadSchema, HomeViewSchema } from '../src/api/home
 import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
+import { IdeaSchema, NewIdeaSchema, type Idea } from '../src/api/ideas'
 import type { RemoveRepoFile, WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
 import type { FetchResult } from './ygoprodeck'
@@ -77,9 +78,16 @@ type AppDeps = {
   tutor?: TutorService // Claude answering questions on a lesson
   review?: ReviewService // Claude going back over a finished game with you
   home?: HomeService // Claude on the home page
+  ideas?: IdeaStore // the scratch pad in the header (kept in memory without one)
 }
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home }: AppDeps) {
+export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
+const memoryIdeas = (): IdeaStore => {
+  let kept: Idea[] = []
+  return { list: () => kept, save: (ideas) => void (kept = ideas) }
+}
+
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas() }: AppDeps) {
   const app = new OpenAPIHono({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -677,6 +685,18 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   }
   const homeResponses = { 200: json(HomeViewSchema, 'The chat'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
   const TextSchema = z.object({ text: z.string().min(1) }).strict()
+
+  const ideasResponse = { 200: json(z.array(IdeaSchema), 'Every idea, oldest first'), ...errors }
+  app.openapi(createRoute({ method: 'get', path: '/ideas', summary: 'Ideas jotted down from the header, to go through later', responses: ideasResponse }), (c) => c.json(ideas.list(), 200))
+  app.openapi(createRoute({ method: 'post', path: '/ideas', summary: 'Jot down an idea', request: body(NewIdeaSchema), responses: ideasResponse }), (c) => {
+    const { text, where } = c.req.valid('json')
+    ideas.save([...ideas.list(), { id: `i-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, text, at: Date.now(), ...(where && { where }) }])
+    return c.json(ideas.list(), 200)
+  })
+  app.openapi(createRoute({ method: 'delete', path: '/ideas/{id}', summary: 'Delete an idea', request: { params: IdParam }, responses: ideasResponse }), (c) => {
+    ideas.save(ideas.list().filter((i) => i.id !== c.req.valid('param').id))
+    return c.json(ideas.list(), 200)
+  })
 
   app.openapi(createRoute({ method: 'get', path: '/home', summary: 'Your chats with Claude on the home page, newest first', responses: { 200: json(z.array(HomeThreadSchema), 'The chats') } }), (c) => c.json(home?.list() ?? [], 200))
 

@@ -72,6 +72,7 @@
     @apply bg-bg font-sans text-ink antialiased;
   }
   select,
+  textarea,
   input {
     @apply rounded-md border border-line bg-raised text-ink;
   }

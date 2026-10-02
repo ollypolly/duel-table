@@ -7,6 +7,7 @@ import type { ClaudeSettings, GameAnswer, GameView, ModelChoice, Respond } from 
 import type { Answer, LessonView } from './lesson'
 import type { Moment, ReviewView } from './review'
 import type { TutorView } from './tutor'
+import type { Idea } from './ideas'
 import type { HomeThread, HomeView } from './home'
 
 export type SessionSummary = {
@@ -110,6 +111,10 @@ export const api = {
   stopHome: (id: string) => call<HomeView>('POST', `/home/${id}/stop`),
   changeHome: (id: string, s: { title?: string; model?: ModelChoice }) => call<HomeView>('PATCH', `/home/${id}`, s),
   deleteHome: (id: string) => call<{ deleted: string }>('DELETE', `/home/${id}`),
+  // The scratch pad of ideas in the header.
+  ideas: () => call<Idea[]>('GET', '/ideas'),
+  addIdea: (text: string, where?: string) => call<Idea[]>('POST', '/ideas', { text, ...(where && { where }) }),
+  removeIdea: (id: string) => call<Idea[]>('DELETE', `/ideas/${id}`),
   // Reviewing a finished game with Claude; the review arrives over the session's SSE.
   startReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review`),
   closeReview: (id: string) => call<ReviewView>('POST', `/sessions/${id}/review/close`),

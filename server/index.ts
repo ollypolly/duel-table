@@ -2,7 +2,8 @@
 // (and fetch cards from YGOPRODeck into it).
 import { serve } from '@hono/node-server'
 import { join } from 'node:path'
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import type { Idea } from '../src/api/ideas'
 import { createApp, WAIT_MAX_S } from './app'
 import { claudeAccount, sdkAgent, type ClaudeAccount } from './claude/agent'
 import { chainMessage, parseAdvice, sdkQuick } from './claude/respond'
@@ -141,7 +142,18 @@ const checkAccount = () => {
 }
 void checkAccount()
 
+// The header's scratch pad of ideas, in a file to read through later.
+const IDEAS = join(ROOT, 'sessions', 'ideas.json')
+const ideas = {
+  list: (): Idea[] => (existsSync(IDEAS) ? JSON.parse(readFileSync(IDEAS, 'utf8')) : []),
+  save: (all: Idea[]) => {
+    mkdirSync(join(ROOT, 'sessions'), { recursive: true })
+    writeFileSync(IDEAS, `${JSON.stringify(all, null, 2)}\n`)
+  },
+}
+
 const app = createApp({
+  ideas,
   sessions,
   ctx,
   games,

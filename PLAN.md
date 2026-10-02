@@ -371,6 +371,8 @@ A test plays a whole game through the board with the panel never opened. **To de
 - **A duel log** that reads as sentences, filterable to the plays (the step list is most of this already).
 - **Chain order and zone placement** asked only when it matters, with a setting to always ask.
 
+**Ideas pad.** Built: a lightbulb in the header opens a box to jot an idea down, saved with what was open, in `sessions/ideas.json` (`/api/ideas`). It's for holding ideas while the app is used rather than added to: they're gone through together later, and what's kept moves into this plan.
+
 **Planned: web push notifications.** Claude's turns can take a minute, so you put the phone down: tell you when it's your move again.
 - When: Claude has answered in a chat, it's your move or a question is waiting in a game or lesson, a game has ended. Only when no tab has that game or chat open and visible.
 - What it takes: a service worker (there's a manifest and icons already, but no worker), a `PushSubscription` per device kept on the server, and the server sending with VAPID keys from where it already notices these changes (`games.onChange`, the Home chat going idle). A tap opens `?session=<id>` or `?chat=<id>`.

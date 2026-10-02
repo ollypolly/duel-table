@@ -4,6 +4,7 @@ import { Layers, Plus, Settings } from "lucide-react";
 import { SettingsDialog } from "./components/Settings/SettingsDialog";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
+import { Ideas } from "./components/Ideas/Ideas";
 import { useUiStore } from "./store/uiStore";
 import { Menu } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
@@ -107,6 +108,7 @@ export default function App() {
       <button type="button" className="btn order-last shrink-0 max-sm:ml-auto" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
         <Settings size={14} aria-hidden />
       </button>
+      <Ideas where={home ? "Home" : table ? tableName(table) : result ? scenarioTitle(result) : sessionId} />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <ImportBranch takenIds={all.map(resultId)} onImported={() => setSettingsOpen(false)} />
       </SettingsDialog>
