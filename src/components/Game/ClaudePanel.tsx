@@ -69,12 +69,35 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
   const anchorAt = last?.from === 'claude' ? chat.length - (afterNote ? 2 : 1) : moment ? chat.length - 1 : -1
   const anchor = useRef<HTMLElement>(null)
   const seen = useRef(-1)
+  const asked = useRef(footerKey)
   useEffect(() => {
     const fresh = seen.current !== chat.length
     seen.current = chat.length
-    if (anchorAt < 0) list.current?.scrollTo({ top: list.current.scrollHeight })
+    // A new question under the chat is there to be answered, so it comes
+    // fully into view, even past the top of what Claude just said. Again a
+    // frame later, once its options have taken their room.
+    const question = !!footer && asked.current !== footerKey
+    asked.current = footerKey
+    const bottom = () => list.current?.scrollTo({ top: list.current.scrollHeight })
+    if (question) {
+      bottom()
+      const frame = requestAnimationFrame(bottom)
+      return () => cancelAnimationFrame(frame)
+    }
+    if (anchorAt < 0) bottom()
     else if (fresh && anchor.current) scrollLogTo(anchor.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- footer is new every render; footerKey says when it changed
   }, [chat.length, status, footerKey, anchorAt])
+  // The same when the question changes size without being a new one (picking
+  // a card opens what you can do with it).
+  const foot = useRef<HTMLDivElement>(null)
+  const hasFooter = !!footer
+  useEffect(() => {
+    if (!foot.current) return
+    const grown = new ResizeObserver(() => list.current?.scrollTo({ top: list.current.scrollHeight }))
+    grown.observe(foot.current)
+    return () => grown.disconnect()
+  }, [hasFooter])
 
   return (
     <div ref={list} role="log" aria-label="Chat with Claude" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-3 text-sm">
@@ -101,7 +124,11 @@ export function ClaudeChat({ claude, empty = 'Claude is across the table. Say he
           <p className="animate-pulse text-xs text-muted">Claude is thinking…</p>
         ))}
       {status === 'stopped' && <p className="text-xs text-warn">Stopped. Resume, or say something, to carry on.</p>}
-      {footer && <div className="mt-1.5 space-y-2.5 border-t border-line pt-2.5">{footer}</div>}
+      {footer && (
+        <div ref={foot} className="mt-1.5 space-y-2.5 border-t border-line pt-2.5">
+          {footer}
+        </div>
+      )}
     </div>
   )
 }
