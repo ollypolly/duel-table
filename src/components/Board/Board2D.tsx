@@ -444,8 +444,12 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered, onHold, op
       swallow.current = true
       setTimeout(() => (swallow.current = false))
     }
-    // Before it shows, moving away is a pan or a drag; once it's up it stays until the finger lifts.
-    const move = (m: PointerEvent) => !shown && Math.hypot(m.clientX - x, m.clientY - y) > SLOP && end()
+    // Before it shows, moving away is a pan or a drag; once it's up it stays until the finger lifts,
+    // and the finger's wandering moves nothing underneath.
+    const move = (m: PointerEvent) => {
+      if (shown) m.stopPropagation()
+      else if (Math.hypot(m.clientX - x, m.clientY - y) > SLOP) end()
+    }
     stop.current = end
     // On the window: the camera or a drag may take the pointer over from the card. A second finger ends it too.
     setTimeout(() => {
@@ -538,17 +542,17 @@ function BoardCard({ card, selected, lit, onClick, canDrag, gathered, onHold, op
     <Tooltip.Root>
       <Tooltip.Trigger asChild>{el}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content side="top" sideOffset={6} className="panel z-50 pointer-coarse:hidden px-2 py-1 font-display text-xs font-semibold text-ink" data-testid="card-tip">
-          {card.name}
+        <Tooltip.Content side="top" sideOffset={6} className="z-50 flex flex-col items-center gap-1 pointer-coarse:hidden" data-testid="card-tip">
           {offered.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1 pb-1" onPointerDown={(e) => e.stopPropagation()}>
+            <div className="flex flex-wrap justify-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
               {offered.map((o) => (
-                <button key={o.label} type="button" className="btn btn-primary px-2 py-0.5 text-xs" onClick={o.run}>
+                <button key={o.label} type="button" className="btn btn-primary px-2 py-0.5 text-xs shadow-lg" onClick={o.run}>
                   {o.label}
                 </button>
               ))}
             </div>
           )}
+          <div className="panel px-2 py-1 font-display text-xs font-semibold text-ink">{card.name}</div>
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
