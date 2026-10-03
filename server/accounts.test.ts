@@ -6,6 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deckOwner, removeRepoFile, repoContext, writeRepoFile } from './files'
 import { SessionService } from './sessions'
+import type { Agent } from './claude/agent'
+import { HomeService } from './claude/home'
+import { TutorService } from './claude/tutor'
+import { memoryPush, PushService } from './push'
 
 const ctx = repoContext()
 
@@ -36,7 +40,19 @@ describe('accounts over the API', () => {
   const setup = () => {
     const accounts = new AccountService(memoryAccounts())
     const adminKey = accounts.ensureAdmin('olly', 'Olly')!
-    const app = createApp({ sessions: new SessionService(ctx), ctx, accounts })
+    const agent: Agent = () => ({
+      events: (async function* () {
+        yield { type: 'done' as const, sessionId: 's', costUsd: 0 }
+      })(),
+      interrupt: async () => {},
+    })
+    const sessions = new SessionService(ctx)
+    const claude = { account: async () => ({ email: 'olly@example.com', plan: 'max' }) } as never
+    const home = new HomeService({ ctx, sessions, agent, system: () => '' })
+    const tutor = new TutorService({ ctx, agent, system: () => '' })
+    const devices = memoryPush()
+    const push = new PushService(devices)
+    const app = createApp({ sessions, ctx, accounts, claude, home, tutor, push })
     const call = async (method: string, path: string, body?: unknown, key?: string) => {
       const res = await app.request(`/api${path}`, {
         method,
@@ -45,7 +61,7 @@ describe('accounts over the API', () => {
       })
       return { status: res.status, json: (await res.json()) as any, cookie: res.headers.get('set-cookie') }
     }
-    return { call, adminKey }
+    return { call, adminKey, devices }
   }
 
   it('reads openly, and only changes things for whoever owns them', async () => {
@@ -69,6 +85,40 @@ describe('accounts over the API', () => {
     const robs = await call('POST', '/sessions', { scenario: 'free-table' }, robKey)
     expect((await call('PATCH', `/sessions/${robs.json.id}`, { title: 'Rob’s' }, robKey)).status).toBe(200)
     expect((await call('PATCH', `/sessions/${robs.json.id}`, { title: 'Admin can' }, adminKey)).status).toBe(200)
+  })
+
+  it("keeps the admin's chats, ideas, login and devices to the admin", async () => {
+    const { call, adminKey, devices } = setup()
+    const rob = await call('POST', '/accounts', { username: 'rob', name: 'Rob' })
+    const robKey = rob.cookie!.match(/duel-key=([^;]+)/)![1]
+    expect((await call('GET', '/claude', undefined, robKey)).json).toEqual({ available: true })
+    expect((await call('GET', '/claude', undefined, adminKey)).json.email).toBe('olly@example.com')
+
+    const chat = (await call('POST', '/home', { text: 'What should I play?' }, adminKey)).json
+    const robs = (await call('POST', '/home', { text: 'Hi' }, robKey)).json
+    expect((await call('GET', '/home', undefined, robKey)).json.map((t: { id: string }) => t.id)).toEqual([robs.id])
+    expect((await call('GET', `/home/${chat.id}`, undefined, robKey)).status).toBe(403)
+    expect((await call('DELETE', `/home/${chat.id}`, undefined, robKey)).status).toBe(403)
+
+    await call('POST', '/ideas', { text: 'secret plans' }, adminKey)
+    expect((await call('GET', '/ideas', undefined, robKey)).json).toEqual([])
+    const idea = (await call('GET', '/ideas', undefined, adminKey)).json[0]
+    expect((await call('DELETE', `/ideas/${idea.id}`, undefined, robKey)).status).toBe(403)
+
+    // A lesson's chat is each account's own.
+    const lesson = 'armed-ojama-links-vs-super-quant'
+    await call('POST', `/scenarios/${lesson}/tutor/chat`, { text: 'Why?', position: 0 }, adminKey)
+    expect((await call('GET', `/scenarios/${lesson}/tutor`, undefined, robKey)).json.chat).toEqual([])
+    await call('DELETE', `/scenarios/${lesson}/tutor`, undefined, robKey)
+    expect((await call('GET', `/scenarios/${lesson}/tutor`, undefined, adminKey)).json.chat[0].text).toBe('Why?')
+
+    const session = (await call('POST', '/sessions', { scenario: 'free-table' }, robKey)).json
+    expect((await call('POST', `/sessions/${session.id}/export`, { write: true }, robKey)).status).toBe(403)
+
+    const device = { endpoint: 'https://push.example/olly', keys: { p256dh: 'p', auth: 'a' } }
+    await call('POST', '/push', device, adminKey)
+    await call('POST', '/push/off', { endpoint: device.endpoint }, robKey)
+    expect(devices.load()).toHaveLength(1)
   })
 
   it('signs in with a key from another device, and leaves admin things to the admin', async () => {
@@ -122,7 +172,12 @@ describe("friends' decks", () => {
     expect((await call('POST', '/decks', rob.key, { ...deck, id: 'for-olly', owner: 'a-000000' })).status).toBe(403)
     expect((await call('POST', '/decks', adminKey, { ...deck, id: 'for-rob', owner: rob.account.id })).status).toBe(201)
     expect((await call('POST', '/decks', adminKey, { ...deck, id: 'olly-deck' })).status).toBe(201)
-    expect(saved).toEqual([['robs', rob.account.id], ['new-one', rob.account.id], ['for-rob', rob.account.id], ['olly-deck', undefined]])
+    expect(saved).toEqual([
+      ['robs', rob.account.id],
+      ['new-one', rob.account.id],
+      ['for-rob', rob.account.id],
+      ['olly-deck', undefined],
+    ])
     const list = (await (await app.request('/api/decks')).json()) as { id: string; owner?: string }[]
     expect(list.find((d) => d.id === 'robs')?.owner).toBe(rob.account.id)
   })

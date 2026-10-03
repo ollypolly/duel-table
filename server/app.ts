@@ -823,6 +823,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     (c) => {
       const { write, overwrite = false, ...as } = c.req.valid('json')
       const file = sessions.export(c.req.valid('param').id, as)
+      if (write && accounts && !c.get('me')?.admin) fail(403, 'only the admin can save scenarios')
       if (!write || !writeFile) return c.json({ file }, 200)
       try {
         return c.json({ file, path: writeFile('scenarios', file, overwrite) }, 200)
@@ -912,7 +913,8 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       const a = claude && (await claude.account())
-      return c.json({ available: !!a, ...a }, 200)
+      // Whose login it is, for the admin only.
+      return c.json({ available: !!a, ...(a && owns(c.get('me'), undefined) && a) }, 200)
     },
   )
 
@@ -1025,7 +1027,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   const TextSchema = z.object({ text: z.string().min(1) }).strict()
 
   const ideasResponse = { 200: json(z.array(IdeaSchema), 'Every idea, oldest first'), ...errors }
-  app.openapi(createRoute({ method: 'get', path: '/ideas', summary: 'Ideas jotted down from the header, to go through later', responses: ideasResponse }), (c) => c.json(ideas.list(), 200))
+  app.openapi(createRoute({ method: 'get', path: '/ideas', summary: 'Ideas jotted down from the header, to go through later', responses: ideasResponse }), (c) => c.json(ideas.list().filter((i) => owns(c.get('me'), i.owner)), 200))
   app.openapi(createRoute({ method: 'post', path: '/ideas', summary: 'Jot down an idea', request: body(NewIdeaSchema), responses: ideasResponse }), (c) => {
     const { text, where } = c.req.valid('json')
     const owner = c.get('me')?.id
@@ -1043,7 +1045,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     return c.json(ideas.list(), 200)
   })
 
-  app.openapi(createRoute({ method: 'get', path: '/home', summary: 'Your chats with Claude on the home page, newest first', responses: { 200: json(z.array(HomeThreadSchema), 'The chats') } }), (c) => c.json(home?.list() ?? [], 200))
+  app.openapi(createRoute({ method: 'get', path: '/home', summary: 'Your chats with Claude on the home page, newest first', responses: { 200: json(z.array(HomeThreadSchema), 'The chats') } }), (c) => c.json(home?.list().filter((t) => owns(c.get('me'), t.owner)) ?? [], 200))
 
   app.openapi(
     createRoute({
@@ -1062,7 +1064,9 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
 
   app.openapi(createRoute({ method: 'get', path: '/home/{id}', summary: 'A chat with Claude from the home page', request: { params: IdParam }, responses: homeResponses }), (c) => {
     if (!home) throw new SessionError(404, 'no chats here')
-    return c.json(home.view(c.req.valid('param').id), 200)
+    const { id } = c.req.valid('param')
+    if (!owns(c.get('me'), ownerOf('home', id))) fail(403, "that's someone else's chat")
+    return c.json(home.view(id), 200)
   })
 
   app.openapi(
@@ -1123,6 +1127,12 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     if (!tutor || !(await claude?.account())) throw new SessionError(501, 'the tutor needs a Claude login (run `claude` and log in)')
     return tutor
   }
+  // Each account has its own chat on a lesson; the admin's is the lesson's own.
+  const tutorChat = (c: Context) => {
+    const { id } = c.req.param() as { id: string }
+    const me = c.get('me') as Account | undefined
+    return me && !me.admin ? `${id}~${me.id}` : id
+  }
   const tutorResponses = { 200: json(TutorViewSchema, 'The chat'), 501: json(ErrorSchema, 'No Claude login'), ...errors }
 
   app.openapi(
@@ -1133,7 +1143,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       request: { params: IdParam },
       responses: tutorResponses,
     }),
-    async (c) => c.json((await needTutor()).view(c.req.valid('param').id), 200),
+    async (c) => c.json((await needTutor()).view(tutorChat(c)), 200),
   )
 
   app.openapi(
@@ -1146,7 +1156,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       responses: tutorResponses,
     }),
     async (c) => {
-      const { id } = c.req.valid('param')
+      const id = tutorChat(c)
       const { text, position } = c.req.valid('json')
       const t = await needTutor()
       t.ask(id, position, text)
@@ -1157,7 +1167,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(
     createRoute({ method: 'post', path: '/scenarios/{id}/tutor/stop', summary: "Stop Claude's answer", request: { params: IdParam }, responses: tutorResponses }),
     async (c) => {
-      const { id } = c.req.valid('param')
+      const id = tutorChat(c)
       const t = await needTutor()
       await t.stop(id)
       return c.json(t.view(id), 200)
@@ -1173,7 +1183,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       responses: tutorResponses,
     }),
     async (c) => {
-      const { id } = c.req.valid('param')
+      const id = tutorChat(c)
       const t = await needTutor()
       t.settings(id, c.req.valid('json'))
       return c.json(t.view(id), 200)
@@ -1183,7 +1193,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(
     createRoute({ method: 'delete', path: '/scenarios/{id}/tutor', summary: 'Clear the chat and start over', request: { params: IdParam }, responses: tutorResponses }),
     async (c) => {
-      const { id } = c.req.valid('param')
+      const id = tutorChat(c)
       const t = await needTutor()
       await t.clear(id)
       return c.json(t.view(id), 200)
@@ -1389,7 +1399,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(
     createRoute({ method: 'post', path: '/push/off', summary: 'Turn off notifications for this device', request: body(z.object({ endpoint: z.string() })), responses: { 200: json(z.object({ on: z.boolean() }), 'Off'), ...errors } }),
     (c) => {
-      push.unsubscribe(c.req.valid('json').endpoint)
+      push.unsubscribe(c.req.valid('json').endpoint, meOr401(c).id)
       return c.json({ on: false }, 200)
     },
   )

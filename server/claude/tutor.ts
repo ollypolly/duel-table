@@ -38,6 +38,9 @@ export type TutorDeps = {
   store?: RecordStore<TutorRecord>
 }
 
+// A chat's lesson: the chat is the lesson's id, or that with ~account after it.
+const lessonOf = (chat: string) => chat.split('~')[0]
+
 const fresh = (model: ModelChoice = 'opus'): TutorRecord => ({ model, chat: [], costUsd: 0, read: 0 })
 
 export class TutorService {
@@ -97,7 +100,7 @@ export class TutorService {
   }
 
   private need(id: string): Tutor {
-    if (!this.ctx().scenarios[id]) throw new SessionError(404, `no scenario ${id}`)
+    if (!this.ctx().scenarios[lessonOf(id)]) throw new SessionError(404, `no scenario ${id}`)
     const found = this.tutors.get(id)
     if (found) return found
     const t: Tutor = { ...(this.store.load(id) ?? fresh()), status: 'idle', queue: [], position: 0, busy: false }
@@ -106,7 +109,7 @@ export class TutorService {
   }
 
   private lesson(id: string): ResolvedScenario {
-    const r = resolveScenario(this.ctx().scenarios[id], this.ctx())
+    const r = resolveScenario(this.ctx().scenarios[lessonOf(id)], this.ctx())
     if (!r.ok) throw new SessionError(422, `scenario ${id} doesn't resolve`)
     return r.scenario
   }

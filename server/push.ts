@@ -56,8 +56,9 @@ export class PushService {
     this.store.save([...this.store.load().filter((s) => s.endpoint !== sub.endpoint), { account, endpoint: sub.endpoint, keys: sub.keys }])
   }
 
-  unsubscribe(endpoint: string) {
-    this.store.save(this.store.load().filter((s) => s.endpoint !== endpoint))
+  // Only the account's own device, when given one.
+  unsubscribe(endpoint: string, account?: string) {
+    this.store.save(this.store.load().filter((s) => s.endpoint !== endpoint || (!!account && s.account !== account)))
   }
 
   // To every device of the account's. One that's gone (unsubscribed, or the
