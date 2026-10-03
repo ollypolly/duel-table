@@ -1,13 +1,14 @@
 # Playing a friend
 
-**Status:** spike, nothing built. The aim is to play a game against a friend soon, then let friends use Claude on their own API keys.
+**Status:** spike, nothing built. The aim is to play a game against a friend soon, with friends able to use Claude within limits the owner sets. Proper accounts can come later.
 
 ## Decisions so far
 
 - **Tailnet only.** The app stays off the public web. Friends get the machine shared with them on Tailscale and open the same `https://…ts.net` URL (see `docs/HOSTING.md`). Making it public would mean doing logins, rate limits and abuse protection properly, which is a much bigger job.
+  - **Sharing:** admin console → Machines → the machine's menu → Share, which makes an invite link (or sends one by email). The friend signs in to Tailscale with any account it supports (Google, Microsoft, GitHub, Apple and others), installs the app on their phone or laptop, and opens the link. They see only this machine, and it can't reach anything of theirs.
 - **Who you are comes from Tailscale.** `tailscale serve` adds identity headers to every request it proxies: `Tailscale-User-Login` (e.g. `alice@example.com`) and `Tailscale-User-Name`. This includes friends who've accepted a share of the machine, so there's no login screen to build. The headers aren't set for tagged devices or Funnel traffic.
 - **The owner is the admin.** The owner's Tailscale login, set in config, sees and can do everything: every user's games, deleting, settings.
-- **Claude: the owner on their login, friends on their API keys.** The owner's Claude runs use the Claude Code login on the machine, as now. A friend's runs use an Anthropic API key they paste into the app, charged to them. A third-party app can't offer claude.ai sign-in for other people, and the owner's login is for the owner's own use, so a friend's request never runs on it.
+- **Claude: the owner on their login, friends on the owner's API key.** The owner's Claude runs use the Claude Code login on the machine, as now. A friend's runs use an Anthropic API key of the owner's, paid per use, with limits (below). Not the owner's login: a Claude subscription is for its holder's own use, so a friend's request never runs on it. Friends bringing their own keys waits for proper accounts.
 
 ## What already works
 
@@ -30,15 +31,23 @@
 ### 2. Claude where friends can see it
 
 - Your Claude chat in a game is already sent to everyone watching. Only the seat holder whose login or key runs it should be able to send to it, or a friend is spending your plan.
-- **A chat both players see can't know your hidden cards.** "Send Claude my hidden cards" would show your hand to your opponent through its answers. In a game against a friend, that chat sticks to what both players can see. Private help (a coach that knows your hand) needs a chat only you are sent.
+- **Private chats.** In a game against a friend each player gets their own chat with Claude, sent only to them, for advice ("what should I do here?"). It can know their hidden cards and nobody else's. A table chat everyone sees is optional: if there is one, it only knows what both players can see, since "Send Claude my hidden cards" there would show your hand to your opponent through its answers. Today a game has one Claude seat; this makes it one per player, each with its own conversation and settings, and the SSE stream sends each viewer only their own.
 - Reviews of a finished game can see everything, since the game's over.
 
-### 3. Friends' own API keys
+### 3. Limits on friends' Claude
 
-- **Where the key lives.** A friend pastes their key once, in Settings. It's saved server-side against their login, outside the repo (e.g. `sessions/users/<login>.json`, already gitignored), encrypted with a key the server reads from its environment. That key goes in the chezmoi data file like any other secret, never in the repo.
-- **Running on it.** The Agent SDK takes `env` per run, which `server/claude/agent.ts` already sets. A friend's run passes `ANTHROPIC_API_KEY: <their key>`, and the owner's run passes none, so it falls back to the Claude Code login. The server process itself must not have `ANTHROPIC_API_KEY` set, or the owner's runs would use it too.
-- **Who pays for what.** Claude in a friend's game or lesson runs on that friend's key. The cost shown is then real money, not API-equivalent.
-- **With no key**, a friend gets everything that needs no Claude (games against each other or the bots, preset lessons, free play), and can watch the owner's Claude.
+The point is that a friend can't run up the owner's bill. Each run already reports its cost, so limits can be on money rather than guesses:
+
+- **A daily spend per friend**, e.g. $1, set by the owner. Once it's used up, Claude features are off for them until tomorrow, with a line saying so. The owner can raise it or reset it.
+- **One run at a time per friend**, and no Opus for friends (Sonnet or Haiku), set server-side, not just hidden in the UI.
+- **Background tries off for friends.** "Can Claude win it?" can run a whole game unattended, so it stays owner-only.
+- **A hard cap at Anthropic too.** The API key sits in its own workspace in the Anthropic Console with a monthly spend limit, so a bug in the app's limits can't spend more than that.
+- **The key** lives in the chezmoi data file and reaches the server as an environment variable that only friends' runs are given. The Agent SDK takes `env` per run (`server/claude/agent.ts` already sets it): a friend's run passes `ANTHROPIC_API_KEY`, the owner's passes none and falls back to the Claude Code login. So the server process itself must not have `ANTHROPIC_API_KEY` in its environment, or the owner's runs would use it too: read it under another name.
+- A friend with Claude off still gets everything that needs no Claude: games against each other or the bots, preset lessons, free play.
+
+### 4. Later: proper accounts
+
+Real sign-up and login in the app, friends' own API keys stored encrypted against their account, and maybe opening it up beyond the tailnet. Not needed to play a friend.
 
 ## If it moves into Docker
 
@@ -52,10 +61,11 @@ Both need checking against the current Claude Code docs before relying on them. 
 ## Open questions
 
 - Decks: shared by everyone, or each user's own with the repo's as a starting set?
-- Whether friends can start Claude-run lessons on their own key, or only use Claude in games to begin with.
+- Whether friends can start Claude-run lessons within their daily limit, or only use Claude in games to begin with.
 - A friend's first visit with no deck of their own: pick from the repo's decks?
 - Mobile: the deck picker and the join link need to work on a phone, since that's where a friend will open it.
 
 ## Sources
 
 - [Tailscale Serve: identity headers](https://tailscale.com/kb/1312/serve)
+- [Sharing over Tailscale](https://tailscale.com/blog/sharing-over-tailscale)
