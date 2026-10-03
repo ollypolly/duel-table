@@ -1,6 +1,6 @@
 # Playing a friend
 
-**Status:** spike, nothing built. The aim is to play a game against a friend soon, with friends able to use Claude within limits the owner sets. Proper accounts can come later.
+**Status:** spike, nothing built. The aim is to play a game against a friend soon, with a group chat where both players and Claude talk. Proper accounts can come later.
 
 ## Decisions so far
 
@@ -8,7 +8,7 @@
   - **Sharing:** admin console → Machines → the machine's menu → Share, which makes an invite link (or sends one by email). The friend signs in to Tailscale with any account it supports (Google, Microsoft, GitHub, Apple and others), installs the app on their phone or laptop, and opens the link. They see only this machine, and it can't reach anything of theirs.
 - **Who you are comes from Tailscale.** `tailscale serve` adds identity headers to every request it proxies: `Tailscale-User-Login` (e.g. `alice@example.com`) and `Tailscale-User-Name`. This includes friends who've accepted a share of the machine, so there's no login screen to build. The headers aren't set for tagged devices or Funnel traffic.
 - **The owner is the admin.** The owner's Tailscale login, set in config, sees and can do everything: every user's games, deleting, settings.
-- **Claude: the owner on their login, friends on the owner's API key.** The owner's Claude runs use the Claude Code login on the machine, as now. A friend's runs use an Anthropic API key of the owner's, paid per use, with limits (below). Not the owner's login: a Claude subscription is for its holder's own use, so a friend's request never runs on it. Friends bringing their own keys waits for proper accounts.
+- **Claude runs on the owner's login for everyone.** It's one friend sending a few messages, so no API keys, spend limits or other infrastructure for now. Known trade-off: a Claude subscription's terms are for its holder's own use. If more people join, or usage grows, friends' runs move to an API key (see Later).
 
 ## What already works
 
@@ -28,26 +28,17 @@
 - **Take-backs need agreement.** In a game against a friend, Take back asks the other player first.
 - **Someone drops out.** The game waits; their seat shows as away. A turn timer can come later.
 
-### 2. Claude where friends can see it
+### 2. Chat: a group chat, and private messages to Claude
 
-- Your Claude chat in a game is already sent to everyone watching. Only the seat holder whose login or key runs it should be able to send to it, or a friend is spending your plan.
-- **Private chats.** In a game against a friend each player gets their own chat with Claude, sent only to them, for advice ("what should I do here?"). It can know their hidden cards and nobody else's. A table chat everyone sees is optional: if there is one, it only knows what both players can see, since "Send Claude my hidden cards" there would show your hand to your opponent through its answers. Today a game has one Claude seat; this makes it one per player, each with its own conversation and settings, and the SSE stream sends each viewer only their own.
+- **The table chat is a group chat.** Both players (and anyone watching) talk in it, and Claude is in it too, answering whoever asks. Messages show who sent them. Today a game's chat is one person talking to Claude; it becomes several people, each message tagged with its sender's Tailscale name, and Claude is told who said what.
+- **It only knows what's public.** Since everyone reads Claude's answers there, it never sees anyone's hidden cards, or it would give a hand away. "Send Claude my hidden cards" doesn't apply in it.
+- **Private messages to Claude** for advice ("what should I play here?"): each player can open their own chat with Claude, sent only to them, which knows their own hidden cards and nobody else's. Today a game has one Claude seat; this makes one more per player, each its own conversation, and the SSE stream sends each viewer only the chats they're in.
 - Reviews of a finished game can see everything, since the game's over.
 
-### 3. Limits on friends' Claude
+### Later
 
-The point is that a friend can't run up the owner's bill. Each run already reports its cost, so limits can be on money rather than guesses:
-
-- **A daily spend per friend**, e.g. $1, set by the owner. Once it's used up, Claude features are off for them until tomorrow, with a line saying so. The owner can raise it or reset it.
-- **One run at a time per friend**, and no Opus for friends (Sonnet or Haiku), set server-side, not just hidden in the UI.
-- **Background tries off for friends.** "Can Claude win it?" can run a whole game unattended, so it stays owner-only.
-- **A hard cap at Anthropic too.** The API key sits in its own workspace in the Anthropic Console with a monthly spend limit, so a bug in the app's limits can't spend more than that.
-- **The key** lives in the chezmoi data file and reaches the server as an environment variable that only friends' runs are given. The Agent SDK takes `env` per run (`server/claude/agent.ts` already sets it): a friend's run passes `ANTHROPIC_API_KEY`, the owner's passes none and falls back to the Claude Code login. So the server process itself must not have `ANTHROPIC_API_KEY` in its environment, or the owner's runs would use it too: read it under another name.
-- A friend with Claude off still gets everything that needs no Claude: games against each other or the bots, preset lessons, free play.
-
-### 4. Later: proper accounts
-
-Real sign-up and login in the app, friends' own API keys stored encrypted against their account, and maybe opening it up beyond the tailnet. Not needed to play a friend.
+- Friends' Claude on an API key instead of the owner's login, with a daily spend per friend (each run already reports its cost) and a hard monthly cap in the Anthropic Console. The Agent SDK takes `env` per run, so a friend's run can be given `ANTHROPIC_API_KEY` while the owner's falls back to the Claude Code login.
+- Proper accounts: real sign-up and login, friends' own API keys stored encrypted against their account, maybe opening it up beyond the tailnet.
 
 ## If it moves into Docker
 
@@ -61,7 +52,6 @@ Both need checking against the current Claude Code docs before relying on them. 
 ## Open questions
 
 - Decks: shared by everyone, or each user's own with the repo's as a starting set?
-- Whether friends can start Claude-run lessons within their daily limit, or only use Claude in games to begin with.
 - A friend's first visit with no deck of their own: pick from the repo's decks?
 - Mobile: the deck picker and the join link need to work on a phone, since that's where a friend will open it.
 
