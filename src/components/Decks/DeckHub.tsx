@@ -6,7 +6,7 @@
 // Saving writes decks/<id>.json, which Vite hot-reloads as a full page load,
 // so the open deck lives in the URL (?decks=<id>) and the hub comes back to it.
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Minus, Play, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, Minus, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, type Deck, type DeckEntry, type DeckSummary } from '../../api/client'
 import { imagePath, isExtraDeckCard, type CardData } from '../../data/cardDb'
@@ -23,6 +23,24 @@ const slug = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+
+// The deck as a wants list to paste into a card shop (Cardmarket, TCGplayer):
+// "3 Ash Blossom & Joyous Spring", one card per line, Main Deck then Extra.
+// Copied, or saved as a file where the page can't reach the clipboard (plain http).
+async function exportWants(deckName: string, rows: DeckEntry[]) {
+  const text = rows.map((c) => `${c.count} ${c.name}`).join('\n') + '\n'
+  try {
+    await navigator.clipboard.writeText(text)
+    return 'copied'
+  } catch {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+    a.download = `${slug(deckName) || 'deck'}-wants.txt`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return 'saved'
+  }
+}
 
 const setUrl = (id?: string) => {
   const url = new URL(window.location.href)
@@ -182,6 +200,7 @@ function DeckEditor({
   const [error, setError] = useState<{ message: string; unknown?: ApiError['body']['unknown'] }>()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [copyName, setCopyName] = useState<string>()
+  const [wants, setWants] = useState<string>()
 
   const load = (d: Deck) => {
     setDeck(d)
@@ -252,6 +271,19 @@ function DeckEditor({
         </button>
         <button type="button" className="btn flex items-center gap-1" onClick={onPlay} disabled={dirty} title={dirty ? 'Save first' : 'Start a game with this deck'}>
           <Play size={14} aria-hidden /> Play
+        </button>
+        <button
+          type="button"
+          className="btn flex items-center gap-1"
+          title="Copy the cards as a list to paste into a card shop's wants list"
+          onClick={() =>
+            void exportWants(name, [...main, ...extra]).then((how) => {
+              setWants(how === 'copied' ? 'Copied' : 'Saved')
+              setTimeout(() => setWants(undefined), 2000)
+            })
+          }
+        >
+          <ClipboardList size={14} aria-hidden /> {wants ?? 'Wants list'}
         </button>
         <button
           type="button"
