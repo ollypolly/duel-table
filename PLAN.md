@@ -16,7 +16,7 @@ This is **Level 1** of a bigger idea. Level 1 includes a small **local HTTP API*
 
 **Out:**
 - **No rules implemented.** The tool tracks where cards are, like a real table. It doesn't enforce legality, resolve chains automatically or run card effects; rules live in the narration. Full rules automation is what EDOPro/YGO Omega spend years on. **But the architecture must leave room for it.** See [Designed for rules later](#designed-for-rules-later): build the seams now, not the rules.
-- No hosted backend, accounts or real multiplayer. The API binds to `127.0.0.1` only.
+- No hosted backend, accounts or real multiplayer. The API binds to `127.0.0.1` only. (Playing a friend over the tailnet is being worked out in `docs/MULTIPLAYER.md`.)
 - Pendulum zones, Link arrows and Rush/Speed Duel formats. Ignore them unless trivial.
 
 ## Stack
