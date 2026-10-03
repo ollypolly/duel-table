@@ -384,7 +384,7 @@ A test plays a whole game through the board with the panel never opened. **To de
 - **Smaller uses:** rematch from the same opening hand (step 0, which "Can Claude win it?" already does for Claude); swap sides from a step to see the bot's view of it; and Claude taking a move back in a try, which is this with the step just before its last move.
 - **To settle:** whether hidden cards stay hidden when you restart from a step of a game you've already seen to the end (you know what the bot had), and whether such games count in your results.
 
-**Planned: web push notifications.** Claude's turns can take a minute, so you put the phone down: tell you when it's your move again.
+**Planned: web push notifications.** Claude's turns can take a minute, so you put the phone down: tell you when it's your move again. Being built with playing a friend (`docs/MULTIPLAYER.md`), which adds that game's moments.
 - When: Claude has answered in a chat, it's your move or a question is waiting in a game or lesson, a game has ended. Only when no tab has that game or chat open and visible.
 - What it takes: a service worker (there's a manifest and icons already, but no worker), a `PushSubscription` per device kept on the server, and the server sending with VAPID keys from where it already notices these changes (`games.onChange`, the Home chat going idle). A tap opens `?session=<id>` or `?chat=<id>`.
 - Limits: needs HTTPS, so the olly.live address and not a LAN one. On iOS it only works once the app is added to the Home Screen. The VAPID private key is a secret: it goes in the chezmoi data file, not the repo.

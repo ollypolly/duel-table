@@ -1,16 +1,16 @@
 # Playing a friend
 
-**Status:** spike, nothing built. The aim is to play a game against a friend soon, with a group chat where both players and Claude talk. Proper accounts can come later.
+**Status:** spike, nothing built. How it should feel to use is `docs/MULTIPLAYER-FLOW.md`, which wins where the two disagree. The aim is to play a game against a friend soon, with a group chat where both players and Claude talk. Proper accounts can come later.
 
 ## Decisions so far
 
 - **Tailnet only.** The app stays off the public web. Friends get the machine shared with them on Tailscale and open the same `https://…ts.net` URL (see `docs/HOSTING.md`). Making it public would mean doing logins, rate limits and abuse protection properly, which is a much bigger job.
-  - **Its own address: `duel.olly.live`, the way `budget.olly.live` works.** Today it's `https://servitor.tail59f26.ts.net:10001`. `budget.olly.live` has a public A record pointing at servitor's tailnet IP (`100.93.150.67`), and the host's nginx has a server block listening only on that IP (`listen 100.93.150.67:443 ssl`, in `/etc/nginx/sites-available/reverse-proxy`) proxying to the app on localhost. Only tailnet devices can reach it. `duel.olly.live` would be the same: an A record, a server block proxying to `127.0.0.1:5180` with the WebSocket/SSE headers, and the `.olly.live` host added to Vite's allowed hosts.
+  - **Its own address: `duel.olly.live`, the way `budget.olly.live` works.** Today it's `https://servitor.tail59f26.ts.net:10001`. `budget.olly.live` has a public A record pointing at servitor's tailnet IP (`100.93.150.67`), and the host's nginx has a server block listening only on that IP (`listen 100.93.150.67:443 ssl`, in `/etc/nginx/sites-available/reverse-proxy`) proxying to the app on localhost. Only tailnet devices can reach it. `duel.olly.live` would be the same: an A record, a server block proxying to the live copy on `127.0.0.1:5190` (see Running it) with the WebSocket/SSE headers, and the `.olly.live` host added to Vite's allowed hosts.
     - **The certificate.** A tailnet-only name can't pass Let's Encrypt's HTTP check, so budget's was issued by hand with a DNS challenge (`authenticator = manual` in `/etc/letsencrypt/renewal/budget.olly.live.conf`), which `certbot.timer` can't renew: it expired on 2026-09-17. Fixing it for both names, as part of this work:
       1. **A Netlify token.** `olly.live`'s DNS is on Netlify (the `dns*.p01.nsone.net` nameservers). A personal access token from Netlify (User settings → Applications) goes in the chezmoi data file as `[netlify] token`, templated to `~/.config/netlify/token` (private), like the ngrok token.
       2. **A certbot hook** (`certbot-netlify-dns auth|cleanup`, kept in the dotfiles' `bin/`): `auth` adds the `_acme-challenge.<name>` TXT record through Netlify's API and waits until Netlify's nameservers serve it, `cleanup` deletes it. Certbot 2.1 on the box runs it as root, so it's installed as a root-owned copy (`/etc/letsencrypt/netlify-dns`) rather than run from the home directory.
       3. **Re-issue budget and issue duel** with `certbot certonly --manual --preferred-challenges dns --manual-auth-hook '… auth' --manual-cleanup-hook '… cleanup' --deploy-hook 'systemctl reload nginx'`, once per name. Certbot saves the hooks in each renewal config, so the timer renews both from then on. `certbot renew --dry-run` proves it.
-      4. **The `duel.olly.live` site:** its own file in `sites-available` (budget's block is in the shared `reverse-proxy` file), listening on `100.93.150.67`, proxying to `127.0.0.1:5180` with the upgrade headers, `proxy_buffering off` and a long `proxy_read_timeout`, since live games are an event stream. Then `nginx -t` and a reload, after the certificate exists.
+      4. **The `duel.olly.live` site:** its own file in `sites-available` (budget's block is in the shared `reverse-proxy` file), listening on `100.93.150.67`, proxying to the live copy on `127.0.0.1:5190` (see Running it) with the upgrade headers, `proxy_buffering off` and a long `proxy_read_timeout`, since live games are an event stream. Then `nginx -t` and a reload, after the certificate exists.
       5. **The A record** `duel.olly.live → 100.93.150.67`, through the same Netlify API, and `duel.olly.live` in Vite's `allowedHosts`.
     - **Who's who.** Through nginx there are no Tailscale identity headers. Either Tailscale's `nginx-auth` helper (nginx asks it who the tailnet caller is, and passes the login on as headers), or for one friend simply asking for a name the first time, kept in the browser.
     - **What the friend can reach.** nginx listens on servitor's own tailnet IP, so the friend needs servitor shared with them, which on its own would let them reach everything else listening there (Plex, Portainer). The tailnet policy can limit people a machine is shared with (`autogroup:shared`) to port 443 on it.
@@ -97,10 +97,29 @@ The things you'd do across a real table, so it feels like playing a mate and not
 
 Sounds come from a free pack (Kenney's, as now, or similar) or a few short clips recorded for fun; voice lines need checking for licensing rather than lifting from the anime.
 
+### 4. Notifications (web push)
+
+Built as part of this, since a game against a person means waiting on them with the phone locked. The general plan is in `PLAN.md` (Planned: web push notifications); for this:
+
+- **A setting**, "Notify me", per device (it's the browser that's subscribed), in Settings, and offered once after joining a game. Turning it on is what asks the browser's permission. On an iPhone it only works from the Home Screen app, so the setting says how to add it there instead of failing quietly.
+- **Subscriptions** are kept per account and device (`sessions/push.json`), so a notification goes to all of that person's devices, and a dead subscription (the browser says gone) is dropped.
+- **When:** it's your move in a game against a friend; someone joined your game; a rematch is offered; you're mentioned in a game's chat; plus `PLAN.md`'s (Claude answered, a question waiting, a game ended). Never for a game that's open and visible in one of your tabs.
+- **What it takes:** a service worker (there's a manifest and icons, no worker yet), the `web-push` package with VAPID keys (the private one in the chezmoi data file), sent from where the server already notices changes (`games.onChange`). Tapping one opens `?session=<id>`. Needs HTTPS: `duel.olly.live`.
+
 ### Later
 
 - Friends' Claude on an API key instead of the owner's login, with a daily spend per friend (each run already reports its cost) and a hard monthly cap in the Anthropic Console. The Agent SDK takes `env` per run, so a friend's run can be given `ANTHROPIC_API_KEY` while the owner's falls back to the Claude Code login.
 - Proper accounts: real sign-up and login, friends' own API keys stored encrypted against their account, maybe opening it up beyond the tailnet.
+
+## Running it: a live copy and the dev one
+
+Friends play on a live copy that only changes when you deploy; the dev server stays yours to break.
+
+- **The live copy is a git worktree** (`~/dev/duel-table-live`), checked out at `origin/main` (detached, since `main` may be checked out in the dev copy). It runs a production build: `vite build`, then `vite preview` on :5190 (which uses the same `/api` proxy and allowed hosts as the dev server) and the API with `tsx server/index.ts` (no watch) on :5191. `duel.olly.live` points at :5190. It runs in its own tmux popup session, or a systemd user service so it survives a reboot.
+- **The dev copy** stays as now (`mise run dev`, :5180/:5181, the `.ts.net:10001` address), for you alone.
+- **Deploying:** `mise run deploy` in the dev copy: in the live worktree, fetch, check out `origin/main`, `npm ci`, build, restart. A deploy restarts the live API, so do it between games (it could refuse while a game against a friend is in progress, unless forced).
+- **Data.** The live copy has its own `sessions/`: real games, accounts and Claude chats live there. Moving to it, your current `sessions/` is copied across once, so your games come with you; the dev copy keeps a copy to test on. The downloaded card data (`data/cards.json`, `public/cards/`, `data/ocg/`) is big and the same for both, so the live worktree links to the dev copy's.
+- **Claude** uses the same login in both; the trained bot (`:5182`) is shared.
 
 ## If it moves into Docker
 
@@ -117,8 +136,7 @@ Both need checking against the current Claude Code docs before relying on them. 
 - **Spectators see no hidden cards.** A viewer whose account holds no seat gets the public table only.
 - **Who goes first.** The engine already settles it from the seed; show it as a coin flip at the start. A rematch swaps it.
 - **Chances to respond.** "Ask me to respond" is one setting per game today (`respond` in `server/games.ts`); against a person it's one per seat. Auto-passing also mustn't give away timing, e.g. never pause on a chance you can't use.
-- **The dev server.** The app runs as `mise run dev`: saving a server file restarts the API and a page reload follows. Games are saved and survive it, but a game in progress gets a hiccup each time. While a friend is on, either don't work on the app, or run a built copy for them on its own port and keep the dev one for yourself.
-- **Your turn.** A sound when it becomes your turn, and web push (already planned) for when the tab is in the background on a phone.
+- **Your turn.** A sound when it becomes your turn, for when the tab's open (notifications cover it when it isn't).
 - **Someone leaves.** The game waits indefinitely; an away mark after a minute or two, and forfeit stays available.
 - **After the game.** Rematch needs both to agree. A Claude review of the game can see both sides, since it's over.
 
