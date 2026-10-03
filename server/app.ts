@@ -244,12 +244,18 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     createRoute({
       method: 'post',
       path: '/signin',
-      summary: 'Sign this browser in with a key',
-      request: body(z.object({ key: z.string().min(1) }).strict()),
+      summary: 'Sign this browser in with a key, or a code from another device',
+      request: body(
+        z
+          .object({ key: z.string().min(1).optional(), code: z.string().min(1).optional() })
+          .strict()
+          .refine((b) => !!b.key !== !!b.code, { message: 'give either key or code' }),
+      ),
       responses: { 200: json(AccountSchema, 'The account'), 401: json(ErrorSchema, 'No account has that key'), ...errors },
     }),
     (c) => {
-      const { key } = c.req.valid('json')
+      const body = c.req.valid('json')
+      const key = body.key ?? needAccounts().redeem(body.code!)
       const account = needAccounts().byKey(key) ?? fail(401, "that sign-in link doesn't work any more")
       signIn(c, key)
       return c.json(account, 200)
@@ -261,15 +267,19 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     return c.json({ accounts: !!accounts }, 200)
   })
 
-  const keyResponse = { 201: json(z.object({ key: z.string() }), 'A new sign-in key, shown once'), ...errors }
+  const keyResponse = { 201: json(z.object({ key: z.string(), code: z.string() }), 'A new sign-in key, shown once, and a code that stands for it'), ...errors }
+  const newKey = (id: string) => {
+    const key = needAccounts().addKey(id)
+    return { key, code: needAccounts().codeFor(key) }
+  }
   app.openapi(createRoute({ method: 'post', path: '/me/keys', summary: 'A sign-in key for another device', responses: keyResponse }), (c) =>
-    c.json({ key: needAccounts().addKey(meOr401(c).id) }, 201),
+    c.json(newKey(meOr401(c).id), 201),
   )
 
   // The admin's, for someone who's lost every device.
   app.openapi(createRoute({ method: 'post', path: '/accounts/{id}/keys', summary: 'A new sign-in key for an account (admin)', request: { params: IdParam }, responses: keyResponse }), (c) => {
     if (!meOr401(c).admin) fail(403, 'only the admin can do that')
-    return c.json({ key: needAccounts().addKey(c.req.valid('param').id) }, 201)
+    return c.json(newKey(c.req.valid('param').id), 201)
   })
 
   app.openapi(

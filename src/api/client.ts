@@ -72,10 +72,10 @@ export const api = {
   me: () => call<Me>('GET', '/me').catch((): Me => ({ accounts: false })),
   accounts: () => call<Account[]>('GET', '/accounts'),
   makeAccount: (a: { username: string; name: string }) => call<Account>('POST', '/accounts', a),
-  signIn: (key: string) => call<Account>('POST', '/signin', { key }),
+  signIn: (by: { key: string } | { code: string }) => call<Account>('POST', '/signin', by),
   signOut: () => call<Me>('POST', '/signout'),
-  // A key to sign in another device with (the admin can make one for anyone).
-  newKey: (account?: string) => call<{ key: string }>('POST', account ? `/accounts/${account}/keys` : '/me/keys'),
+  // A key to sign in another device with, and a code for it (the admin can make one for anyone).
+  newKey: (account?: string) => call<{ key: string; code: string }>('POST', account ? `/accounts/${account}/keys` : '/me/keys'),
   changeAccount: (id: string, a: { username?: string; name?: string }) => call<Account>('PATCH', `/accounts/${id}`, a),
   removeAccount: (id: string) => call<{ deleted: string }>('DELETE', `/accounts/${id}`),
   // Games against a friend: an invite to send, joined with a deck (making an account on the way, if need be).

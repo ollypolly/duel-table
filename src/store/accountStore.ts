@@ -52,7 +52,7 @@ export async function signInFromUrl() {
   if (key) {
     url.searchParams.delete('signin')
     window.history.replaceState(null, '', url)
-    await api.signIn(key).catch(() => window.alert("That sign-in link doesn't work any more. Ask for a new one."))
+    await api.signIn({ key }).catch(() => window.alert("That sign-in link doesn't work any more. Ask for a new one."))
   }
   await useAccountStore.getState().load()
 }

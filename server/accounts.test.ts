@@ -36,6 +36,19 @@ describe('accounts', () => {
   })
 })
 
+describe('sign-in codes', () => {
+  it('last ten minutes, and stop working for a while after many wrong guesses', () => {
+    const accounts = new AccountService(memoryAccounts())
+    const key = accounts.ensureAdmin('olly')!
+    const code = accounts.codeFor(key, 0)
+    for (let i = 0; i < 30; i++) expect(() => accounts.redeem('WRONG1', 1)).toThrow("doesn't work")
+    expect(() => accounts.redeem(code, 2)).toThrow('too many')
+    const later = 11 * 60_000
+    expect(accounts.redeem(accounts.codeFor(key, later), later)).toBe(key)
+    expect(() => accounts.redeem(accounts.codeFor(key, later), later + 10 * 60_000 + 1)).toThrow("doesn't work")
+  })
+})
+
 describe('accounts over the API', () => {
   const setup = () => {
     const accounts = new AccountService(memoryAccounts())
@@ -128,6 +141,14 @@ describe('accounts over the API', () => {
     const { key } = (await call('POST', '/me/keys', undefined, robKey)).json
     expect((await call('POST', '/signin', { key })).json.username).toBe('rob')
     expect((await call('POST', '/signin', { key: 'wrong' })).status).toBe(401)
+    // Or its code, typed any old way, once.
+    const { code } = (await call('POST', '/me/keys', undefined, robKey)).json
+    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/)
+    const typed = `${code.slice(0, 3).toLowerCase()} - ${code.slice(3)}`
+    const signed = await call('POST', '/signin', { code: typed })
+    expect(signed.json.username).toBe('rob')
+    expect((await call('GET', '/me', undefined, signed.cookie!.match(/duel-key=([^;]+)/)![1])).json.me.username).toBe('rob')
+    expect((await call('POST', '/signin', { code })).status).toBe(401)
     expect((await call('POST', `/accounts/${rob.json.id}/keys`, undefined, robKey)).status).toBe(403)
     expect((await call('POST', `/accounts/${rob.json.id}/keys`, undefined, adminKey)).status).toBe(201)
     expect((await call('PATCH', `/accounts/${rob.json.id}`, { username: 'olly' }, robKey)).status).toBe(409)

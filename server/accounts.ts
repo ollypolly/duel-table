@@ -32,8 +32,17 @@ export const USERNAME = /^[a-z0-9_-]{2,20}$/
 const hash = (key: string) => createHash('sha256').update(key).digest('base64url')
 const view = ({ id, username, name, admin }: Account): AccountView => ({ id, username, name, ...(admin && { admin }) })
 
+// A short code to type in where a sign-in link won't open (an app installed to
+// the home screen keeps its own cookies): it stands for a key, once, for ten
+// minutes. No 0/O or 1/I, so it reads back off a screen.
+const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const CODE_LASTS = 10 * 60_000
+const WRONG_CODES = 30 // in ten minutes, then codes stop working for a while (someone guessing)
+
 export class AccountService {
   private store: AccountStore
+  private codes = new Map<string, { key: string; until: number }>()
+  private wrong = { count: 0, since: 0 }
   constructor(store: AccountStore) {
     this.store = store
   }
@@ -87,6 +96,29 @@ export class AccountService {
     const key = newKey()
     this.change(id, (a) => ({ ...a, keys: [...a.keys, hash(key)] }))
     return key
+  }
+
+  codeFor(key: string, now = Date.now()): string {
+    let code: string
+    do code = Array.from(randomBytes(6), (b) => CODE_LETTERS[b % CODE_LETTERS.length]).join('')
+    while (this.codes.has(code))
+    this.codes.set(code, { key, until: now + CODE_LASTS })
+    return code
+  }
+
+  // The key a code stands for, once (any case, spaces or dashes).
+  redeem(typed: string, now = Date.now()): string {
+    for (const [c, { until }] of this.codes) if (until < now) this.codes.delete(c)
+    if (now - this.wrong.since > CODE_LASTS) this.wrong = { count: 0, since: now }
+    if (this.wrong.count >= WRONG_CODES) throw new SessionError(401, 'too many wrong codes: try again in a few minutes')
+    const code = typed.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const found = this.codes.get(code)
+    if (!found) {
+      this.wrong.count++
+      throw new SessionError(401, "that code doesn't work: each works once, for ten minutes")
+    }
+    this.codes.delete(code)
+    return found.key
   }
 
   update(id: string, { username, name }: { username?: string; name?: string }): AccountView {

@@ -1,5 +1,5 @@
-// Settings → Account: who you are, a link (and QR code) to sign in another
-// device, and for the admin, everyone's accounts.
+// Settings → Account: who you are, a link (and QR code, and a code to type)
+// to sign in another device, and for the admin, everyone's accounts.
 import QRCode from 'qrcode'
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
@@ -8,10 +8,12 @@ import { accountError, useAccountStore } from '../../store/accountStore'
 import { AccountFields } from './Welcome'
 import { Notifications } from './Notifications'
 
-const linkFor = (key: string) => `${window.location.origin}/?signin=${key}`
+type SignIn = { link: string; code: string }
+const signInFor = ({ key, code }: { key: string; code: string }): SignIn => ({ link: `${window.location.origin}/?signin=${key}`, code })
 
-// A sign-in link shown once, with a QR code to scan with a phone.
-function SignInLink({ link, onDone }: { link: string; onDone: () => void }) {
+// A sign-in link shown once, with a QR code to scan with a phone, and a code
+// to type into an app installed to the home screen (a link opens the browser).
+function SignInLink({ link, code, onDone }: SignIn & { onDone: () => void }) {
   const [svg, setSvg] = useState<string>()
   const [copied, setCopied] = useState(false)
   useEffect(() => void QRCode.toString(link, { type: 'svg', margin: 1 }).then(setSvg), [link])
@@ -36,14 +38,20 @@ function SignInLink({ link, onDone }: { link: string; onDone: () => void }) {
           Done
         </button>
       </div>
-      <p className="text-xs text-muted">Anyone with this link can sign in as this account, so only send it to yourself (or them).</p>
+      <p className="text-center text-xs text-muted">
+        Or type this code on the sign-in screen (it works once, for ten minutes):
+        <span className="mt-1 block font-mono text-2xl tracking-widest text-ink" data-testid="signin-code">
+          {code.slice(0, 3)}-{code.slice(3)}
+        </span>
+      </p>
+      <p className="text-xs text-muted">Anyone with this link or code can sign in as this account, so only send it to yourself (or them).</p>
     </div>
   )
 }
 
 function Everyone({ me }: { me: Account }) {
   const { everyone, load } = useAccountStore()
-  const [link, setLink] = useState<{ id: string; link: string }>()
+  const [link, setLink] = useState<SignIn & { id: string }>()
   const [error, setError] = useState<string>()
   const act = (p: Promise<unknown>) => p.then(load, (e) => setError(accountError(e)))
   return (
@@ -62,7 +70,7 @@ function Everyone({ me }: { me: Account }) {
                 className="btn px-2 py-0.5 text-xs"
                 onClick={() =>
                   void api.newKey(a.id === me.id ? undefined : a.id).then(
-                    ({ key }) => setLink({ id: a.id, link: linkFor(key) }),
+                    (made) => setLink({ id: a.id, ...signInFor(made) }),
                     (e) => setError(accountError(e)),
                   )
                 }
@@ -79,7 +87,7 @@ function Everyone({ me }: { me: Account }) {
                 </button>
               )}
             </div>
-            {link?.id === a.id && <SignInLink link={link.link} onDone={() => setLink(undefined)} />}
+            {link?.id === a.id && <SignInLink {...link} onDone={() => setLink(undefined)} />}
           </li>
         ))}
       </ul>
@@ -91,7 +99,7 @@ function Everyone({ me }: { me: Account }) {
 export function AccountSettings() {
   const { on, me, setMe } = useAccountStore()
   const [editing, setEditing] = useState<{ name: string; username: string }>()
-  const [link, setLink] = useState<string>()
+  const [link, setLink] = useState<SignIn>()
   const [error, setError] = useState<string>()
   if (!on || !me) return null
   const save = () =>
@@ -138,7 +146,7 @@ export function AccountSettings() {
         )}
         {error && <p className="text-sm text-danger">{error}</p>}
         {link ? (
-          <SignInLink link={link} onDone={() => setLink(undefined)} />
+          <SignInLink {...link} onDone={() => setLink(undefined)} />
         ) : (
           <div className="flex gap-2">
             <button
@@ -146,7 +154,7 @@ export function AccountSettings() {
               className="btn flex-1"
               onClick={() =>
                 void api.newKey().then(
-                  ({ key }) => setLink(linkFor(key)),
+                  (made) => setLink(signInFor(made)),
                   (e) => setError(accountError(e)),
                 )
               }
@@ -156,7 +164,7 @@ export function AccountSettings() {
             <button
               type="button"
               className="btn"
-              onClick={() => window.confirm('Sign out of this browser? You’ll need a sign-in link to get back in.') && void api.signOut().then(() => setMe(undefined))}
+              onClick={() => window.confirm('Sign out of this browser? You’ll need a sign-in link or code to get back in.') && void api.signOut().then(() => setMe(undefined))}
             >
               Sign out
             </button>
