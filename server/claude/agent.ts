@@ -43,7 +43,7 @@ export type DuelTools = {
   handOver?(player: Player, until: Handover['until'], goal?: string): Promise<string>
   takeBack?(player: Player): string
   ask?(question: string, options?: string[], cards?: string[], correct?: number): string
-  plan?(points?: string[], now?: number): string
+  plan?(points?: string[], now?: number, more?: string[]): string
   // Reviewing a finished game: the table after any step, and marking key moments.
   tableAt?(step: number): string
   mark?(moment: Moment): string
@@ -279,9 +279,9 @@ export const sdkAgent: Agent = (req) => {
               ? [
                   tool(
                     'plan',
-                    "The lesson's plan, pinned above the chat with the point you're on. First call: give its 3 to 5 points, each a few words. After that, call it with no points each time you move on to the next point (or now, to go to a given one, counting from 0). Past the last point, the lesson is done.",
-                    { points: z.array(z.string().min(1).max(60)).min(2).max(6).optional(), now: z.int().min(0).optional() },
-                    async (input) => text(plan(input.points, input.now)),
+                    "The lesson's plan, pinned above the chat with the point you're on. First call: give its 3 to 5 points, each a few words. After that, call it with no points each time you move on to the next point (or now, to go to a given one, counting from 0). Past the last point, the lesson is done. To go on past it, give the new points as more: they go on the end and the lesson is under way again, on the first of them.",
+                    { points: z.array(z.string().min(1).max(60)).min(2).max(6).optional(), now: z.int().min(0).optional(), more: z.array(z.string().min(1).max(60)).min(1).max(4).optional() },
+                    async (input) => text(plan(input.points, input.now, input.more)),
                   ),
                 ]
               : []),

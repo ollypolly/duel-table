@@ -316,6 +316,7 @@ describe.skipIf(!hasData)('Claude as a player', () => {
     const batched: string[] = []
     const requests: AgentRequest[] = []
     const plans: string[] = []
+    let done: unknown
     const shows: string[] = []
     let spot: { cards: string[]; say?: string; phrases?: string[] } | undefined
     let marks: { arrows?: unknown[]; zones?: unknown[] } | undefined
@@ -326,6 +327,9 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       async function* run(): AsyncIterable<AgentEvent> {
         if (requests.length === 1) {
           plans.push(req.tools.plan!(), req.tools.plan!(['Summoning it', 'What it brings out']), req.tools.plan!(), req.tools.plan!())
+          done = sessions.list().find((t) => t.id === v.id)?.lessonPlan
+          // Going on past it: the extra points go on the end, and the lesson is under way again.
+          plans.push(req.tools.plan!(undefined, undefined, ['Against Ash']))
           results.push(
             await req.tools.setup!(
               {
@@ -385,8 +389,11 @@ describe.skipIf(!hasData)('Claude as a player', () => {
       'The person sees: 1 of 2, Summoning it.',
       'The person sees: 2 of 2, What it brings out.',
       'The plan is done: wrap up with two or three takeaways.',
+      'The person sees: 3 of 3, Against Ash.',
     ])
-    expect(sessions.get(v.id).game?.claude?.plan).toEqual({ points: ['Summoning it', 'What it brings out'], now: 2 })
+    expect(done).toEqual({ now: 2, of: 2 })
+    expect(sessions.get(v.id).game?.claude?.plan).toEqual({ points: ['Summoning it', 'What it brings out', 'Against Ash'], now: 2 })
+    expect(sessions.list().find((t) => t.id === v.id)?.lessonPlan).toEqual({ now: 2, of: 3 })
     expect(requests[0].message).toContain('The person says: Teach me Goblindbergh')
     // Set up from a chat on the home page, what was said there comes along.
     expect(requests[0].message).toContain('What that chat passed on to you: They keep bricking on turn one.')

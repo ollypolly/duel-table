@@ -1091,8 +1091,10 @@ export class ClaudeService {
           .filter(Boolean)
           .join('\n\n')
       },
-      plan: (points, now) => {
-        const plan = points?.length ? { points, now: now ?? 0 } : lesson.plan && { ...lesson.plan, now: now ?? lesson.plan.now + 1 }
+      plan: (points, now, more) => {
+        const plan = points?.length
+          ? { points, now: now ?? 0 }
+          : lesson.plan && (more?.length ? { points: [...lesson.plan.points, ...more], now: now ?? lesson.plan.points.length } : { ...lesson.plan, now: now ?? lesson.plan.now + 1 })
         if (!plan) return 'There is no plan yet: give its points first.'
         lesson.plan = { ...plan, now: Math.max(0, Math.min(plan.now, plan.points.length)) }
         this.changed(id, seat)
