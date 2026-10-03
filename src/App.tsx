@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
-import { GraduationCap, Layers, Plus, Settings, Shapes, Swords, type LucideIcon } from "lucide-react";
+import { GraduationCap, Layers, Menu as MenuIcon, Plus, Settings, Shapes, Swords, type LucideIcon } from "lucide-react";
 import { SettingsDialog } from "./components/Settings/SettingsDialog";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
 import { Ideas } from "./components/Ideas/Ideas";
 import { useUiStore } from "./store/uiStore";
-import { Menu } from "./components/Menu/Menu";
+import { Menu, MenuItem } from "./components/Menu/Menu";
 import { LiveTable } from "./components/Live/LiveTable";
 import { NewGameDialog } from "./components/Game/NewGameDialog";
 import {
@@ -86,6 +86,13 @@ export default function App() {
     open(branch.id, position);
   };
 
+  const places: { key: string; Icon: LucideIcon; label: string; current?: boolean; run: () => void }[] = [
+    ...(Object.entries(PAGE_ICON) as [Page, LucideIcon][])
+      .filter(([p]) => liveSessions || p === "lessons")
+      .map(([p, Icon]) => ({ key: p, Icon, label: PAGE_TITLE[p], current: home && page === p, run: () => openPage(p) })),
+    ...(liveSessions ? [{ key: "decks", Icon: Layers, label: "Decks", run: () => openDecks() }] : []),
+  ];
+
   const nav = (
     <>
       <Logo onClick={goHome} current={home && !page && !chatId} />
@@ -101,29 +108,34 @@ export default function App() {
           <span className="max-sm:sr-only">New game</span>
         </button>
       )}
-      {/* Everything of one kind: games and free tables need the API, lessons don't. */}
-      {(Object.entries(PAGE_ICON) as [Page, LucideIcon][]).map(
-        ([p, Icon]) =>
-          (liveSessions || p === "lessons") && (
-            <button
-              key={p}
-              type="button"
-              className={`btn flex shrink-0 items-center gap-1 ${page === p ? "border-gold text-gold" : ""}`}
-              aria-current={page === p ? "page" : undefined}
-              title={PAGE_TITLE[p]}
-              onClick={() => openPage(p)}
-            >
-              <Icon size={14} aria-hidden />
-              <span className="max-lg:sr-only">{PAGE_TITLE[p]}</span>
-            </button>
-          ),
-      )}
-      {liveSessions && (
-        <button type="button" className="btn flex shrink-0 items-center gap-1" title="Decks" onClick={() => openDecks()}>
-          <Layers size={14} aria-hidden />
-          <span className="max-sm:sr-only">Decks</span>
-        </button>
-      )}
+      {/* Everything of one kind (games and free tables need the API, lessons
+          don't), and the decks: buttons on a wide home page, a dropdown in a
+          game or on a narrow screen. */}
+      <span className={`${home ? "md:hidden" : ""} shrink-0`}>
+        <Menu label={<MenuIcon size={14} aria-label="Go to" />} title="Go to" className="btn flex items-center gap-1">
+          {places.map(({ key, Icon, label, current, run }) => (
+            <MenuItem key={key} aria-current={current ? "page" : undefined} className={current ? "text-gold" : ""} onClick={run}>
+              <span className="flex items-center gap-2">
+                <Icon size={14} aria-hidden />
+                {label}
+              </span>
+            </MenuItem>
+          ))}
+        </Menu>
+      </span>
+      {home &&
+        places.map(({ key, Icon, label, current, run }) => (
+          <button
+            key={key}
+            type="button"
+            className={`btn flex shrink-0 items-center gap-1 max-md:hidden ${current ? "border-gold text-gold" : ""}`}
+            aria-current={current ? "page" : undefined}
+            onClick={run}
+          >
+            <Icon size={14} aria-hidden />
+            {label}
+          </button>
+        ))}
       <button type="button" className="btn order-last shrink-0 max-sm:ml-auto" title="Settings" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
         <Settings size={14} aria-hidden />
       </button>
