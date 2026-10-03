@@ -100,7 +100,10 @@ export function TableFun({ table, state, sticking, onStick, onCancel }: { table:
         </div>
       )}
       {callout && (
-        <p className="pointer-events-none fixed inset-x-0 top-1/3 z-40 animate-[pop_0.4s_ease-out] text-center font-display text-4xl font-bold text-gold drop-shadow-[0_2px_8px_rgb(0_0_0/0.8)]" role="status">
+        <p
+          className="pointer-events-none fixed inset-x-0 top-1/3 z-40 animate-[pop_0.4s_ease-out] text-center font-display text-4xl font-bold text-gold drop-shadow-[0_2px_8px_rgb(0_0_0/0.8)]"
+          role="status"
+        >
           {callout}
         </p>
       )}
