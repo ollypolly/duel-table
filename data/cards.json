@@ -2083,6 +2083,19 @@
       "archetype": "Cyberdark"
     },
     {
+      "id": 37458564,
+      "name": "Cyberse Contract Witch",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2 monsters with the same Type\nIf this card is Link Summoned, or a monster(s) is Special Summoned to a zone(s) this card points to: You can send 1 Spell from your hand or face-up field to the GY; add 1 Ritual Monster from your Deck to your hand. You can target 1 Ritual, Fusion, Synchro, or Xyz Monster this card points to; Special Summon 1 monster from your GY with the same Type but a different card type (Ritual, Fusion, Synchro, or Xyz). You can only use each effect of \"Cyberse Contract Witch\" once per turn.",
+      "atk": 800,
+      "level": null,
+      "linkval": 2,
+      "attribute": "DARK",
+      "race": "Cyberse",
+      "archetype": "Cyber"
+    },
+    {
       "id": 63533837,
       "name": "Cyberse Quantum Dragon",
       "type": "Synchro Monster",
@@ -2160,6 +2173,14 @@
       "archetype": "Dark Magician"
     },
     {
+      "id": 71440209,
+      "name": "Dark Magic Talisman",
+      "type": "Trap Card",
+      "frameType": "trap",
+      "desc": "You can activate this card the turn it was Set, by revealing 1 Spellcaster monster in your hand. When a monster effect is activated in response to the card or effect activation of a card that mentions \"Dark Magician\": Negate that effect, and if you do, for the rest of this turn, negate the activated effects of monsters with that same original name. If you Special Summon \"Dark Magician\" while this card is in your GY (except during the Damage Step): You can pay 2500 LP; Set this card.",
+      "race": "Normal"
+    },
+    {
       "id": 82404868,
       "name": "Dark Magic Veil",
       "type": "Spell Card",
@@ -2174,6 +2195,15 @@
       "frameType": "spell",
       "desc": "When this card is activated: Look at the top 3 cards of your Deck, then you can reveal 1 of them that is \"Dark Magician\" or a Spell/Trap that mentions \"Dark Magician\", and add it to your hand, also place the remaining cards on top of your Deck in any order. If \"Dark Magician\" is Normal or Special Summoned to your field (except during the Damage Step): You can target 1 card your opponent controls; banish it. You can only use each effect of \"Dark Magical Circle\" once per turn.",
       "race": "Continuous",
+      "archetype": "Prophecy"
+    },
+    {
+      "id": 41350417,
+      "name": "Dark Magical Curtain",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Each player can Special Summon 1 DARK Spellcaster monster from their hand or Deck (but neither player can activate their effects this turn), then if you Special Summoned a monster whose original name is \"Dark Magician\" or \"Dark Magician Girl\", you can add 1 Spell/Trap that mentions \"Dark Magician\" from your Deck to your hand, except \"Dark Magical Curtain\". You can only activate 1 \"Dark Magical Curtain\" per turn.",
+      "race": "Quick-Play",
       "archetype": "Prophecy"
     },
     {
@@ -2216,6 +2246,19 @@
       "archetype": "Dark Magician"
     },
     {
+      "id": 2501624,
+      "name": "Dark Magician Girl the Magician's Apprentice",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "You can Special Summon this card (from your hand) by discarding 1 card, and if you do, this card's name becomes \"Dark Magician Girl\". You can only Special Summon \"Dark Magician Girl the Magician's Apprentice\" once per turn this way. If this card is Normal or Special Summoned: You can add 1 \"Shining Sarcophagus\" from your Deck to your hand. You can only use this effect of \"Dark Magician Girl the Magician's Apprentice\" once per turn. Gains 300 ATK for each monster that mentions \"Shining Sarcophagus\" in the GYs.",
+      "atk": 2000,
+      "def": 1700,
+      "level": 6,
+      "attribute": "DARK",
+      "race": "Spellcaster",
+      "archetype": "Dark Magician"
+    },
+    {
       "id": 40737112,
       "name": "Dark Magician of Chaos",
       "type": "Effect Monster",
@@ -2224,6 +2267,58 @@
       "atk": 2800,
       "def": 2600,
       "level": 8,
+      "attribute": "DARK",
+      "race": "Spellcaster",
+      "archetype": "Dark Magician"
+    },
+    {
+      "id": 59400890,
+      "name": "Dark Magician of Destruction",
+      "type": "Fusion Monster",
+      "frameType": "fusion",
+      "desc": "\"Dark Magician\" + 1 LIGHT or DARK monster\nMust be either Fusion Summoned, or Special Summoned (from your Extra Deck) during the turn a Spell Card or effect is activated, by banishing 1 Level 6 or higher DARK Spellcaster monster you control as material. You can only Special Summon \"Dark Magician of Destruction\" once per turn this way, no matter which method you use. This card's name becomes \"Dark Magician\" while on the field or in the GY. If this card is Special Summoned: You can add 1 \"Dark Magician\" or 1 card that mentions it from your Deck to your hand.",
+      "atk": 2800,
+      "def": 2600,
+      "level": 8,
+      "attribute": "DARK",
+      "race": "Spellcaster",
+      "archetype": "Magician"
+    },
+    {
+      "id": 41721210,
+      "name": "Dark Magician the Dragon Knight",
+      "type": "Fusion Monster",
+      "frameType": "fusion",
+      "desc": "\"Dark Magician\" + 1 Dragon monster\nThis card's name becomes \"Dark Magician\" while on the field or in the GY. Your opponent cannot target Spells/Traps you control with card effects, also they cannot be destroyed by your opponent's card effects.",
+      "atk": 3000,
+      "def": 2500,
+      "level": 8,
+      "attribute": "DARK",
+      "race": "Dragon",
+      "archetype": "Dark Magician"
+    },
+    {
+      "id": 342673,
+      "name": "Dark Magician the Magician of Black Magic",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "This card's name becomes \"Dark Magician\" while on the field. You can only use each of the following effects of \"Dark Magician the Magician of Black Magic\" once per turn. If \"Shining Sarcophagus\" is on the field: You can Special Summon this card from your hand. If this card is destroyed by card effect and a Level 5 or higher monster is on the field: You can Special Summon this card, then you can Set 1 Spell/Trap from your Deck that mentions \"Dark Magician\".",
+      "atk": 2500,
+      "def": 2100,
+      "level": 7,
+      "attribute": "DARK",
+      "race": "Spellcaster",
+      "archetype": "Dark Magician"
+    },
+    {
+      "id": 88570003,
+      "name": "Dark Magician, the Pharaoh's Servant",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "This card's name becomes \"Dark Magician\" while on the field or in the GY. You can only use 1 of the following effects of \"Dark Magician, the Pharaoh's Servant\" per turn, and only once that turn. If this card is in your hand: You can reveal 1 Spell in your hand; Special Summon this card, then you can Set 1 Spell/Trap that mentions \"Dark Magician\" from your Deck. (Quick Effect): You can discard 1 Spell; destroy all Spells/Traps your opponent controls.",
+      "atk": 2500,
+      "def": 2100,
+      "level": 7,
       "attribute": "DARK",
       "race": "Spellcaster",
       "archetype": "Dark Magician"
@@ -3576,6 +3671,15 @@
       "race": "Normal"
     },
     {
+      "id": 98829635,
+      "name": "Forbidden Crown",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Apply these effects to 1 face-up monster on the field, until the end of this turn.\n● Negate its effects.\n● Cannot attack.\n● Cannot be destroyed by battle or card effects.\n● Unaffected by activated card effects, except its own.\n● Cannot be Tributed.\n● Cannot be used as material for a Fusion, Synchro, Xyz, or Link Summon.\nNeither player can activate monster effects in response to this card's activation. You can only activate 1 \"Forbidden Crown\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Forbidden"
+    },
+    {
       "id": 24299458,
       "name": "Forbidden Droplet",
       "type": "Spell Card",
@@ -3670,6 +3774,15 @@
       "race": "Normal"
     },
     {
+      "id": 78679226,
+      "name": "Future Silence",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Add 1 monster that mentions \"Shining Sarcophagus\" from your Deck to your hand, then, if you activated this card during the Battle Phase while you controlled \"Shining Sarcophagus\" and a monster that mentions it, each player draws until they have 6 cards in their hand. You can only activate 1 \"Future Silence\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Shining Sarcophagus"
+    },
+    {
       "id": 12014404,
       "name": "Gagaga Cowboy",
       "type": "XYZ Monster",
@@ -3745,6 +3858,19 @@
       "attribute": "WATER",
       "race": "Aqua",
       "archetype": "Kaiju"
+    },
+    {
+      "id": 2333466,
+      "name": "Gandora-G the Dragon of Destruction",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Gains 300 ATK for each banished card. You can only use each of the following effects of \"Gandora-G the Dragon of Destruction\" once per turn. If you control \"Shining Sarcophagus\": You can Special Summon this card from your hand. You can pay half your LP; destroy as many other cards on the field as possible, and if you do, banish them, then Special Summon 1 Level 7 or lower monster that mentions \"Shining Sarcophagus\" from your Deck, and increase its Level by the number of cards destroyed by this effect.",
+      "atk": 0,
+      "def": 0,
+      "level": 8,
+      "attribute": "DARK",
+      "race": "Dragon",
+      "archetype": "Gandora"
     },
     {
       "id": 64182380,
@@ -4195,6 +4321,32 @@
       "desc": "Tribute 1 Spellcaster monster; add up to 2 copies of \"Dark Magician\" from your Deck and/or GY to your hand. You can only activate 1 \"Illusion Magic\" per turn.",
       "race": "Quick-Play",
       "archetype": "Dark Magician"
+    },
+    {
+      "id": 12266229,
+      "name": "Illusion of Chaos",
+      "type": "Ritual Effect Monster",
+      "frameType": "ritual",
+      "desc": "You can Ritual Summon this card with \"Chaos Form\". You can reveal this card in your hand; add 1 \"Dark Magician\", or 1 non-Ritual Monster that mentions it, from your Deck to your hand, then place 1 card from your hand on top of the Deck. When your opponent activates a monster effect (Quick Effect): You can return this card to the hand, and if you do, Special Summon 1 \"Dark Magician\" from your GY, and if you do that, negate that activated effect. You can only use each effect of \"Illusion of Chaos\" once per turn.",
+      "atk": 2100,
+      "def": 2500,
+      "level": 7,
+      "attribute": "DARK",
+      "race": "Spellcaster",
+      "archetype": "Chaos"
+    },
+    {
+      "id": 31226177,
+      "name": "Imduk the World Chalice Dragon",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "1 Normal Monster, except a Token\nDuring your Main Phase, you can Normal Summon 1 \"World Chalice\" monster in addition to your Normal Summon/Set. (You can only gain this effect once per turn.) At the start of the Damage Step, if this card battles an opponent's monster this card points to: You can destroy that opponent's monster. If this card is sent from the field to the GY: You can Special Summon 1 \"World Chalice\" monster from your hand.",
+      "atk": 800,
+      "level": 0,
+      "linkval": 1,
+      "attribute": "WIND",
+      "race": "Dragon",
+      "archetype": "World Chalice"
     },
     {
       "id": 53303460,
@@ -5169,6 +5321,19 @@
       "level": 4,
       "attribute": "WATER",
       "race": "Wyrm"
+    },
+    {
+      "id": 42141493,
+      "name": "Mulcharmy Fuwalos",
+      "type": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If you control no cards (Quick Effect): You can discard this card; apply these effects this turn.\n● Each time your opponent Special Summons a monster(s) from the Deck and/or Extra Deck, immediately draw 1 card.\n● Once, during this End Phase, if the number of cards in your hand is more than the number of cards your opponent controls +6, you must randomly shuffle cards from your hand into the Deck so the number in your hand equals the number your opponent controls +6.\nYou can only activate 1 other \"Mulcharmy\" monster effect, the turn you activate this effect.",
+      "atk": 100,
+      "def": 600,
+      "level": 4,
+      "attribute": "WIND",
+      "race": "Winged Beast",
+      "archetype": "Mulcharmy"
     },
     {
       "id": 5318639,
@@ -6832,6 +6997,15 @@
       "archetype": "Tenyi"
     },
     {
+      "id": 79791878,
+      "name": "Shining Sarcophagus",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Cannot be destroyed by monster effects. You can only use each of the following effects of \"Shining Sarcophagus\" once per turn. During your Main Phase: You can add 1 card that mentions \"Shining Sarcophagus\" from your Deck to your hand, except \"Shining Sarcophagus\". If your opponent Special Summons a monster(s) from the GY (except during the Damage Step): You can discard 1 Spell, then target 1 of those monsters; send it to the GY.",
+      "race": "Continuous",
+      "archetype": "Shining Sarcophagus"
+    },
+    {
       "id": 68431965,
       "name": "Shooting Riser Dragon",
       "type": "Synchro Tuner Monster",
@@ -8010,6 +8184,15 @@
       "archetype": "Dark Magician"
     },
     {
+      "id": 22283204,
+      "name": "The Gaze of Timaeus",
+      "type": "Spell Card",
+      "frameType": "spell",
+      "desc": "Target 1 \"Dark Magician\" or \"Dark Magician Girl\" in your field or GY; Fusion Summon 1 Fusion Monster from your Extra Deck that mentions that monster as material, by shuffling it into the Deck as material (this is treated as a Fusion Summon with \"The Eye of Timaeus\"), but banish it during the End Phase of the next turn. You can only activate 1 \"The Gaze of Timaeus\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Timaeus"
+    },
+    {
       "id": 82489470,
       "name": "The Golden Swordsoul",
       "type": "Tuner Monster",
@@ -8115,6 +8298,18 @@
       "desc": "If you control \"Dark Magician\": Target 1 monster your opponent controls; destroy that target.",
       "race": "Normal",
       "archetype": "Dark Magician"
+    },
+    {
+      "id": 85899505,
+      "name": "Timaeus the United Magical Dragon",
+      "type": "Fusion Monster",
+      "frameType": "fusion",
+      "desc": "\"Dark Magician\" or \"Dark Magician Girl\" + 1 Dragon or Spellcaster monster\nAfter this card is Special Summoned, it is unaffected by other cards' effects until the end of your next turn. You can only use each of the following effects of \"Timaeus the United Magical Dragon\" once per turn. If this card battles, during damage calculation: You can make this card gain 100 ATK for each Spell in the GYs and banishment. During your opponent's turn (Quick Effect): You can target 1 Spell/Trap on the field; destroy it.",
+      "atk": 2800,
+      "def": 1800,
+      "level": 10,
+      "attribute": "LIGHT",
+      "race": "Dragon"
     },
     {
       "id": 71625222,
@@ -8724,6 +8919,19 @@
       "attribute": "LIGHT",
       "race": "Machine",
       "archetype": "ABC"
+    },
+    {
+      "id": 4993187,
+      "name": "W:P Fancy Ball",
+      "type": "Link Monster",
+      "frameType": "link",
+      "desc": "2+ Effect Monsters\nWhen your opponent activates a monster effect on the field or GY (Quick Effect): You can banish this card that was Special Summoned this turn until the End Phase; negate that effect, and if you do, banish it. During your opponent's Main Phase, you can (Quick Effect): Immediately after this effect resolves, Link Summon 1 Link Monster, and if this card you control would be used as material for that Link Summon, you can also use 1 Link-2 or lower monster your opponent controls. Neither player can activate the effects of Link Monsters in response to this effect's activation. You can only use each effect of \"W:P Fancy Ball\" once per turn.",
+      "atk": 2400,
+      "level": null,
+      "linkval": 3,
+      "attribute": "DARK",
+      "race": "Cyberse",
+      "archetype": "P"
     },
     {
       "id": 92907248,
