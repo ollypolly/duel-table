@@ -17,6 +17,7 @@ import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './f
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
+import { AccountService, diskAccounts } from './accounts'
 import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
@@ -156,7 +157,15 @@ const ideas = {
   },
 }
 
+// Accounts, unless turned off (then anyone can change anything, as before).
+// The admin is made on the first start, and its first sign-in link printed.
+const PUBLIC_URL = process.env.PUBLIC_URL ?? 'http://localhost:5180'
+const accounts = process.env.DUEL_ACCOUNTS === 'off' ? undefined : new AccountService(diskAccounts(join(ROOT, 'sessions', 'accounts.json')))
+const adminKey = accounts?.ensureAdmin(process.env.DUEL_ADMIN ?? 'olly')
+if (adminKey) console.log(`Made the admin account. Sign in by opening ${PUBLIC_URL}/?signin=${adminKey}`)
+
 const app = createApp({
+  accounts,
   ideas,
   sessions,
   ctx,

@@ -15,7 +15,8 @@
     "typecheck": "tsc -b",
     "fetch-cards": "tsx scripts/fetch-cards.ts",
     "fetch-ocg": "bash scripts/fetch-ocg.sh",
-    "import-agent-decks": "tsx scripts/import-agent-decks.ts"
+    "import-agent-decks": "tsx scripts/import-agent-decks.ts",
+    "signin": "tsx scripts/signin.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.285",

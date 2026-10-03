@@ -12,6 +12,7 @@ import { resolveScenario, type ResolveContext, type ResolvedScenario } from '../
 import type { DeckFile, ScenarioFile } from '../src/scenarios/schema'
 import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
+import { acting } from './accounts'
 import { Lesson, type AnswerEvent } from './lesson'
 import type { GameView } from '../src/api/game'
 import type { Moment, ReviewView } from '../src/api/review'
@@ -58,6 +59,7 @@ export type SessionSummary = {
   lessonPlan?: { now: number; of: number } // how far its plan has got: now === of once it's done
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: ReviewSummary // it has a review with Claude, open or not
+  owner?: string // the account that made it; missing means the admin's
 }
 // scanned: Claude has finished looking for the key moments, counted by kind.
 // busy: Claude is working on it now.
@@ -104,6 +106,11 @@ export class SessionService {
 
   has(id: string): boolean {
     return this.sessions.has(id)
+  }
+
+  // The account that made it; undefined means the admin's.
+  owner(id: string): string | undefined {
+    return this.live(id).file.owner
   }
 
   get(id: string): SessionView {
@@ -305,6 +312,9 @@ export class SessionService {
   }
 
   private commit(file: ScenarioFile): ResolvedScenario {
+    // A new session (a copy of someone else's too) belongs to whoever is acting.
+    const owner = !this.sessions.has(file.id) && acting.getStore()
+    if (owner) file = { ...file, owner }
     const r = this.resolve(file)
     if (!r.ok) throw new SessionError(422, 'the session no longer resolves', r.errors)
     const lesson = this.sessions.get(file.id)?.lesson ?? this.newLesson(file.id, r.scenario)
@@ -360,6 +370,7 @@ export class SessionService {
       ...(lessonPlan && { lessonPlan }),
       ...(file.duel && !file.duel.lesson && (file.duel.claude === 'p2' ? { opponent: 'claude' as const } : file.duel.bots?.includes('p2') && { opponent: file.duel.bot === 'agent' ? ('trained' as const) : ('bot' as const) })),
       ...(reviewed && { reviewed }),
+      ...(file.owner && { owner: file.owner }),
     }
   }
 

@@ -22,6 +22,10 @@ import type { GameService } from './games'
 import { buildDeck, expandDeck, parseDeckList, type DeckEntry } from './decks'
 import type { ClaudeAccount } from './claude/agent'
 import { IdeaSchema, NewIdeaSchema, type Idea } from '../src/api/ideas'
+import type { Context } from 'hono'
+import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
+import { AccountSchema, MeSchema, NewAccountSchema, type Account } from '../src/api/accounts'
+import { acting, type AccountService } from './accounts'
 import type { RemoveRepoFile, WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
 import type { FetchResult } from './ygoprodeck'
@@ -79,6 +83,7 @@ type AppDeps = {
   review?: ReviewService // Claude going back over a finished game with you
   home?: HomeService // Claude on the home page
   ideas?: IdeaStore // the scratch pad in the header (kept in memory without one)
+  accounts?: AccountService // without them, anyone can change anything
 }
 
 export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
@@ -87,8 +92,17 @@ const memoryIdeas = (): IdeaStore => {
   return { list: () => kept, save: (ideas) => void (kept = ideas) }
 }
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas() }: AppDeps) {
-  const app = new OpenAPIHono({
+const fail = (status: ConstructorParameters<typeof SessionError>[0], message: string): never => {
+  throw new SessionError(status, message)
+}
+
+// The browser's sign-in key: HttpOnly, so page scripts never see it.
+const KEY_COOKIE = 'duel-key'
+// What can be done without signing in: making an account, and signing in or out.
+const OPEN = new Set(['/api/accounts', '/api/signin', '/api/signout'])
+
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts }: AppDeps) {
+  const app = new OpenAPIHono<{ Variables: { me?: Account } }>({
     defaultHook: (result, c) => {
       if (!result.success) {
         const details = result.error.issues.map((i) => `${i.path.join('.') || '(body)'}: ${i.message}`)
@@ -103,6 +117,114 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   })
 
   const db = (): CardDb => ctx().db
+
+  // Accounts ------------------------------------------------------------------
+
+  // Who's asking. Reading is open to anyone; changing anything needs an
+  // account, and a session's things need its owner (or the admin). Whatever
+  // the request starts, a Claude run included, acts as that account.
+  app.use('*', async (c, next) => {
+    const me = accounts?.byKey(getCookie(c, KEY_COOKIE))
+    c.set('me', me)
+    if (accounts && c.req.method !== 'GET' && !OPEN.has(c.req.path)) {
+      if (!me) return c.json({ error: 'sign in first' }, 401)
+      const [, id, rest] = c.req.path.match(/^\/api\/sessions\/([^/]+)(\/.*)?$/) ?? []
+      // Anyone can fork a session: the fork is theirs.
+      if (id && rest !== '/fork' && sessions.has(id) && !me.admin && (sessions.owner(id) ?? accounts.adminId) !== me.id)
+        return c.json({ error: "that's not yours to change" }, 403)
+    }
+    return me ? acting.run(me.id, next) : next()
+  })
+
+  const signIn = (c: Context, key: string) => setCookie(c, KEY_COOKIE, key, { httpOnly: true, sameSite: 'Lax', path: '/', maxAge: 400 * 24 * 3600 })
+  const needAccounts = () => accounts ?? fail(400, 'this server has no accounts')
+  const meOr401 = (c: Context) => (c.get('me') as Account | undefined) ?? fail(401, 'sign in first')
+  const meResponse = { 200: json(MeSchema, 'Whether there are accounts, and who you are'), ...errors }
+
+  app.openapi(createRoute({ method: 'get', path: '/me', summary: "Who's signed in", responses: meResponse }), (c) => {
+    // Browsers keep a cookie 400 days at most: each visit starts that again.
+    const me = c.get('me')
+    if (me) signIn(c, getCookie(c, KEY_COOKIE)!)
+    return c.json({ accounts: !!accounts, ...(me && { me }) }, 200)
+  })
+
+  app.openapi(createRoute({ method: 'get', path: '/accounts', summary: "Everyone's accounts", responses: { 200: json(z.array(AccountSchema), 'Accounts') } }), (c) =>
+    c.json(accounts?.list() ?? [], 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/accounts',
+      summary: 'Make an account, and sign this browser in as it',
+      request: body(NewAccountSchema),
+      responses: { 201: json(AccountSchema, 'The new account'), 409: json(ErrorSchema, 'The username is taken, or this browser is signed in'), ...errors },
+    }),
+    (c) => {
+      if (c.get('me')) fail(409, `already signed in as ${c.get('me')!.username}`)
+      const { account, key } = needAccounts().create(c.req.valid('json'))
+      signIn(c, key)
+      return c.json(account, 201)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/signin',
+      summary: 'Sign this browser in with a key',
+      request: body(z.object({ key: z.string().min(1) }).strict()),
+      responses: { 200: json(AccountSchema, 'The account'), 401: json(ErrorSchema, 'No account has that key'), ...errors },
+    }),
+    (c) => {
+      const { key } = c.req.valid('json')
+      const account = needAccounts().byKey(key) ?? fail(401, "that sign-in link doesn't work any more")
+      signIn(c, key)
+      return c.json(account, 200)
+    },
+  )
+
+  app.openapi(createRoute({ method: 'post', path: '/signout', summary: 'Sign this browser out', responses: meResponse }), (c) => {
+    deleteCookie(c, KEY_COOKIE, { path: '/' })
+    return c.json({ accounts: !!accounts }, 200)
+  })
+
+  const keyResponse = { 201: json(z.object({ key: z.string() }), 'A new sign-in key, shown once'), ...errors }
+  app.openapi(createRoute({ method: 'post', path: '/me/keys', summary: 'A sign-in key for another device', responses: keyResponse }), (c) =>
+    c.json({ key: needAccounts().addKey(meOr401(c).id) }, 201),
+  )
+
+  // The admin's, for someone who's lost every device.
+  app.openapi(createRoute({ method: 'post', path: '/accounts/{id}/keys', summary: 'A new sign-in key for an account (admin)', request: { params: IdParam }, responses: keyResponse }), (c) => {
+    if (!meOr401(c).admin) fail(403, 'only the admin can do that')
+    return c.json({ key: needAccounts().addKey(c.req.valid('param').id) }, 201)
+  })
+
+  app.openapi(
+    createRoute({
+      method: 'patch',
+      path: '/accounts/{id}',
+      summary: "Change an account's username or name (its own, or the admin)",
+      request: { params: IdParam, ...body(NewAccountSchema.partial()) },
+      responses: { 200: json(AccountSchema, 'The account'), 409: json(ErrorSchema, 'The username is taken'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      const me = meOr401(c)
+      if (me.id !== id && !me.admin) fail(403, "that's not yours to change")
+      return c.json(needAccounts().update(id, c.req.valid('json')), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({ method: 'delete', path: '/accounts/{id}', summary: 'Remove an account (admin)', request: { params: IdParam }, responses: { 200: json(z.object({ deleted: z.string() }), 'Removed'), ...errors } }),
+    (c) => {
+      if (!meOr401(c).admin) fail(403, 'only the admin can do that')
+      const { id } = c.req.valid('param')
+      needAccounts().remove(id)
+      return c.json({ deleted: id }, 200)
+    },
+  )
 
   // Scenarios -----------------------------------------------------------------
 

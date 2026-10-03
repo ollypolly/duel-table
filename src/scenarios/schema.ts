@@ -186,6 +186,7 @@ export const ScenarioSchema = z
     title: z.string().min(1),
     description: z.string().optional(),
     demo: z.boolean().optional().describe('An example Claude plays out in a chat: shown there, and left out of your lists'),
+    owner: z.string().optional().describe("The account that made it (missing means the admin's)"),
     seed: z.int().optional(),
     extends: z
       .object({ scenario: z.string(), atStep: z.int().min(-1) })
