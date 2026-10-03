@@ -46,7 +46,7 @@ const RESULT = {
   Lost: { edge: 'border-l-danger', text: 'text-danger' },
   'In progress': { edge: 'border-l-gold', text: 'text-gold' },
 }
-const canRematch = (t: SessionSummary) => !!t.winner && !t.claudeLesson && !!t.players.p1.deck && !!t.players.p2.deck
+const canRematch = (t: SessionSummary) => !!t.winner && !t.seats && !t.claudeLesson && !!t.players.p1.deck && !!t.players.p2.deck
 const yourDeck = (t: SessionSummary) => t.players.p1.deckName ?? t.players.p1.name
 const against = (t: SessionSummary) => ['vs ' + t.players.p2.name, t.players.p2.deckName].filter(Boolean).join(' · ')
 const GRID = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'

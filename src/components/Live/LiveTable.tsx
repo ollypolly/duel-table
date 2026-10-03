@@ -24,6 +24,7 @@ import { scrollLogTo } from '../Game/chatScroll'
 import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
 import { TableChatInput, TableChatLog } from '../Friends/TableChat'
 import { TableFun } from '../Friends/TableFun'
+import { GameOver } from '../Friends/GameOver'
 import { useAccountStore } from '../../store/accountStore'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
@@ -60,6 +61,14 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
 
   // Keyed by id in App, so a new session starts from fresh state.
   useEffect(() => subscribeSession(id, setSession, setConnection), [id])
+  // A rematch that starts while you're here opens on both screens.
+  const rematchSession = session?.file.duel?.rematch?.session
+  const hadRematch = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!session) return
+    if (rematchSession && hadRematch.current === '') openSession(rematchSession, Infinity)
+    hadRematch.current = rematchSession ?? ''
+  }, [session, rematchSession, openSession])
 
   const result = useMemo(() => {
     if (!session) return
@@ -104,6 +113,10 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const report = (p: Promise<unknown>) => {
     setRejected('')
     p.catch((e: Error) => setRejected(e.message))
+  }
+  const answerRematch = (accept: boolean) => {
+    setBusy(true)
+    report(api.rematch(id, accept).finally(() => setBusy(false)))
   }
 
   // Games: what you've picked so far only counts for the question it was for.
@@ -367,6 +380,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               setBusy(true)
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
+            rematch={session.file.duel?.rematch}
+            onRematchAnswer={game.seats ? answerRematch : undefined}
+            onOpen={(s) => openSession(s, Infinity)}
             onTakeback={(accept) => {
               setBusy(true)
               report(api.takeback(id, accept).finally(() => setBusy(false)))
@@ -422,6 +438,17 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     return (
       <>
       {spotlight}
+      {friendTable && game.winner && (
+        <GameOver
+          game={game}
+          them={session.players.p2.name}
+          rematch={session.file.duel?.rematch}
+          busy={busy}
+          onRematch={answerRematch}
+          onOpen={(s) => openSession(s, Infinity)}
+          onReview={review ? undefined : startReview}
+        />
+      )}
       {friendTable && (
         <TableFun
           table={friendTable}

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { PICK_KINDS, RESPOND_LEVELS, type GamePrompt, type GameView, type Respond } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
+import { FriendRematch, type Rematch } from '../Friends/Rematch'
 import { cardFace, VIEWER } from '../../view/boardView'
 import { CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
@@ -27,6 +28,9 @@ type Props = {
   onHint?: () => void // ask Claude, showing it your cards
   onUndo?: () => void // take back your last move (against a friend: ask to)
   onTakeback?: (accept: boolean) => void // against a friend: agree to their take-back, or not
+  rematch?: Rematch // against a friend, once it's over: a rematch asked for
+  onRematchAnswer?: (accept: boolean) => void // say yes or no to theirs (or ask, with true)
+  onOpen?: (session: string) => void
   lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
   onForfeit?: () => void // give the game up
   onFreePlay?: () => void // rules off: this board on a free-play table
@@ -38,7 +42,7 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, onTakeback, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, onTakeback, rematch, onRematchAnswer, onOpen, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const [trying, setTrying] = useState(false)
   const name = (iid: Iid) => {
@@ -49,12 +53,12 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
   const { prompt, winner, waitingFor } = game
   // Against a friend, a take-back is asked for rather than counted.
   const friend = !!game.seats
-  const canUndo = onUndo && (friend ? !game.takeback || game.takeback.refused : !!game.undos)
+  const canUndo = onUndo && (friend ? !winner && (!game.takeback || game.takeback.refused) : !!game.undos)
   const them = state.players.p2.name
   const undo = canUndo && (
     <button type="button" className="btn flex items-center gap-1.5 text-xs" disabled={busy} onClick={onUndo} title="Go back to before your last move">
       <Undo2 size={14} aria-hidden />
-      {lesson ? 'Take back' : `Take back (${game.undos} left)`}
+      {lesson ? 'Take back' : friend ? 'Ask to take back' : `Take back (${game.undos} left)`}
     </button>
   )
 
@@ -106,6 +110,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
               Rematch
             </button>
           )}
+          {friend && onRematchAnswer && <FriendRematch rematch={rematch} them={them} busy={busy} onAnswer={onRematchAnswer} onOpen={onOpen} />}
         </div>
       </div>
     )

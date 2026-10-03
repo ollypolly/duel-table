@@ -226,6 +226,11 @@ export const ScenarioSchema = z
           .strict()
           .optional()
           .describe('A take-back asked for in a game between two accounts, waiting for the other player (or refused)'),
+        rematch: z
+          .object({ by: PlayerSchema, session: z.string().optional(), refused: z.boolean().optional() })
+          .strict()
+          .optional()
+          .describe('Once a game between two accounts is over: a rematch asked for, then its game (or refused)'),
         skipped: z
           .array(z.object({ at: z.int(), cards: z.array(z.string()), to: z.string().optional(), by: z.enum(['rules', 'claude']), why: z.string().optional(), turn: z.int().optional() }))
           .optional()

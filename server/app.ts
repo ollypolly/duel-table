@@ -1299,6 +1299,52 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     },
   )
 
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/rematch',
+      summary: 'Ask for a rematch of a finished game against a friend, or answer their asking',
+      description:
+        'The first to ask waits for the other; when they accept (or ask too), a new game starts with the same decks and whoever went second going first. Its id is in file.duel.rematch.session. accept false says no.',
+      request: { params: IdParam, ...body(z.object({ accept: z.boolean().default(true) }).strict()) },
+      responses: { 200: json(SessionSchema, 'The finished game'), 409: json(ErrorSchema, "It isn't over, or you're waiting for them"), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      const { id } = c.req.valid('param')
+      const mine = seat(c, id) ?? fail(403, "you're not playing this game")
+      const { accept } = c.req.valid('json')
+      const old = sessions.get(id)
+      const duel = old.file.duel!
+      if (!duel.winner && !duel.forfeit) fail(409, "the game isn't over yet")
+      const asked = duel.rematch
+      if (asked?.session) return c.json(old, 200)
+      if (!accept) {
+        if (!asked || asked.by === mine) fail(409, 'nothing to say no to')
+        return c.json(sessions.appendGame(id, [], { ...duel, rematch: { ...asked!, refused: true } }), 200)
+      }
+      if (!asked || asked.refused || asked.by === mine) {
+        if (asked?.by === mine && !asked.refused) fail(409, "you've asked: waiting for them")
+        return c.json(sessions.appendGame(id, [], { ...duel, rematch: { by: mine } }), 200)
+      }
+      // The same decks, and the other player goes first (p1 does).
+      const seats = duel.seats!
+      const responds = Object.fromEntries(Object.entries(duel.responds ?? {}).map(([p, r]) => [p === 'p1' ? 'p2' : 'p1', r]))
+      const view = await acting.run(old.owner ?? accounts?.adminId ?? '', () =>
+        games.create({
+          deck: old.players.p2.deck!,
+          opponentDeck: old.players.p1.deck!,
+          bots: [],
+          seats: { p1: seats.p2, p2: seats.p1 },
+          names: { p1: old.players.p2.name, p2: old.players.p1.name },
+          responds,
+          title: old.title,
+        }),
+      )
+      return c.json(sessions.appendGame(id, [], { ...duel, rematch: { ...asked, session: view.id } }), 200)
+    },
+  )
+
   // Around a game against a friend: the chat, and the fun.
   const atTable = (c: Context, id: string) => {
     const me = meOr401(c)

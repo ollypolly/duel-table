@@ -93,6 +93,15 @@ describe.skipIf(!hasData)('a game against a friend', () => {
     // Still from Rob's side of the table.
     expect(after.game.winner.player).toBe('p2')
     expect(after.state.players.p1.name).toBe('Rob')
+
+    // A rematch: asked, accepted, and whoever went second goes first.
+    expect((await call(olly, 'POST', `/sessions/${id}/game/rematch`, { accept: false })).status).toBe(409)
+    expect((await call(rob, 'POST', `/sessions/${id}/game/rematch`, {})).json.file.duel.rematch).toEqual({ by: 'p1' })
+    expect((await call(rob, 'POST', `/sessions/${id}/game/rematch`, {})).status).toBe(409)
+    expect((await call(olly, 'GET', `/sessions/${id}`)).json.file.duel.rematch.by).toBe('p2') // Rob, across the table
+    const next = (await call(olly, 'POST', `/sessions/${id}/game/rematch`, {})).json.file.duel.rematch.session
+    expect(sessions.get(next).file.duel!.seats).toEqual({ p1: seats.p2, p2: seats.p1 })
+    expect(sessions.get(next).owner).toBe(real.owner)
   }, 60_000)
 
   it('asks the other player before taking a move back', async () => {
