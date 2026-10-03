@@ -24,11 +24,14 @@ import { branchFrom } from "./branches/branches";
 import { resultId, useScenarios } from "./scenarios/useScenarios";
 import { useBranchStore } from "./store/branchStore";
 import { usePlayerStore, type Page } from "./store/playerStore";
+import { useAccountStore } from "./store/accountStore";
+import { Welcome } from "./components/Accounts/Welcome";
 
 const PAGE_ICON: Record<Page, LucideIcon> = { games: Swords, lessons: GraduationCap, free: Shapes };
 
 export default function App() {
   const { scenarioId, sessionId, chatId, page, open, openSession, openPage, goHome } = usePlayerStore();
+  const account = useAccountStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
@@ -155,6 +158,9 @@ export default function App() {
       />
     </>
   );
+
+  // A first visit asks who you are (a join link does that as it joins).
+  if (account.on && account.loaded && !account.me) return <Welcome />;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-bg text-ink">

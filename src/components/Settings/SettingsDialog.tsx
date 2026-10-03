@@ -1,6 +1,7 @@
 // Settings, opened from the right of the header.
 import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
+import { AccountSettings } from '../Accounts/AccountSettings'
 
 // children: the control that imports a branch file.
 export function SettingsDialog({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
@@ -24,11 +25,14 @@ export function SettingsDialog({ open, onClose, children }: { open: boolean; onC
           <X size={16} />
         </button>
       </div>
-      <section className="space-y-2 p-5">
-        <h3 className="font-display text-sm font-semibold">Branches</h3>
-        <p className="text-sm text-muted">A branch is your own line played on from a lesson, kept in this browser. Bring one in from a file someone exported.</p>
-        {children}
-      </section>
+      <div className="max-h-[80vh] overflow-y-auto">
+        <AccountSettings />
+        <section className="space-y-2 p-5">
+          <h3 className="font-display text-sm font-semibold">Branches</h3>
+          <p className="text-sm text-muted">A branch is your own line played on from a lesson, kept in this browser. Bring one in from a file someone exported.</p>
+          {children}
+        </section>
+      </div>
     </dialog>
   )
 }

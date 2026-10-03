@@ -2,6 +2,7 @@
 // learn, with the ones you've had listed under it. A chat opens on its own
 // page (?chat=<id>), filling the window; it's polled while Claude is
 // answering, so the reply shows as it's written.
+import { useMine } from '../../store/accountStore'
 import { ArrowLeft, MoreHorizontal, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
@@ -89,7 +90,10 @@ export function ChatPage({ id }: { id: string }) {
 
 export function HomeChat() {
   const openChat = usePlayerStore((s) => s.openChat)
-  const [threads, setThreads] = useState<HomeThread[]>([])
+  const [all, setThreads] = useState<HomeThread[]>([])
+  // Your own chats; anyone else's are theirs.
+  const mine = useMine()
+  const threads = all.filter((t) => mine(t.owner))
   const [model, setModel] = useState(savedModel)
   const [error, setError] = useState('')
   const [renaming, setRenaming] = useState<{ id: string; title: string }>()

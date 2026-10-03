@@ -39,7 +39,7 @@ export class AccountService {
   }
 
   // The admin, made on the first start: its first key is returned once, to print.
-  ensureAdmin(username: string, name = username): string | undefined {
+  ensureAdmin(username: string, name = username[0].toUpperCase() + username.slice(1)): string | undefined {
     if (this.store.load().some((a) => a.admin)) return undefined
     const { key } = this.create({ username, name }, true)
     return key

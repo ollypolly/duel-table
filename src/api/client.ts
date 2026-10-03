@@ -7,6 +7,7 @@ import type { ClaudeSettings, GameAnswer, GameView, ModelChoice, Respond } from 
 import type { Answer, LessonView } from './lesson'
 import type { Moment, ReviewView } from './review'
 import type { TutorView } from './tutor'
+import type { Account, Me } from './accounts'
 import type { Idea } from './ideas'
 import type { HomeThread, HomeView } from './home'
 
@@ -26,10 +27,11 @@ export type SessionSummary = {
   lessonPlan?: { now: number; of: number } // how far its plan has got: now === of once it's done
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> } // it has a review with Claude
+  owner?: string // the account that made it; missing means the admin's
 }
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
 
-export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[] }
+export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[]; owner?: string }
 export type DeckEntry = { name: string; count: number }
 export type Deck = {
   id: string
@@ -62,10 +64,20 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const api = {
+  // Accounts: who's signed in (a cookie), and everyone's usernames.
+  me: () => call<Me>('GET', '/me').catch((): Me => ({ accounts: false })),
+  accounts: () => call<Account[]>('GET', '/accounts'),
+  makeAccount: (a: { username: string; name: string }) => call<Account>('POST', '/accounts', a),
+  signIn: (key: string) => call<Account>('POST', '/signin', { key }),
+  signOut: () => call<Me>('POST', '/signout'),
+  // A key to sign in another device with (the admin can make one for anyone).
+  newKey: (account?: string) => call<{ key: string }>('POST', account ? `/accounts/${account}/keys` : '/me/keys'),
+  changeAccount: (id: string, a: { username?: string; name?: string }) => call<Account>('PATCH', `/accounts/${id}`, a),
+  removeAccount: (id: string) => call<{ deleted: string }>('DELETE', `/accounts/${id}`),
   decks: () => call<DeckSummary[]>('GET', '/decks'),
   deck: (id: string) => call<Deck>('GET', `/decks/${id}`),
   // Either a pasted decklist or the cards. Unknown names fail with 422 and suggestions (ApiError.body.unknown).
-  saveDeck: (d: { id: string; name: string; overwrite?: boolean } & ({ list: string } | { cards: DeckEntry[] })) => call<Deck>('POST', '/decks', d),
+  saveDeck: (d: { id: string; name: string; overwrite?: boolean; owner?: string } & ({ list: string } | { cards: DeckEntry[] })) => call<Deck>('POST', '/decks', d),
   deleteDeck: (id: string) => call<{ path: string }>('DELETE', `/decks/${id}`),
   // undefined when the server isn't running.
   listSessions: () => call<SessionSummary[]>('GET', '/sessions').catch(() => undefined),

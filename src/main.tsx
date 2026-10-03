@@ -5,11 +5,13 @@ import './index.css'
 import App from './App.tsx'
 import { CardLinkInspector } from './components/CardLink/CardLink'
 import { initUrlSync } from './hooks/urlSync'
+import { signInFromUrl } from './store/accountStore'
 import { rawScenarios } from './scenarios/load'
 import { useCosmeticsStore } from './store/cosmeticsStore'
 
 if (new URLSearchParams(location.search).has('debug-viewport')) void import('./debugViewport')
 initUrlSync()
+void signInFromUrl()
 // Sleeves etc. picked per seat, before they were per deck, go to the free
 // table's decks.
 const freeTable = rawScenarios['free-table'] as { players?: Record<'p1' | 'p2', { deck?: string }> } | undefined

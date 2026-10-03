@@ -5,6 +5,7 @@
 //
 // Saving writes decks/<id>.json, which Vite hot-reloads as a full page load,
 // so the open deck lives in the URL (?decks=<id>) and the hub comes back to it.
+import { useAccountStore, useCanChange, useMine } from '../../store/accountStore'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { ClipboardList, Minus, Play, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -67,6 +68,16 @@ export function DeckHub({ open, initial, onClose, onPlay }: Props) {
       })
       .catch(() => setError("The local API isn't running, so decks can't be listed."))
 
+  // Yours first, then everyone else's by whose they are.
+  const mine = useMine()
+  const mayChange = useCanChange()
+  const { everyone } = useAccountStore()
+  const nameOf = (owner?: string) => everyone.find((a) => a.id === owner)?.name ?? 'Someone'
+  const others = (decks ?? []).filter((d) => !mine(d.owner))
+  const theirs = [...new Set(others.map((d) => d.owner))].map((o) => ({ label: `${nameOf(o)}’s`, list: others.filter((d) => d.owner === o) }))
+  const groups = [{ label: theirs.length ? 'Yours' : undefined, list: (decks ?? []).filter((d) => mine(d.owner)) }, ...theirs]
+  const owner = decks?.find((d) => d.id === selected)?.owner
+
   useEffect(() => {
     if (!open) return
     ref.current?.showModal()
@@ -104,18 +115,25 @@ export function DeckHub({ open, initial, onClose, onPlay }: Props) {
           {decks && (
             <div className="flex min-h-0 flex-1 flex-col md:flex-row">
               <nav aria-label="Decks" className="flex shrink-0 gap-1 overflow-x-auto border-b border-line p-2 md:w-56 md:flex-col md:border-b-0 md:border-r">
-                {decks.map((d) => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    aria-current={d.id === selected}
-                    className={`shrink-0 rounded px-2.5 py-1.5 text-left text-sm hover:bg-raised ${d.id === selected ? 'bg-raised text-gold' : ''}`}
-                    onClick={() => setSelected(d.id)}
-                  >
-                    <span className="block font-semibold">{d.name ?? d.id}</span>
-                    <span className="text-xs text-muted">{d.size ? `${d.size.main} + ${d.size.extra}` : 'Has errors'}</span>
-                  </button>
-                ))}
+                {groups.map(({ label, list }) => [
+                  label && (
+                    <span key={label} className="shrink-0 self-center px-2.5 pt-2 text-xs font-semibold uppercase tracking-wider text-faint">
+                      {label}
+                    </span>
+                  ),
+                  ...list.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      aria-current={d.id === selected}
+                      className={`shrink-0 rounded px-2.5 py-1.5 text-left text-sm hover:bg-raised ${d.id === selected ? 'bg-raised text-gold' : ''}`}
+                      onClick={() => setSelected(d.id)}
+                    >
+                      <span className="block font-semibold">{d.name ?? d.id}</span>
+                      <span className="text-xs text-muted">{d.size ? `${d.size.main} + ${d.size.extra}` : 'Has errors'}</span>
+                    </button>
+                  )),
+                ])}
                 <button type="button" className={`btn shrink-0 md:mt-2 ${selected === NEW ? 'btn-primary' : ''}`} onClick={() => setSelected(NEW)}>
                   <Plus size={14} className="mr-1 inline" aria-hidden />
                   New deck
@@ -130,6 +148,8 @@ export function DeckHub({ open, initial, onClose, onPlay }: Props) {
                       key={selected}
                       id={selected}
                       taken={decks.map((d) => d.id)}
+                      editable={mayChange(owner)}
+                      whose={mine(owner) ? undefined : nameOf(owner)}
                       onSaved={(id) => void refresh().then(() => setSelected(id))}
                       onDeleted={() => void refresh().then(() => setSelected(''))}
                       onInspect={setInspecting}
@@ -180,6 +200,8 @@ function Unknown({ unknown, onReplace }: { unknown: NonNullable<ApiError['body']
 function DeckEditor({
   id,
   taken,
+  editable,
+  whose,
   onSaved,
   onDeleted,
   onPlay,
@@ -187,6 +209,8 @@ function DeckEditor({
 }: {
   id: string
   taken: string[]
+  editable: boolean // yours (or you're the admin)
+  whose?: string // someone else's: their name
   onSaved: (id: string) => void
   onDeleted: () => void
   onPlay: () => void
@@ -201,6 +225,7 @@ function DeckEditor({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [copyName, setCopyName] = useState<string>()
   const [wants, setWants] = useState<string>()
+  const [forWhom, setForWhom] = useState<string>()
 
   const load = (d: Deck) => {
     setDeck(d)
@@ -236,7 +261,7 @@ function DeckEditor({
     try {
       const target = asNew ? slug(asNew) : id
       if (asNew && taken.includes(target)) throw new Error(`There's already a deck called "${target}"`)
-      await api.saveDeck({ id: target, name: asNew ?? name, cards, overwrite: !asNew })
+      await api.saveDeck({ id: target, name: asNew ?? name, cards, overwrite: !asNew, ...(asNew && forWhom && { owner: forWhom }) })
       setCopyName(undefined)
       onSaved(target)
       if (!asNew) load(await api.deck(id))
@@ -263,9 +288,11 @@ function DeckEditor({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <input aria-label="Deck name" className="min-w-0 flex-1 px-2 py-1.5 font-display text-lg font-semibold" value={name} onChange={(e) => setName(e.target.value)} />
-        <button type="button" className="btn btn-primary" disabled={!dirty || saving} onClick={() => void save()}>
-          Save
-        </button>
+        {editable && (
+          <button type="button" className="btn btn-primary" disabled={!dirty || saving} onClick={() => void save()}>
+            Save
+          </button>
+        )}
         <button type="button" className="btn" disabled={saving} onClick={() => setCopyName(copyName === undefined ? `${name} (copy)` : undefined)}>
           Save as new…
         </button>
@@ -285,17 +312,24 @@ function DeckEditor({
         >
           <ClipboardList size={14} aria-hidden /> {wants ?? 'Wants list'}
         </button>
-        <button
-          type="button"
-          className="btn px-2"
-          aria-label="Delete deck"
-          disabled={inUse}
-          title={inUse ? `Used by ${deck.usedBy.join(', ')}` : 'Delete this deck'}
-          onClick={() => setConfirmDelete(true)}
-        >
-          <Trash2 size={16} />
-        </button>
+        {editable && (
+          <button
+            type="button"
+            className="btn px-2"
+            aria-label="Delete deck"
+            disabled={inUse}
+            title={inUse ? `Used by ${deck.usedBy.join(', ')}` : 'Delete this deck'}
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
+      {whose && (
+        <p className="text-sm text-muted">
+          {whose}’s deck{editable ? ', which you can change as the admin' : ''}. <strong>Save as new…</strong> makes a copy of your own to play or change.
+        </p>
+      )}
 
       {copyName !== undefined && (
         <form
@@ -306,7 +340,7 @@ function DeckEditor({
           }}
         >
           <input aria-label="New deck name" className="min-w-0 flex-1 px-2 py-1 text-sm" value={copyName} onChange={(e) => setCopyName(e.target.value)} autoFocus />
-          <span className="text-xs text-muted">decks/{slug(copyName) || '…'}.json</span>
+          <OwnerPicker value={forWhom} onChange={setForWhom} />
           <button type="submit" className="btn btn-primary" disabled={!slug(copyName) || saving}>
             Save copy
           </button>
@@ -314,7 +348,7 @@ function DeckEditor({
       )}
       {confirmDelete && (
         <p className="flex items-center gap-2 text-sm">
-          Delete decks/{id}.json?
+          Delete {name}?
           <button type="button" className="btn btn-primary" onClick={() => void remove()}>
             Delete
           </button>
@@ -460,7 +494,29 @@ function Section({
   )
 }
 
+// The admin can save a deck straight into someone else's list.
+function OwnerPicker({ value, onChange }: { value?: string; onChange: (owner?: string) => void }) {
+  const { me, everyone } = useAccountStore()
+  if (!me?.admin || everyone.length < 2) return null
+  return (
+    <label className="flex items-center gap-1 text-xs text-muted">
+      For
+      <select className="px-1 py-0.5 text-sm text-ink" value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
+        <option value="">me</option>
+        {everyone
+          .filter((a) => a.id !== me.id)
+          .map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  )
+}
+
 function NewDeck({ taken, onCreated }: { taken: string[]; onCreated: (id: string) => void }) {
+  const [forWhom, setForWhom] = useState<string>()
   const [name, setName] = useState('')
   const [list, setList] = useState('')
   const [saving, setSaving] = useState(false)
@@ -471,7 +527,7 @@ function NewDeck({ taken, onCreated }: { taken: string[]; onCreated: (id: string
     setSaving(true)
     setError(undefined)
     try {
-      await api.saveDeck({ id, name, list })
+      await api.saveDeck({ id, name, list, ...(forWhom && { owner: forWhom }) })
       onCreated(id)
     } catch (e) {
       setError({ message: (e as Error).message, unknown: e instanceof ApiError ? e.body.unknown : undefined })
@@ -492,8 +548,8 @@ function NewDeck({ taken, onCreated }: { taken: string[]; onCreated: (id: string
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Name</span>
         <input className="w-full px-2 py-1.5" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Blue-Eyes" />
-        {id && <span className="text-xs text-muted">Saved as decks/{id}.json</span>}
       </label>
+      <OwnerPicker value={forWhom} onChange={setForWhom} />
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Decklist, one card per line (“3 Ash Blossom & Joyous Spring”). Extra Deck cards are sorted out for you.</span>
         <textarea className="h-72 w-full px-2 py-1.5 font-mono text-xs" value={list} onChange={(e) => setList(e.target.value)} />

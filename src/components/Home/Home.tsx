@@ -3,6 +3,7 @@
 // is open; the header's title comes back here. Everything of one kind is on its
 // own page from the header: games (won in green, lost in red, with what
 // Claude's review found), lessons, and free play tables.
+import { useCanChange, useMine } from '../../store/accountStore'
 import { Loader2, MessageSquareText, MoreHorizontal, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api, type SessionSummary } from '../../api/client'
@@ -51,7 +52,9 @@ const GRID = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'
 
 export function Home({ page, tables, scenarios, branches, claudeOn, onOpenTable, onOpenScenario, onNewGame, onNewLesson, onReview, onRematch, onChanged }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
-  const newest = [...(tables ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  // Yours: what you made, and games you're playing in.
+  const mine = useMine()
+  const newest = [...(tables ?? [])].filter(isMine(mine)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   const games = newest.filter((t) => t.kind === 'game' && !t.claudeLesson)
   const claudeLessons = newest.filter((t) => t.claudeLesson)
   const boards = newest.filter((t) => t.kind === 'board')
@@ -297,6 +300,9 @@ function ScenarioCards({ list, onOpen }: { list: ResolveResult[]; onOpen: (id: s
   )
 }
 
+// A table is yours if you made it.
+const isMine = (mine: (owner?: string) => boolean) => (t: SessionSummary) => mine(t.owner)
+
 type Actions = { table: SessionSummary; claudeOn: boolean; onOpen: () => void; onReview: () => Promise<unknown>; onRematch: () => Promise<unknown> }
 
 // "View review" opens the one it has; only a new one needs a Claude login.
@@ -316,6 +322,7 @@ function ReviewButton({ table: t, busy, onClick }: { table: SessionSummary; busy
 // played and how it went, and a finished one has its review.
 function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged }: Actions & { onChanged: () => void }) {
   const [mode, setMode] = useState<'rename' | 'delete'>()
+  const mayChange = useCanChange()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -407,17 +414,21 @@ function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged 
                   Rematch
                 </MenuItem>
               )}
-              <MenuItem
-                onClick={() => {
-                  setName(tableName(t))
-                  setMode('rename')
-                }}
-              >
-                Rename
-              </MenuItem>
-              <MenuItem danger onClick={() => setMode('delete')}>
-                Delete
-              </MenuItem>
+              {mayChange(t.owner) && (
+                <>
+                  <MenuItem
+                    onClick={() => {
+                      setName(tableName(t))
+                      setMode('rename')
+                    }}
+                  >
+                    Rename
+                  </MenuItem>
+                  <MenuItem danger onClick={() => setMode('delete')}>
+                    Delete
+                  </MenuItem>
+                </>
+              )}
             </Menu>
           </span>
         )}
