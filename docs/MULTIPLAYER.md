@@ -47,11 +47,17 @@
 
 Basic ones, so things have owners and a friend can only change their own.
 
-- **An account** is an id, a name and a key (a long random string). They're kept in `sessions/accounts.json` (gitignored), with the key stored hashed. Making one: a first visit with no key in the browser asks "What should we call you?" and makes one. The join screen does the same, so a friend's first click on your link makes their account and joins in one go.
+- **An account** is a username, a display name and a key (a long random string). They're kept in `sessions/accounts.json` (gitignored), with the key stored hashed. Making one: a first visit with no key in the browser asks for a username and what to call you, and makes it. The join screen does the same, so a friend's first click on your link makes their account and joins in one go.
+- **Usernames** are short, lowercase and unique (`olly`, `rob`), and never change; the display name can. Everything is owned by username, so moving to real accounts later (a password, or a Tailscale login through `nginx-auth`) only changes how you prove you're `rob`, not what `rob` owns.
 - **Signing in on another device.** Settings → "Use on another device" shows a link (and a QR code for a phone) with the key in it; opening it signs that browser in. Lose every device and the admin can make a new key for the account. No passwords or email.
 - **Owners.** Every session (game, lesson, free table, review), deck, Claude chat on the home page and idea gets `owner`: the account that made it. A game against a friend is also changeable by the account in the other seat, for the things a player does (moves, chat, rematch), but only its owner can rename or delete it.
 - **What owning means.** Rename, edit, delete and settings check the caller owns the thing or is the admin; the server refuses otherwise, and the UI hides what you can't do. Reading stays open to everyone. Using someone else's deck in a game is fine: the game keeps its own copy.
-- **Decks.** The repo's decks belong to you. A friend who wants to change one makes a copy ("Save as new…" already exists), which is theirs.
+- **Decks.** Each account has its own: the Decks panel shows yours, with everyone else's under "Other players' decks" to look at, copy, or play with (a game keeps its own copy of the list). The repo's decks are yours. A friend's decks aren't committed: they're saved under `sessions/decks/<username>/` (gitignored), where the repo's stay in `decks/`. A friend who wants to change one of yours makes a copy ("Save as new…" already exists), which is theirs.
+- **The admin can act for anyone.** You can do anything to anything, and a few things are just for you:
+  - an owner picker when saving a deck, so you can make or import a deck straight into Rob's list, or give him a copy of one of yours;
+  - changing who owns something (a deck, a game);
+  - an Accounts page in Settings: everyone's username and name, a new sign-in key for someone who's lost theirs, and removing an account;
+  - "View as" another account, to see the app as Rob does (his home page, his decks), read-only.
 - **The backfill.** One account, you, is made when the server first starts with accounts, named from config. Everything already on disk with no `owner` counts as yours: the server treats a missing owner as the admin, so no files need rewriting, and anything new gets an owner when it's made. Your browsers get your key with the same "Use on another device" link, opened once on each (the first one from a key printed in the server's log at that first start).
 - **Claude.** Anyone signed in can use it, on your login (see Decisions). An account's runs are tagged with it, so the costs per account are there if limits are ever wanted.
 
