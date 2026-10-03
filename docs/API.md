@@ -4,6 +4,7 @@ You are driving a Yu-Gi-Oh table that a human is watching in their browser. The 
 
 - Base URL: `http://127.0.0.1:5181/api` (local only; start it with `npm run dev` or `npm run api`)
 - Machine-readable spec: `GET /api/openapi.json`
+- Changes need an account: send the cookie `npm run signin` prints (`--cookie duel-key=…`) with every write. Reads don't. You can only change the human's things if it's their account (or the admin's). A game against a friend that's going only takes its own moves.
 - The human watches a session at `http://localhost:5173/?session=<id>` (the Vite port may differ). Every change you make appears there immediately.
 
 ## Core ideas

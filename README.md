@@ -24,6 +24,8 @@ npm run dev
 
 Then open http://localhost:5180. In tmux, the devserver popup (prefix+d) runs it for you through `mise.toml`. To run it on a server and use it from your phone over Tailscale, see [docs/HOSTING.md](docs/HOSTING.md).
 
+**Accounts.** The first start makes your admin account and prints a sign-in link in the API's log. Open it, and Settings → "Use on another device" signs in the rest (or run `npm run signin`). Friends make their own from a game invite. Each account changes only its own games and decks; see [docs/MULTIPLAYER.md](docs/MULTIPLAYER.md), which also covers playing a friend and the live copy they play on.
+
 Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither is committed. YGOPRODeck asks that images are self-hosted rather than hotlinked.
 
 | Command | What it does |
@@ -35,6 +37,8 @@ Card images go in `public/cards/` and the engine's files in `data/ocg/`; neither
 | `npm run lint` | oxlint |
 | `npm run fetch-cards` | Rebuild `data/cards.json` from every card named in `decks/` and `scenarios/`, and download missing images |
 | `npm run fetch-ocg` | Download the YGOPro scripts, card database and strings into `data/ocg/` |
+| `npm run signin -- [username]` | A new sign-in link (and a curl cookie) for an account, the admin's by default |
+| `mise run deploy` | Build `origin/main` into the live copy (`~/dev/duel-table-live`) and restart it on :5190 |
 
 ## In the browser
 
@@ -64,6 +68,8 @@ Claude only sees the table from its side and gets each card's real text. Its pro
 The local API (`server/`, bound to 127.0.0.1) holds **sessions**: boards in progress that the browser follows live. A session is stored in `sessions/<id>.json` as a scenario file, so it replays like any scenario and can be exported to `scenarios/`. The spec is at `/api/openapi.json`, and [docs/API.md](docs/API.md) is the full guide, written for handing to Claude Code.
 
 Positions work like the UI and URLs: `0` is the setup and `n` is "after step n".
+
+Changes need an account: pass the cookie `npm run signin` prints (`--cookie duel-key=…`) with each write, or set `DUEL_ACCOUNTS=off`.
 
 ```sh
 API=http://127.0.0.1:5181/api

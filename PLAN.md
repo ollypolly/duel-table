@@ -16,7 +16,7 @@ This is **Level 1** of a bigger idea. Level 1 includes a small **local HTTP API*
 
 **Out:**
 - **No rules implemented.** The tool tracks where cards are, like a real table. It doesn't enforce legality, resolve chains automatically or run card effects; rules live in the narration. Full rules automation is what EDOPro/YGO Omega spend years on. **But the architecture must leave room for it.** See [Designed for rules later](#designed-for-rules-later): build the seams now, not the rules.
-- No hosted backend, accounts or real multiplayer. The API binds to `127.0.0.1` only. (Playing a friend over the tailnet is being worked out in `docs/MULTIPLAYER.md`.)
+- No hosted backend or open sign-up. The API binds to `127.0.0.1` only; friends play over the tailnet with basic accounts (`docs/MULTIPLAYER.md`).
 - Pendulum zones, Link arrows and Rush/Speed Duel formats. Ignore them unless trivial.
 
 ## Stack
@@ -384,10 +384,7 @@ A test plays a whole game through the board with the panel never opened. **To de
 - **Smaller uses:** rematch from the same opening hand (step 0, which "Can Claude win it?" already does for Claude); swap sides from a step to see the bot's view of it; and Claude taking a move back in a try, which is this with the step just before its last move.
 - **To settle:** whether hidden cards stay hidden when you restart from a step of a game you've already seen to the end (you know what the bot had), and whether such games count in your results.
 
-**Planned: web push notifications.** Claude's turns can take a minute, so you put the phone down: tell you when it's your move again. Being built with playing a friend (`docs/MULTIPLAYER.md`), which adds that game's moments.
-- When: Claude has answered in a chat, it's your move or a question is waiting in a game or lesson, a game has ended. Only when no tab has that game or chat open and visible.
-- What it takes: a service worker (there's a manifest and icons already, but no worker), a `PushSubscription` per device kept on the server, and the server sending with VAPID keys from where it already notices these changes (`games.onChange`, the Home chat going idle). A tap opens `?session=<id>` or `?chat=<id>`.
-- Limits: needs HTTPS, so the olly.live address and not a LAN one. On iOS it only works once the app is added to the Home Screen. The VAPID private key is a secret: it goes in the chezmoi data file, not the repo.
+**Web push notifications: the rest.** Built for games against a friend (`docs/MULTIPLAYER.md`: the setting, `server/push.ts`, `public/sw.js`). Still to add: Claude has answered in a chat, a question waiting in a bot game or lesson, a game has ended. Only when no tab has it open, and a tap opens `?session=<id>` or `?chat=<id>`.
 - A switch in settings to turn it on, which is where the browser's permission prompt comes from, and off.
 
 **Later polish: packs, a collection and a shop.** Not needed to learn the game, but it would make the app feel like one. Open packs with the real sets' contents and pull rates (YGOPRODeck: `cardsets.php` lists sets, `cardinfo.php?cardset=<name>` gives a set's cards and rarities), with an opening worth watching (tear the wrapper, cards fanned face-down and turned one at a time, the rare last with its foil and a sound), keep what you pull as a collection, and build decks from it or from everything, as a switch. Sleeves, deck boxes and playmats are picked per deck (the cosmetics store has sleeves and boxes already). A shop front ties them together: packs on a shelf, earned by playing and finishing lessons. Official artwork for accessories has the same terms question as card images, so it stays a personal-server feature.
