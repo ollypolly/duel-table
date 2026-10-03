@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type SessionSummary } from "./api/client";
-import { Layers, Plus, Settings } from "lucide-react";
+import { GraduationCap, Layers, Plus, Settings, Shapes, Swords, type LucideIcon } from "lucide-react";
 import { SettingsDialog } from "./components/Settings/SettingsDialog";
 import { BranchActions, ImportBranch } from "./components/Branches/Branches";
 import { DeckHub } from "./components/Decks/DeckHub";
@@ -16,17 +16,19 @@ import {
 import { Home } from "./components/Home/Home";
 import { ChatPage } from "./components/Home/HomeChat";
 import { Logo } from "./components/Logo/Logo";
-import { scenarioTitle, tableName } from "./components/Home/names";
+import { PAGE_TITLE, scenarioTitle, tableName } from "./components/Home/names";
 import { Table } from "./components/Table/Table";
 import { TopBar } from "./components/TopBar/TopBar";
 import { useTutorChat } from "./components/Tutor/useTutorChat";
 import { branchFrom } from "./branches/branches";
 import { resultId, useScenarios } from "./scenarios/useScenarios";
 import { useBranchStore } from "./store/branchStore";
-import { usePlayerStore } from "./store/playerStore";
+import { usePlayerStore, type Page } from "./store/playerStore";
+
+const PAGE_ICON: Record<Page, LucideIcon> = { games: Swords, lessons: GraduationCap, free: Shapes };
 
 export default function App() {
-  const { scenarioId, sessionId, chatId, open, openSession, goHome } = usePlayerStore();
+  const { scenarioId, sessionId, chatId, page, open, openSession, openPage, goHome } = usePlayerStore();
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
@@ -86,7 +88,7 @@ export default function App() {
 
   const nav = (
     <>
-      <Logo onClick={goHome} current={home} />
+      <Logo onClick={goHome} current={home && !page && !chatId} />
       {/* What's open, in the middle of the header. */}
       {!home && (
         <span className="absolute left-1/2 top-1/2 max-w-[26rem] -translate-x-1/2 -translate-y-1/2 truncate text-sm text-muted max-xl:hidden">
@@ -98,6 +100,23 @@ export default function App() {
           <Plus size={14} aria-hidden />
           <span className="max-sm:sr-only">New game</span>
         </button>
+      )}
+      {/* Everything of one kind: games and free tables need the API, lessons don't. */}
+      {(Object.entries(PAGE_ICON) as [Page, LucideIcon][]).map(
+        ([p, Icon]) =>
+          (liveSessions || p === "lessons") && (
+            <button
+              key={p}
+              type="button"
+              className={`btn flex shrink-0 items-center gap-1 ${page === p ? "border-gold text-gold" : ""}`}
+              aria-current={page === p ? "page" : undefined}
+              title={PAGE_TITLE[p]}
+              onClick={() => openPage(p)}
+            >
+              <Icon size={14} aria-hidden />
+              <span className="max-lg:sr-only">{PAGE_TITLE[p]}</span>
+            </button>
+          ),
       )}
       {liveSessions && (
         <button type="button" className="btn flex shrink-0 items-center gap-1" title="Decks" onClick={() => openDecks()}>
@@ -166,6 +185,7 @@ export default function App() {
           ) : !result ? (
             all.length ? (
               <Home
+                page={page}
                 tables={liveSessions}
                 scenarios={scenarios}
                 branches={branches}

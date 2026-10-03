@@ -1,22 +1,23 @@
-// The home page: what you can open, and where you go to switch. The top
-// offers the next thing to do: your unfinished game to carry on with, or your
-// last one to play again or go over. Under it, everything by kind: games (won
-// in green, lost in red, with what Claude's review found), lessons, free play tables.
-// Shown when nothing is open; the header's title comes back here.
+// The home page: what's on the go (games still to finish, lessons part way
+// through, free tables used lately), with a chat with Claude. Shown when nothing
+// is open; the header's title comes back here. Everything of one kind is on its
+// own page from the header: games (won in green, lost in red, with what
+// Claude's review found), lessons, and free play tables.
 import { Loader2, MessageSquareText, MoreHorizontal, Plus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { api, type SessionSummary } from '../../api/client'
 import { MOMENT_KINDS, reviewable, type Moment } from '../../api/review'
 import type { ResolveResult } from '../../scenarios/resolve'
 import { rawDecks } from '../../scenarios/load'
-import { usePlayerStore } from '../../store/playerStore'
+import { usePlayerStore, type Page } from '../../store/playerStore'
 import { MOMENT } from '../Live/moment'
 import { Logo } from '../Logo/Logo'
 import { Menu, MenuItem } from '../Menu/Menu'
 import { HomeChat } from './HomeChat'
-import { autoTitle, scenarioKey, scenarioTitle, tableName, when } from './names'
+import { autoTitle, PAGE_TITLE, scenarioKey, scenarioTitle, tableName, when } from './names'
 
 type Props = {
+  page?: Page // a page of one kind, or home
   tables?: SessionSummary[] // undefined: the API isn't running
   scenarios: ResolveResult[]
   branches: ResolveResult[]
@@ -30,7 +31,7 @@ type Props = {
   onChanged: () => void // a table was renamed or deleted
 }
 
-const TABS = ['Games', 'Lessons', 'Free play'] as const
+const LATELY = 7 * 24 * 3600 * 1000 // a free table touched since then is still on the go
 const DECKS = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id }))
 const FILTERS = ['All', 'Won', 'Lost', 'In progress'] as const
 
@@ -48,8 +49,7 @@ const yourDeck = (t: SessionSummary) => t.players.p1.deckName ?? t.players.p1.na
 const against = (t: SessionSummary) => ['vs ' + t.players.p2.name, t.players.p2.deckName].filter(Boolean).join(' · ')
 const GRID = 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'
 
-export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpenScenario, onNewGame, onNewLesson, onReview, onRematch, onChanged }: Props) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Games')
+export function Home({ page, tables, scenarios, branches, claudeOn, onOpenTable, onOpenScenario, onNewGame, onNewLesson, onReview, onRematch, onChanged }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const newest = [...(tables ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   const games = newest.filter((t) => t.kind === 'game' && !t.claudeLesson)
@@ -62,125 +62,147 @@ export function Home({ tables, scenarios, branches, claudeOn, onOpenTable, onOpe
     <TableCard key={t.id} table={t} claudeOn={claudeOn} onOpen={() => onOpenTable(t.id)} onReview={() => onReview(t.id)} onRematch={() => onRematch(t)} onChanged={onChanged} />
   )
   const lessons = (list: ResolveResult[]) => <ScenarioCards list={list} onOpen={onOpenScenario} />
+  const progress = usePlayerStore((s) => s.progress)
+  const [now] = useState(() => Date.now())
+  const midway = scenarios.filter((r) => {
+    const at = progress[scenarioKey(r)]?.step ?? 0
+    return r.ok && at > 0 && at < r.scenario.game.steps.length
+  })
+  const onTheGo = [...games.filter((t) => !t.winner), ...claudeLessons.filter((t) => !lessonDone(t)), ...boards.filter((t) => now - Date.parse(t.updatedAt) < LATELY)].sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  )
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-6 px-4 pb-[max(2rem,var(--safe-bottom))] pt-6 sm:px-8 sm:pt-10">
-        <h1 className="flex items-center justify-center gap-3 font-display text-4xl font-bold tracking-tight sm:gap-4 sm:text-5xl">
-          <Logo className="size-10 sm:size-12" />
-          Duel Table
-        </h1>
-        <section className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted">
-            {!tables ? (
-              "The local API isn't running, so games are off. The lessons below still work."
-            ) : finished.length ? (
-              <>
-                {finished.length} played · <span className="text-ok">{won} won</span> · <span className="text-danger">{finished.length - won} lost</span>
-              </>
-            ) : (
-              'No games played yet.'
-            )}
-          </p>
-          {tables && (
-            <button type="button" className="btn btn-primary flex items-center gap-1.5" onClick={onNewGame}>
-              <Plus size={14} aria-hidden />
-              New game
-            </button>
-          )}
-        </section>
-
-        {tables && claudeOn && <HomeChat />}
-
-        <section>
-          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex gap-1 rounded-lg border border-line bg-surface p-1 max-sm:w-full" role="tablist">
-              {TABS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t}
-                  className={`flex-1 rounded-md px-4 py-1.5 font-display text-sm font-semibold sm:flex-none ${tab === t ? 'bg-raised text-ink' : 'text-muted hover:text-ink'}`}
-                  onClick={() => setTab(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            {tab === 'Games' && games.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {FILTERS.map((f) => (
-                  <button key={f} type="button" aria-pressed={filter === f} className={`btn text-xs ${filter === f ? 'border-gold text-gold' : ''}`} onClick={() => setFilter(f)}>
-                    {f}
-                  </button>
-                ))}
-              </div>
-            )}
-            {tab === 'Lessons' && tables && claudeOn && (
-              <button type="button" className="btn flex items-center gap-1.5 sm:ml-auto" onClick={onNewLesson}>
+        {page ? (
+          <h1 className="font-display text-2xl font-bold tracking-tight">{PAGE_TITLE[page]}</h1>
+        ) : (
+          <h1 className="flex items-center justify-center gap-3 font-display text-4xl font-bold tracking-tight sm:gap-4 sm:text-5xl">
+            <Logo className="size-10 sm:size-12" />
+            Duel Table
+          </h1>
+        )}
+        {(!page || page === 'games') && (
+          <section className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted">
+              {!tables ? (
+                "The local API isn't running, so games are off. Lessons still work."
+              ) : finished.length ? (
+                <>
+                  {finished.length} played · <span className="text-ok">{won} won</span> · <span className="text-danger">{finished.length - won} lost</span>
+                </>
+              ) : (
+                'No games played yet.'
+              )}
+            </p>
+            {tables && (
+              <button type="button" className="btn btn-primary flex items-center gap-1.5" onClick={onNewGame}>
                 <Plus size={14} aria-hidden />
-                New lesson with Claude
+                New game
               </button>
             )}
-          </div>
+          </section>
+        )}
 
-          {tab === 'Games' &&
-            (games.length === 0 ? (
-              <Empty action={tables && { label: 'New game', run: onNewGame }}>{tables ? 'No games yet. Your games against the bot and Claude show up here.' : 'Games need the local API running.'}</Empty>
-            ) : shown.length ? (
-              // Games still to finish first, apart from the ones that are over.
-              <div className="space-y-6">
-                {[
-                  ['In progress', shown.filter((t) => !t.winner)] as const,
-                  ['Finished', shown.filter((t) => t.winner)] as const,
-                ].map(
-                  ([title, list]) =>
-                    list.length > 0 && (
-                      <div key={title}>
-                        <Heading>{title}</Heading>
-                        <div className={GRID}>{list.map(card)}</div>
-                      </div>
-                    ),
-                )}
+        {!page && tables && claudeOn && <HomeChat />}
+
+        {!page && (
+          <section>
+            <Heading>On the go</Heading>
+            {onTheGo.length || midway.length ? (
+              <div className="space-y-3">
+                {onTheGo.length > 0 && <div className={GRID}>{onTheGo.map(card)}</div>}
+                {midway.length > 0 && lessons(midway)}
               </div>
             ) : (
-              <Empty>No games here.</Empty>
-            ))}
+              <Empty action={tables && { label: 'New game', run: onNewGame }}>Nothing on the go. Your finished games, lessons and free tables are in the header.</Empty>
+            )}
+          </section>
+        )}
 
-          {tab === 'Lessons' && (
-            <div className="space-y-6">
-              {tables && (
-                <div>
-                  <Heading>With Claude</Heading>
-                  {claudeLessons.length ? (
-                    <div className={GRID}>{claudeLessons.map(card)}</div>
-                  ) : (
-                    <Empty>{claudeOn ? 'Ask Claude to teach you a deck, a combo or a matchup. It plays both sides to show you, then hands you a side to try.' : 'Log in to Claude Code on this machine (run `claude`) for lessons Claude runs.'}</Empty>
+        {page && (
+          <section>
+            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3 empty:hidden">
+              {page === 'games' && games.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {FILTERS.map((f) => (
+                    <button key={f} type="button" aria-pressed={filter === f} className={`btn text-xs ${filter === f ? 'border-gold text-gold' : ''}`} onClick={() => setFilter(f)}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {page === 'lessons' && tables && claudeOn && (
+                <button type="button" className="btn flex items-center gap-1.5" onClick={onNewLesson}>
+                  <Plus size={14} aria-hidden />
+                  New lesson with Claude
+                </button>
+              )}
+            </div>
+
+            {page === 'games' &&
+              (games.length === 0 ? (
+                <Empty action={tables && { label: 'New game', run: onNewGame }}>
+                  {tables ? 'No games yet. Your games against the bot and Claude show up here.' : 'Games need the local API running.'}
+                </Empty>
+              ) : shown.length ? (
+                // Games still to finish first, apart from the ones that are over.
+                <div className="space-y-6">
+                  {[['In progress', shown.filter((t) => !t.winner)] as const, ['Finished', shown.filter((t) => t.winner)] as const].map(
+                    ([title, list]) =>
+                      list.length > 0 && (
+                        <div key={title}>
+                          <Heading>{title}</Heading>
+                          <div className={GRID}>{list.map(card)}</div>
+                        </div>
+                      ),
                   )}
                 </div>
-              )}
-              <div>
-                <Heading>Lessons and scenarios</Heading>
-                {lessons(scenarios)}
-              </div>
-            </div>
-          )}
+              ) : (
+                <Empty>No games here.</Empty>
+              ))}
 
-          {tab === 'Free play' && (
-            <div className="space-y-6">
-              <p className="text-sm text-muted">A free table: no rules engine and no opponent. Move any card anywhere, on either side, to try things out. Playing on from a step of a lesson makes one too.</p>
-              {tables && <NewTable onOpen={onOpenTable} />}
-              {boards.length > 0 && <div className={GRID}>{boards.map(card)}</div>}
-              {branches.length > 0 && (
+            {page === 'lessons' && (
+              <div className="space-y-6">
+                {tables && (
+                  <div>
+                    <Heading>With Claude</Heading>
+                    {claudeLessons.length ? (
+                      <div className={GRID}>{claudeLessons.map(card)}</div>
+                    ) : (
+                      <Empty>
+                        {claudeOn
+                          ? 'Ask Claude to teach you a deck, a combo or a matchup. It plays both sides to show you, then hands you a side to try.'
+                          : 'Log in to Claude Code on this machine (run `claude`) for lessons Claude runs.'}
+                      </Empty>
+                    )}
+                  </div>
+                )}
                 <div>
-                  <Heading>Your branches</Heading>
-                  {lessons(branches)}
+                  <Heading>Lessons and scenarios</Heading>
+                  {lessons(scenarios)}
                 </div>
-              )}
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+
+            {page === 'free' && (
+              <div className="space-y-6">
+                <p className="text-sm text-muted">
+                  A free table: no rules engine and no opponent. Move any card anywhere, on either side, to try things out. Playing on from a step of a lesson makes one too.
+                </p>
+                {tables && <NewTable onOpen={onOpenTable} />}
+                {boards.length > 0 && <div className={GRID}>{boards.map(card)}</div>}
+                {branches.length > 0 && (
+                  <div>
+                    <Heading>Your branches</Heading>
+                    {lessons(branches)}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   )
@@ -347,7 +369,10 @@ function TableCard({ table: t, claudeOn, onOpen, onReview, onRematch, onChanged 
   }
 
   return (
-    <div className={`panel relative flex flex-col gap-2 border-l-4 p-4 hover:bg-raised/40 has-[[aria-expanded=true]]:z-20 ${t.claudeLesson ? (lessonDone(t) ? 'border-l-ok' : 'border-l-gold') : game ? RESULT[how].edge : 'border-l-line'}`} data-testid="table-card">
+    <div
+      className={`panel relative flex flex-col gap-2 border-l-4 p-4 hover:bg-raised/40 has-[[aria-expanded=true]]:z-20 ${t.claudeLesson ? (lessonDone(t) ? 'border-l-ok' : 'border-l-gold') : game ? RESULT[how].edge : 'border-l-line'}`}
+      data-testid="table-card"
+    >
       <button type="button" className="absolute inset-0 rounded-[inherit]" aria-label={`Open ${tableName(t)}`} onClick={onOpen} />
       <div className="pointer-events-none relative min-w-0">
         <p className="flex items-baseline justify-between gap-2">

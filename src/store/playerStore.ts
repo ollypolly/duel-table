@@ -8,10 +8,15 @@ import { persist } from 'zustand/middleware'
 export const SPEEDS = [0.5, 1, 2, 4] as const
 export const BASE_STEP_MS = 2500
 
+// A page of everything of one kind, from the header.
+export const PAGES = ['games', 'lessons', 'free'] as const
+export type Page = (typeof PAGES)[number]
+
 type PlayerState = {
   scenarioId?: string
   sessionId?: string // live mode
   chatId?: string // a chat with Claude, open on its own page
+  page?: Page
   position: number
   speed: number
   playing: boolean
@@ -21,6 +26,7 @@ type PlayerState = {
   openSession: (sessionId: string | undefined, position?: number) => void
   openChat: (chatId: string) => void // a chat with Claude from the home page, on its own page
   goHome: () => void // nothing open
+  openPage: (page: Page) => void
   goTo: (position: number) => void
   setSpeed: (speed: number) => void
   setPlaying: (playing: boolean) => void
@@ -47,10 +53,11 @@ export const usePlayerStore = create<PlayerState>()(
       followFocus: true,
       pinHand: true,
       progress: {},
-      open: (scenarioId, position = 0) => set((s) => ({ scenarioId, sessionId: undefined, chatId: undefined, position, playing: false, followFocus: true, ...reached(s, scenarioId, position) })),
-      openSession: (sessionId, position = 0) => set({ sessionId, chatId: undefined, position, playing: false, followFocus: true }),
-      openChat: (chatId) => set({ chatId, scenarioId: undefined, sessionId: undefined, position: 0, playing: false }),
-      goHome: () => set({ scenarioId: undefined, sessionId: undefined, chatId: undefined, position: 0, playing: false }),
+      open: (scenarioId, position = 0) => set((s) => ({ scenarioId, sessionId: undefined, chatId: undefined, page: undefined, position, playing: false, followFocus: true, ...reached(s, scenarioId, position) })),
+      openSession: (sessionId, position = 0) => set({ sessionId, chatId: undefined, page: undefined, position, playing: false, followFocus: true }),
+      openChat: (chatId) => set({ chatId, page: undefined, scenarioId: undefined, sessionId: undefined, position: 0, playing: false }),
+      goHome: () => set({ scenarioId: undefined, sessionId: undefined, chatId: undefined, page: undefined, position: 0, playing: false }),
+      openPage: (page) => set({ page, scenarioId: undefined, sessionId: undefined, chatId: undefined, position: 0, playing: false }),
       goTo: (position) => set((s) => ({ position, ...reached(s, s.sessionId ? undefined : s.scenarioId, position) })),
       setSpeed: (speed) => set({ speed }),
       setPlaying: (playing) => set({ playing }),

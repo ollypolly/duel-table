@@ -1,10 +1,10 @@
 // Deep links: ?scenario=<id>&step=<n> opens that moment (?session=<id> for a
-// live session, ?chat=<id> for a chat with Claude), and the URL follows along as you step, so a link can point
+// live session, ?chat=<id> for a chat with Claude, ?page=games|lessons|free for a page of one kind), and the URL follows along as you step, so a link can point
 // at an exact position. Opening something else, or going home, is a new entry
 // in the browser's history, so Back and Forward move between them; stepping
 // within one isn't. ?decks=<id> opens the deck hub on a deck, and
 // ?panel=open|closed keeps the scene panel (the phone's sheet) as you left it.
-import { usePlayerStore } from '../store/playerStore'
+import { PAGES, usePlayerStore, type Page } from '../store/playerStore'
 
 export function initUrlSync() {
   // What the URL says is open, into the store.
@@ -14,15 +14,17 @@ export function initUrlSync() {
     const scenario = params.get('scenario')
     const session = params.get('session')
     const chat = params.get('chat')
-    const { open, openSession, openChat, goHome } = usePlayerStore.getState()
+    const page = params.get('page') as Page | null
+    const { open, openSession, openChat, openPage, goHome } = usePlayerStore.getState()
     if (session) openSession(session, params.has('step') ? step : Infinity)
     else if (chat) openChat(chat)
     else if (scenario) open(scenario, step)
+    else if (page && PAGES.includes(page)) openPage(page)
     else goHome()
   }
   const opened = () => {
-    const { scenarioId, sessionId, chatId } = usePlayerStore.getState()
-    return sessionId ? `session ${sessionId}` : chatId ? `chat ${chatId}` : (scenarioId ?? '')
+    const { scenarioId, sessionId, chatId, page } = usePlayerStore.getState()
+    return sessionId ? `session ${sessionId}` : chatId ? `chat ${chatId}` : page ? `page ${page}` : (scenarioId ?? '')
   }
 
   let reading = true
@@ -32,8 +34,10 @@ export function initUrlSync() {
 
   const write = () => {
     if (reading) return
-    const { scenarioId, sessionId, chatId, position } = usePlayerStore.getState()
+    const { scenarioId, sessionId, chatId, page, position } = usePlayerStore.getState()
     const url = new URL(window.location.href)
+    if (page) url.searchParams.set('page', page)
+    else url.searchParams.delete('page')
     if (chatId) url.searchParams.set('chat', chatId)
     else url.searchParams.delete('chat')
     if (sessionId) {

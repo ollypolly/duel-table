@@ -1,6 +1,7 @@
 // How tables and scenarios are named wherever they're listed.
 import type { SessionSummary } from '../../api/client'
 import type { ResolveResult } from '../../scenarios/resolve'
+import type { Page } from '../../store/playerStore'
 
 export const scenarioKey = (r: ResolveResult) => (r.ok ? r.scenario.id : r.id)
 export const scenarioTitle = (r: ResolveResult) => (r.ok ? r.scenario.title : `⚠ ${r.id} (invalid)`)
@@ -24,3 +25,5 @@ export function ago(iso: string, now = new Date()) {
   if (days < 7) return `${days} days ago`
   return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }
+
+export const PAGE_TITLE: Record<Page, string> = { games: 'Games', lessons: 'Lessons', free: 'Free play' }
