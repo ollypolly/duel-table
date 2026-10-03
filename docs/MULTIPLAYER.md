@@ -29,7 +29,13 @@
 ## The flow
 
 - **Starting one.** New game gets a third opponent beside the bot and Claude: **A friend**. You pick your deck as now. It makes the game with p2 empty and shows a link (`duel.olly.live/?join=<code>`) to copy or share.
-- **Joining.** The link opens a join screen, not the table: "Olly wants a duel", a name box (remembered for next time) and the deck picker, the same global decks as yours. Join seats them as p2 and the game starts. The first person to join takes the seat; anyone opening the link after that watches.
+- **Joining: a join screen.** The link opens it rather than the table, built for a phone first since that's where it'll be opened. "Olly wants a duel", who they're playing and with what deck, then what they pick:
+  - **Name**, remembered for next time.
+  - **Deck**, from the global decks, with the same picker as New game.
+  - **Sleeves**, defaulting to what that browser last used (cosmetics are per browser), so they turn up on your screen too.
+  - **"Ask me to respond"**: how often the game stops to offer them a chain, as in a bot game, defaulting to the usual.
+  
+  Join seats them as p2 and the game starts. The first person to join takes the seat; anyone opening the link after that gets a "watch" button instead.
 - **Who holds a seat: a token, not an IP.** Joining hands the browser a random seat token (kept in the browser, sent with every request), and only requests with that seat's token can answer for it. Tailnet IPs are stable per device, but they'd tie a seat to one device, nginx would have to pass them on faithfully, and a phone and a laptop would be two different players. You get the same on your side when you create the game.
 - **Rejoining.** Same browser: the game is on their home page under On the go, and opening it puts them back in their seat. Another device, or cleared storage: the game's … menu has "Rejoin link" (the join link with the seat token in it) to send to yourself, and you can "Free the seat" from your side so they can join again with the plain link.
 - **Looking around.** They can leave the table, look at decks, lessons and anything else, and come back; the game waits. Their home page shows the game, so getting back is one tap.
@@ -96,7 +102,7 @@ Both need checking against the current Claude Code docs before relying on them. 
 
 ## Open questions
 
-- Mobile: the deck picker and the join link need to work on a phone, since that's where a friend will open it.
+- None for now.
 
 ## Sources
 
