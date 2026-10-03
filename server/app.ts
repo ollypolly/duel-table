@@ -84,6 +84,7 @@ type AppDeps = {
   home?: HomeService // Claude on the home page
   ideas?: IdeaStore // the scratch pad in the header (kept in memory without one)
   accounts?: AccountService // without them, anyone can change anything
+  deckOwner?: (id: string) => string | undefined // the account a deck belongs to (undefined: the repo's, so the admin's)
 }
 
 export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
@@ -101,7 +102,7 @@ const KEY_COOKIE = 'duel-key'
 // What can be done without signing in: making an account, and signing in or out.
 const OPEN = new Set(['/api/accounts', '/api/signin', '/api/signout'])
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined }: AppDeps) {
   const app = new OpenAPIHono<{ Variables: { me?: Account } }>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -128,13 +129,26 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     c.set('me', me)
     if (accounts && c.req.method !== 'GET' && !OPEN.has(c.req.path)) {
       if (!me) return c.json({ error: 'sign in first' }, 401)
-      const [, id, rest] = c.req.path.match(/^\/api\/sessions\/([^/]+)(\/.*)?$/) ?? []
+      const [, kind, id, rest] = c.req.path.match(/^\/api\/(sessions|home|ideas|decks)\/([^/]+)(\/.*)?$/) ?? []
       // Anyone can fork a session: the fork is theirs.
-      if (id && rest !== '/fork' && sessions.has(id) && !me.admin && (sessions.owner(id) ?? accounts.adminId) !== me.id)
-        return c.json({ error: "that's not yours to change" }, 403)
+      if (kind && rest !== '/fork' && !owns(me, ownerOf(kind, id))) return c.json({ error: "that's not yours to change" }, 403)
     }
     return me ? acting.run(me.id, next) : next()
   })
+
+  // What owns a thing (missing: the admin, or nothing like it, so there's nothing to check).
+  const ownerOf = (kind: string, id: string): string | null | undefined => {
+    if (kind === 'sessions') return sessions.has(id) ? sessions.owner(id) : null
+    if (kind === 'decks') return ctx().decks[id] ? deckOwner(id) : null
+    if (kind === 'ideas') return ideas.list().find((i) => i.id === id)?.owner ?? (ideas.list().some((i) => i.id === id) ? undefined : null)
+    try {
+      return home?.owner(id) ?? undefined
+    } catch {
+      return null
+    }
+  }
+  // null is something that doesn't exist: the route says so.
+  const owns = (me: Account | undefined, owner: string | null | undefined) => !accounts || owner === null || !!me?.admin || (owner ?? accounts.adminId) === me?.id
 
   const signIn = (c: Context, key: string) => setCookie(c, KEY_COOKIE, key, { httpOnly: true, sameSite: 'Lax', path: '/', maxAge: 400 * 24 * 3600 })
   const needAccounts = () => accounts ?? fail(400, 'this server has no accounts')
@@ -348,6 +362,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
               name: z.string().optional(),
               size: z.object({ main: z.number(), extra: z.number() }).optional(),
               usedBy: z.array(z.string()).openapi({ description: 'Scenarios that use this deck' }),
+              owner: z.string().optional().openapi({ description: 'The account it belongs to' }),
               errors: z.array(z.string()).optional(),
             }),
           ),
@@ -359,11 +374,12 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const context = ctx()
       return c.json(
         Object.entries(context.decks).map(([id, raw]) => {
+          const owner = deckOwner(id) ?? accounts?.adminId
           try {
             const d = expandDeck(parseDeck(raw, `deck ${id}`), context.db)
-            return { id: d.id, name: d.name, size: d.size, usedBy: usedBy(context, id) }
+            return { id: d.id, name: d.name, size: d.size, usedBy: usedBy(context, id), ...(owner && { owner }) }
           } catch (e) {
-            return { id, usedBy: usedBy(context, id), errors: [e instanceof Error ? e.message : String(e)] }
+            return { id, usedBy: usedBy(context, id), ...(owner && { owner }), errors: [e instanceof Error ? e.message : String(e)] }
           }
         }),
         200,
@@ -408,6 +424,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
             cards: z.array(z.object({ name: z.string().min(1), count: z.int().min(1) }).strict()).optional(),
             fetch: z.boolean().optional(),
             overwrite: z.boolean().optional(),
+            owner: z.string().optional().openapi({ description: 'The account to save it for (the admin only; default: yours)' }),
           })
           .strict()
           .refine((b) => !!b.list !== !!b.cards, { message: 'give either list or cards' }),
@@ -420,8 +437,14 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       },
     }),
     async (c) => {
-      const { id, name, list, cards, fetch = true, overwrite = false } = c.req.valid('json')
+      const { id, name, list, cards, fetch = true, overwrite = false, owner } = c.req.valid('json')
       if (ctx().decks[id] && !overwrite) return c.json({ error: `decks/${id}.json already exists (pass overwrite: true to replace it)` }, 409)
+      const me = c.get('me')
+      if (ctx().decks[id] && !owns(me, deckOwner(id))) fail(403, "that deck isn't yours to change")
+      if (owner && accounts && !me?.admin) fail(403, 'only the admin can save a deck for someone else')
+      if (owner && accounts && !accounts.byId(owner)) fail(404, `no account ${owner}`)
+      // The admin's decks are the repo's; anyone else's are kept apart.
+      const keeper = [owner ?? me?.id].find((o) => o && o !== accounts?.adminId)
       const { entries, skipped }: { entries: DeckEntry[]; skipped: string[] } = list ? parseDeckList(list) : { entries: cards!, skipped: [] }
       if (entries.length === 0) return c.json({ error: 'no cards in the list' }, 400)
 
@@ -440,7 +463,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
         const unknown = missing.map((n) => ({ name: n, suggestions: suggestions[n] ?? db.closeMatches(n, 5) }))
         return c.json({ error: `unknown card${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`, unknown }, 422)
       }
-      const path = writeFile?.('decks', built.file, overwrite)
+      const path = writeFile?.('decks', built.file, overwrite, keeper)
       return c.json({ ...expandDeck(built.file, db), ...(path && { path }), fetched, skipped }, 201)
     },
   )
@@ -831,7 +854,8 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.openapi(createRoute({ method: 'get', path: '/ideas', summary: 'Ideas jotted down from the header, to go through later', responses: ideasResponse }), (c) => c.json(ideas.list(), 200))
   app.openapi(createRoute({ method: 'post', path: '/ideas', summary: 'Jot down an idea', request: body(NewIdeaSchema), responses: ideasResponse }), (c) => {
     const { text, where } = c.req.valid('json')
-    ideas.save([...ideas.list(), { id: `i-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, text, at: Date.now(), ...(where && { where }) }])
+    const owner = c.get('me')?.id
+    ideas.save([...ideas.list(), { id: `i-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, text, at: Date.now(), ...(where && { where }), ...(owner && { owner }) }])
     return c.json(ideas.list(), 200)
   })
   app.openapi(createRoute({ method: 'patch', path: '/ideas/{id}', summary: 'Reword an idea', request: { params: IdParam, ...body(NewIdeaSchema.pick({ text: true })) }, responses: ideasResponse }), (c) => {

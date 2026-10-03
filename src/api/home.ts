@@ -6,6 +6,7 @@ export const HomeThreadSchema = z.object({
   id: z.string(),
   title: z.string(),
   updatedAt: z.number().describe('When it was last written to (ms since the epoch)'),
+  owner: z.string().optional().describe("The account that started it; missing means the admin's"),
 })
 export type HomeThread = z.infer<typeof HomeThreadSchema>
 

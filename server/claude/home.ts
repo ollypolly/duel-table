@@ -5,6 +5,7 @@
 // and deleted with the chat. Each chat is its own thread with
 // its own SDK session, so a new one starts light; threads are kept by a
 // RecordStore and listed newest first.
+import { acting } from '../accounts'
 import { randomBytes } from 'node:crypto'
 import { stamp, type ChatEntry, type ModelChoice } from '../../src/api/game'
 import type { HomeThread, HomeView } from '../../src/api/home'
@@ -21,6 +22,7 @@ import { cardText, describeQuestion, describeTable, drawOdds, knownCards, rulesT
 
 export type HomeRecord = {
   title: string
+  owner?: string // the account that started it; missing means the admin's
   model: ModelChoice
   sessionId?: string
   chat: ChatEntry[]
@@ -73,14 +75,18 @@ export class HomeService {
       .ids()
       .flatMap((id) => {
         const t = this.threads.get(id) ?? this.store.load(id)
-        return t ? [{ id, title: t.title, updatedAt: t.updatedAt }] : []
+        return t ? [{ id, title: t.title, updatedAt: t.updatedAt, ...(t.owner && { owner: t.owner }) }] : []
       })
       .sort((a, b) => b.updatedAt - a.updatedAt)
   }
 
   view(id: string): HomeView {
-    const { title, model, status, chat, costUsd, updatedAt } = this.need(id)
-    return { id, title, updatedAt, model, status, chat: stamp(chat), costUsd }
+    const { title, model, status, chat, costUsd, updatedAt, owner } = this.need(id)
+    return { id, title, updatedAt, ...(owner && { owner }), model, status, chat: stamp(chat), costUsd }
+  }
+
+  owner(id: string): string | undefined {
+    return this.need(id).owner
   }
 
   // A new chat, named after its first message.
@@ -89,7 +95,8 @@ export class HomeService {
     do id = `h-${randomBytes(3).toString('hex')}`
     while (this.store.load(id))
     const title = text.replace(/\s+/g, ' ').trim()
-    this.threads.set(id, { title: title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 1)}…` : title, model, chat: [], costUsd: 0, updatedAt: Date.now(), status: 'idle', queue: [], busy: false })
+    const owner = acting.getStore()
+    this.threads.set(id, { title: title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 1)}…` : title, ...(owner && { owner }), model, chat: [], costUsd: 0, updatedAt: Date.now(), status: 'idle', queue: [], busy: false })
     this.ask(id, text)
     return this.view(id)
   }
@@ -446,7 +453,7 @@ export class HomeService {
   private save(id: string, t: Thread) {
     if (this.threads.get(id) !== t) return
     t.updatedAt = Date.now()
-    const { title, model, sessionId, chat, costUsd, updatedAt } = t
-    this.store.save(id, { title, model, ...(sessionId && { sessionId }), chat: stamp(chat), costUsd, updatedAt })
+    const { title, owner, model, sessionId, chat, costUsd, updatedAt } = t
+    this.store.save(id, { title, ...(owner && { owner }), model, ...(sessionId && { sessionId }), chat: stamp(chat), costUsd, updatedAt })
   }
 }

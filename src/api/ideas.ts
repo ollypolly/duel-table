@@ -7,6 +7,7 @@ export const IdeaSchema = z.object({
   text: z.string(),
   at: z.number().describe('When it was written (ms since the epoch)'),
   where: z.string().optional().describe('What was open at the time'),
+  owner: z.string().optional().describe("The account that wrote it; missing means the admin's"),
 })
 export type Idea = z.infer<typeof IdeaSchema>
 

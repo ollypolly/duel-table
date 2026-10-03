@@ -13,11 +13,11 @@ import { ReviewService, type ReviewRecord } from './claude/review'
 import { HomeService, type HomeRecord } from './claude/home'
 import type { Character } from '../src/scenarios/schema'
 import { buildDeck } from './decks'
-import { diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
+import { deckOwner, diskStore, removeRepoFile, repoContext, ROOT, writeRepoFile } from './files'
 import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
-import { AccountService, diskAccounts } from './accounts'
+import { acting, AccountService, diskAccounts } from './accounts'
 import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
@@ -41,12 +41,15 @@ const draftDeck = async (id: string, name: string, main: Entry[], extra: Entry[]
   }
   return built.file
 }
+// Decks Claude saves are kept with whoever asked: decks/ for the admin.
+const keeper = () => [acting.getStore()].find((id) => id && id !== accounts?.adminId)
+
 // Saved to decks/ under the first free id from the one given.
 const saveDeck = async (base: string, name: string, main: Entry[], extra: Entry[]) => {
   const taken = ctx().decks
   let id = base
   for (let n = 2; taken[id]; n++) id = `${base}-${n}`
-  writeRepoFile()('decks', await draftDeck(id, name, main, extra), false)
+  writeRepoFile()('decks', await draftDeck(id, name, main, extra), false, keeper())
   return id
 }
 const findCards = (query: string) => getJson<{ data?: ApiCard[] }>(`cardinfo.php?fname=${encodeURIComponent(query)}&num=30&offset=0`).then((r) => (r.data ?? []).map(trim))
@@ -166,6 +169,7 @@ if (adminKey) console.log(`Made the admin account. Sign in by opening ${PUBLIC_U
 
 const app = createApp({
   accounts,
+  deckOwner: deckOwner(),
   ideas,
   sessions,
   ctx,

@@ -36,8 +36,31 @@ export function repoContext(root = ROOT): () => ResolveContext {
   return () => {
     const mtime = statSync(join(root, 'data/cards.json')).mtimeMs
     if (mtime !== loadedAt) [db, loadedAt] = [loadCardDb(root), mtime]
-    return { db, decks: readJsonDir(join(root, 'decks')), scenarios: readJsonDir(join(root, 'scenarios')) }
+    return { db, decks: { ...readJsonDir(join(root, 'decks')), ...friendsDecks(root) }, scenarios: readJsonDir(join(root, 'scenarios')) }
   }
+}
+
+// A friend's decks aren't committed: they're kept under sessions/decks/<account id>/.
+// The repo's (in decks/) are the admin's.
+const ownedDir = (root: string, owner: string) => join(root, 'sessions', 'decks', owner)
+const owners = (root: string) => (existsSync(join(root, 'sessions', 'decks')) ? readdirSync(join(root, 'sessions', 'decks')) : [])
+const friendsDecks = (root: string) => Object.assign({}, ...owners(root).map((o) => readJsonDir(ownedDir(root, o)))) as Record<string, unknown>
+
+// The account a deck belongs to; undefined for the repo's.
+export const deckOwner =
+  (root = ROOT) =>
+  (id: string): string | undefined =>
+    owners(root).find((o) => deckPath(ownedDir(root, o), id))
+
+// The file in dir with that id: dir/<id>.json, or whichever file has it.
+const deckPath = (dir: string, id: string) => {
+  if (!existsSync(dir)) return undefined
+  const named = join(dir, `${id}.json`)
+  return existsSync(named)
+    ? named
+    : readdirSync(dir)
+        .map((f) => join(dir, f))
+        .find((p) => p.endsWith('.json') && (readJson(p) as { id?: string }).id === id)
 }
 
 export function diskStore(dir: string): SessionStore {
@@ -54,32 +77,30 @@ export function diskStore(dir: string): SessionStore {
   }
 }
 
-// Delete a deck file from the repo: decks/<id>.json, or whichever file has that id.
+// Delete a deck file: from decks/, or from whichever account has it.
 export type RemoveRepoFile = (dir: 'decks', id: string) => string
 
 export const removeRepoFile =
   (root = ROOT): RemoveRepoFile =>
   (dir, id) => {
-    const named = join(root, dir, `${id}.json`)
-    const path = existsSync(named)
-      ? named
-      : readdirSync(join(root, dir))
-          .map((f) => join(root, dir, f))
-          .find((p) => p.endsWith('.json') && (readJson(p) as { id?: string }).id === id)
+    const path = [join(root, dir), ...owners(root).map((o) => ownedDir(root, o))].map((d) => deckPath(d, id)).find(Boolean)
     if (!path) throw new Error(`no ${dir} file for "${id}"`)
     rmSync(path)
     return relative(root, path)
   }
 
-// Write a scenario or deck file into the repo. Refuses to overwrite by default.
-export type WriteRepoFile = (dir: 'scenarios' | 'decks', file: { id: string }, overwrite: boolean) => string
+// Write a scenario or deck file into the repo, or a deck into its owner's
+// (a deck being replaced stays where it is). Refuses to overwrite by default.
+export type WriteRepoFile = (dir: 'scenarios' | 'decks', file: { id: string }, overwrite: boolean, owner?: string) => string
 
 export const writeRepoFile =
   (root = ROOT): WriteRepoFile =>
-  (dir, file, overwrite) => {
-    const path = join(root, dir, `${file.id}.json`)
-    if (existsSync(path) && !overwrite) throw new Error(`${dir}/${file.id}.json already exists (pass overwrite: true to replace it)`)
-    mkdirSync(join(root, dir), { recursive: true })
+  (dir, file, overwrite, owner) => {
+    const where = dir === 'decks' ? deckOwner(root)(file.id) : undefined
+    const folder = (where ?? (dir === 'decks' && owner)) ? ownedDir(root, (where ?? owner)!) : join(root, dir)
+    const path = join(folder, `${file.id}.json`)
+    if (existsSync(path) && !overwrite) throw new Error(`${relative(root, path)} already exists (pass overwrite: true to replace it)`)
+    mkdirSync(folder, { recursive: true })
     let json = JSON.stringify(file, null, 2)
     // Decks keep one card per line, as they're written by hand.
     if (dir === 'decks') json = json.replace(/\{\n\s+("name": .*),\n\s+("count": \d+)\n\s+\}/g, '{ $1, $2 }')
