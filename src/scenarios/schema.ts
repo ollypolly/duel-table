@@ -215,6 +215,17 @@ export const ScenarioSchema = z
         startedAt: z.number().optional().describe('When the game began (ms since the epoch)'),
         endedAt: z.number().optional().describe('When it ended'),
         respond: z.enum(['all', 'auto', 'advise', 'claude']).optional().describe('When the person is asked to respond with a chain (default auto)'),
+        seats: z.object({ p1: z.string(), p2: z.string() }).strict().optional().describe('A game between two accounts: the account in each seat'),
+        responds: z
+          .object({ p1: z.enum(['all', 'auto', 'advise', 'claude']).optional(), p2: z.enum(['all', 'auto', 'advise', 'claude']).optional() })
+          .strict()
+          .optional()
+          .describe("Each seat's own respond setting, in a game between two accounts"),
+        takeback: z
+          .object({ by: PlayerSchema, at: z.int(), refused: z.boolean().optional() })
+          .strict()
+          .optional()
+          .describe('A take-back asked for in a game between two accounts, waiting for the other player (or refused)'),
         skipped: z
           .array(z.object({ at: z.int(), cards: z.array(z.string()), to: z.string().optional(), by: z.enum(['rules', 'claude']), why: z.string().optional(), turn: z.int().optional() }))
           .optional()

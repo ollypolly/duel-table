@@ -50,6 +50,10 @@ export type CreateGameOptions = {
   // same shuffle, to see if it could be won: try n of max, after the game of.
   // carried: what it took from the tries before.
   attempt?: { of: string; n: number; max: number; carried?: string[] }
+  // A game between two accounts: who sits where, what to call them, and when each is asked to respond.
+  seats?: Record<Player, string>
+  names?: Record<Player, string>
+  responds?: Partial<Record<Player, Respond>>
 }
 
 // How long each bot (or Claude) step stays on screen before the next.
@@ -63,12 +67,14 @@ type Asked = Extract<Question, { prompt: unknown }>
 export type BotKind = 'random' | 'agent'
 // respond: when the person is asked to chain. skipped: chances passed for
 // them. forced: an answer index where they asked for a passed chance back.
-type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean; respond?: Respond; table?: boolean; skipped?: Skipped[]; forced?: number }
+type Seats = { bots: Player[]; bot?: BotKind; claude?: Player; lesson?: boolean; shuffled: boolean; respond?: Respond; table?: boolean; skipped?: Skipped[]; forced?: number; seats?: Record<Player, string>; responds?: Partial<Record<Player, Respond>>; takeback?: Takeback }
+type Takeback = NonNullable<NonNullable<ScenarioFile['duel']>['takeback']>
 // What Claude makes of a chance to respond: stop for it or not, and why.
 export type ChainAdvice = { stop: boolean; why: string }
 // moves: for each move a person began, how many answers had been given.
 // agents: the trained bot's side of the conversation, for each player it plays.
-type Live = Seats & { deciding?: boolean; game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; answered?: number; agents?: Partial<Record<Player, AgentBot>> }
+// moveBy: who began each of those moves.
+type Live = Seats & { deciding?: boolean; game: OcgGame; ocg: Ocg; rng: Rng; codes: number[]; asked?: Asked; moves: number[]; moveBy: Map<number, Player>; answered?: number; agents?: Partial<Record<Player, AgentBot>> }
 
 // A line tried on a copy of the game: what happened, the table after it, how
 // many of the picks were played, and why it stopped (the next question for the
@@ -183,6 +189,7 @@ export class GameService {
       ...(bots.includes('p2') && { opponentName: bot ? 'Trained bot' : 'Bot' }),
       ...(opts.attempt && { playerName: 'Claude' }),
       ...(opts.demo && { opponentName: 'Opponent' }),
+      ...(opts.names && { playerName: opts.names.p1, opponentName: opts.names.p2 }),
       // Claude plays as the character its deck belongs to, if it has one.
       ...(opts.claude === 'p2' && { opponentName: (this.ctx().decks[opts.opponentDeck ?? opts.deck ?? ''] as DeckFile | undefined)?.character?.name ?? 'Claude' }),
     })
@@ -194,16 +201,18 @@ export class GameService {
       this.sessions.remove(id)
       throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
-    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond })
+    const live = this.track(id, game, ocg, file.seed!, { bots, bot, claude: opts.claude, lesson: opts.lesson, shuffled: true, respond: opts.respond, seats: opts.seats, responds: opts.responds })
     this.onCreate?.(id, opts)
     return this.advance(id, live, game.start())
   }
 
   // A person's answer to the open question: the options they picked. player
   // defaults to whoever it's for, as long as Claude isn't answering for them.
-  async answer(id: string, player: Player | undefined, a: GameAnswer): Promise<SessionView> {
+  // seat: in a game between two accounts, the asker's (only their own questions are theirs).
+  async answer(id: string, player: Player | undefined, a: GameAnswer, seat?: Player): Promise<SessionView> {
     const live = await this.live(id)
     const { asked } = live
+    if (seat && asked && asked.prompt.player !== seat) throw new SessionError(409, "it's the other player's move")
     const person = !player
     if (!player) {
       player = asked?.prompt.player
@@ -222,7 +231,12 @@ export class GameService {
     const p = live.game.respond(response)
     if (p.retried) throw new SessionError(422, "the rules engine didn't accept that")
     // In a lesson only the person's own moves count: Claude's aren't theirs to take back.
-    if (!live.bots.includes(player) && player !== live.claude && (person || !live.lesson) && startsMove(before, response)) live.moves.push(at)
+    if (!live.bots.includes(player) && player !== live.claude && (person || !live.lesson) && startsMove(before, response)) {
+      live.moves.push(at)
+      live.moveBy.set(at, player)
+    }
+    // Playing on answers a take-back still asked for (or refused): it's moot.
+    live.takeback = undefined
     if (person) live.answered = at
     if (person) this.onPersonAnswer?.(id, player)
     return this.advance(id, live, p)
@@ -242,8 +256,8 @@ export class GameService {
       throw new SessionError(422, e instanceof SessionError ? `${e.message}: ${e.details?.join('; ')}` : (e as Error).message)
     }
     this.sessions.restartGame(id, from)
-    const { bots, bot, claude, lesson, shuffled, respond, table } = old
-    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond, table })
+    const { bots, bot, claude, lesson, shuffled, respond, table, seats, responds } = old
+    const live = this.track(id, game, old.ocg, file.seed ?? 0, { bots, bot, claude, lesson, shuffled, respond, table, seats, responds })
     return this.advance(id, live, game.start())
   }
 
@@ -327,6 +341,35 @@ export class GameService {
     return this.sessions.get(id)
   }
 
+  // In a game between two accounts a take-back is asked for: seat's last move
+  // goes back once the other player agrees.
+  async askTakeback(id: string, seat: Player): Promise<SessionView> {
+    const live = await this.live(id)
+    if (!live.seats) throw new SessionError(409, 'only a game against a friend asks first')
+    if (live.game.duel.result) throw new SessionError(409, 'the game is over')
+    const at = [...live.moveBy].filter(([, p]) => p === seat).at(-1)?.[0]
+    if (at === undefined) throw new SessionError(409, 'no move of yours to take back')
+    live.takeback = { by: seat, at }
+    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, takeback: live.takeback })
+    this.onChange?.(id)
+    return this.sessions.get(id)
+  }
+
+  async answerTakeback(id: string, seat: Player, accept: boolean): Promise<SessionView> {
+    const live = await this.live(id)
+    const t = live.takeback
+    if (!t || t.refused || t.by === seat) throw new SessionError(409, 'no take-back to answer')
+    if (accept) {
+      this.rewind(id, live, t.at, {})
+      this.onUndo?.(id)
+    } else {
+      live.takeback = { ...t, refused: true }
+      this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, takeback: live.takeback })
+    }
+    this.onChange?.(id)
+    return this.sessions.get(id)
+  }
+
   // Go back to a chance to respond that was passed for the person, and ask
   // them after all. What came after it is dropped, as with a take-back, but
   // it doesn't use one up.
@@ -341,10 +384,11 @@ export class GameService {
   }
 
   // Change when the person is asked to respond, from here on.
-  async setRespond(id: string, respond: Respond): Promise<SessionView> {
+  async setRespond(id: string, respond: Respond, seat?: Player): Promise<SessionView> {
     const live = await this.live(id)
-    live.respond = respond
-    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, respond })
+    if (seat) live.responds = { ...live.responds, [seat]: respond }
+    else live.respond = respond
+    this.sessions.appendGame(id, [], { ...this.sessions.export(id).duel!, ...(seat ? { responds: live.responds } : { respond }) })
     return this.sessions.get(id)
   }
 
@@ -354,22 +398,23 @@ export class GameService {
     const duel = file.duel!
     const game = new OcgGame(old.ocg, this.setup(file), !!duel.shuffled)
     const last = game.replay(duel.responses.slice(0, to).map(decodeResponse))
-    const { bots, bot, claude, lesson, shuffled, respond, table } = old
+    const { bots, bot, claude, lesson, shuffled, respond, table, seats, responds } = old
     const skipped = old.skipped?.filter((s) => s.at < to)
-    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled, respond, table, skipped, forced: change.asked })
+    const live = this.track(id, game, old.ocg, (file.seed ?? 0) + to, { bots, bot, claude, lesson, shuffled, respond, table, skipped, forced: change.asked, seats, responds })
     live.moves = old.moves.filter((m) => m < to)
+    live.moveBy = new Map([...old.moveBy].filter(([m]) => m < to))
     const q = last.prompt && this.ask(live, last)
     if (q && 'prompt' in q) live.asked = q
-    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, endedAt: undefined, skipped, asked: undefined, ...change })
+    this.sessions.rewindGame(id, last.steps, { ...duel, responses: duel.responses.slice(0, to), winner: undefined, forfeit: undefined, endedAt: undefined, skipped, asked: undefined, takeback: undefined, ...change })
   }
 
   // The person gives up a game that's still going, at any point: the other
   // side wins. Whatever was being asked is dropped.
-  async forfeit(id: string): Promise<SessionView> {
+  async forfeit(id: string, seat?: Player): Promise<SessionView> {
     const live = await this.live(id)
     if (live.lesson) throw new SessionError(409, "a lesson can't be forfeited")
     if (live.game.duel.result) throw new SessionError(409, 'the game is already over')
-    const player = PLAYERS.find((p) => !live.bots.includes(p) && p !== live.claude)
+    const player = seat ?? PLAYERS.find((p) => !live.bots.includes(p) && p !== live.claude)
     if (!player) throw new SessionError(409, 'nobody is playing this game')
     live.game.duel.surrender(player)
     live.asked = undefined
@@ -462,9 +507,10 @@ export class GameService {
     const claude = this.claudeView?.(id)
     // Claude's questions stay on the server; the browser only needs yours.
     const prompt = asked && !this.held(id, live).includes(asked.prompt.player) ? asked.prompt : undefined
-    const undos = this.undos(id, live)
+    const undos = live.seats ? undefined : this.undos(id, live)
+    const { seats, responds, takeback } = live
     const person = !live.lesson && PLAYERS.some((p) => !bots.includes(p) && p !== live.claude)
-    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(startedAt && { startedAt }), ...(endedAt && { endedAt }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && fresh.length && { skipped: fresh }), ...(live.deciding && { deciding: true }) }
+    return { bots, ...(bots.length && { bot: live.bot ?? ('random' as const) }), ...(game.waitingFor && { waitingFor: game.waitingFor }), ...(winner && { winner }), ...(startedAt && { startedAt }), ...(endedAt && { endedAt }), ...(prompt && { prompt }), ...(claude && { claude }), ...(undos && { undos }), ...(person && { respond: live.respond ?? ('auto' as const) }), ...(person && fresh.length && { skipped: fresh }), ...(live.deciding && { deciding: true }), ...(seats && { seats }), ...(responds && { responds }), ...(takeback && { takeback: { by: takeback.by, ...(takeback.refused && { refused: true }) } }) }
   }
 
   // Save what happened, then answer for bots, and for people where there's
@@ -529,6 +575,9 @@ export class GameService {
       ...(live.table && { table: true }),
       ...(live.shuffled && { shuffled: true }),
       ...(live.respond && { respond: live.respond }),
+      ...(live.seats && { seats: live.seats }),
+      ...(live.responds && { responds: live.responds }),
+      ...(live.takeback && { takeback: live.takeback }),
       ...(live.skipped?.length && { skipped: live.skipped.slice(-20) }),
       ...(reopened !== undefined && live.asked?.prompt.id === reopened && { asked: reopened }),
       ...(live.game.duel.result && { winner: live.game.duel.result.player }),
@@ -546,7 +595,7 @@ export class GameService {
   private async chance(id: string, live: Live, p: Progress, q: Asked, cause?: Player): Promise<Skipped | undefined> {
     const m = p.prompt
     const { prompt } = q
-    const level = live.respond ?? 'auto'
+    const level = live.responds?.[prompt.player] ?? live.respond ?? 'auto'
     if (!(m instanceof M.YGOProMsgSelectChain) || m.chains.some((c) => c.forced)) return undefined
     if (level === 'all' || live.lesson || live.forced === prompt.id || this.held(id, live).includes(prompt.player)) return undefined
     const { state } = live.game
@@ -605,18 +654,23 @@ export class GameService {
     const game = new OcgGame(ocg, this.setup(file), !!file.duel.shuffled)
     if (this.games.has(id)) return this.games.get(id)!
     const moves: number[] = []
+    const moveBy = new Map<number, Player>()
     const p1Moves: number[] = []
     let answered: number | undefined
-    const { bots = [], bot, claude, lesson, shuffled, respond, table, skipped, asked: forced, yours } = file.duel
+    const { bots = [], bot, claude, lesson, shuffled, respond, table, skipped, asked: forced, yours, seats, responds, takeback } = file.duel
     const last = game.replay(file.duel.responses.map(decodeResponse), (prompt, response, i) => {
       const p = playerOf(prompt.responsePlayer())
-      if (!lesson && !bots.includes(p) && p !== claude && startsMove(prompt, response)) moves.push(i)
+      if (!lesson && !bots.includes(p) && p !== claude && startsMove(prompt, response)) {
+        moves.push(i)
+        moveBy.set(i, p)
+      }
       if (lesson && p === 'p1' && startsMove(prompt, response)) p1Moves.push(i)
       if (!bots.includes(p) && p !== claude && !skipped?.some((s) => s.at === i)) answered = i
     })
     // The bot's randomness continues from a fresh seed; its past answers are
     // in the log.
-    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, table, skipped, forced })
+    const live = this.track(id, game, ocg, (file.seed ?? 0) + file.duel.responses.length, { bots, bot, claude, lesson, shuffled: !!shuffled, respond, table, skipped, forced, seats, responds, takeback })
+    live.moveBy = moveBy
     // A lesson records which moves were the person's. One from before it did
     // counts p1's, whoever made them.
     live.moves = lesson ? (yours ?? p1Moves).filter((m) => m < file.duel!.responses.length) : moves
@@ -643,7 +697,7 @@ export class GameService {
     this.hangUp(id)
     const { agent } = this
     const agents = seats.bot === 'agent' && agent ? Object.fromEntries(seats.bots.map((p) => [p, new AgentBot(agent.url, agent.codes)])) : undefined
-    const live: Live = { ...seats, game, ocg, rng: seededRng(seed), codes, moves: [], ...(agents && { agents }) }
+    const live: Live = { ...seats, game, ocg, rng: seededRng(seed), codes, moves: [], moveBy: new Map(), ...(agents && { agents }) }
     this.games.set(id, live)
     return live
   }

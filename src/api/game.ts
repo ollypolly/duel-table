@@ -141,5 +141,9 @@ export const GameViewSchema = z.object({
   respond: RespondSchema.optional().describe('When you are asked to respond (default auto)'),
   skipped: z.array(SkippedSchema).optional().describe('Chances to respond passed for you lately, newest last'),
   deciding: z.boolean().optional().describe('Claude is weighing a chance to respond for you'),
+  seats: z.object({ p1: z.string(), p2: z.string() }).optional().describe('A game between two accounts: the account in each seat'),
+  responds: z.object({ p1: RespondSchema.optional(), p2: RespondSchema.optional() }).optional().describe("Each seat's respond setting (sent to its own player as respond)"),
+  takeback: z.object({ by: PlayerSchema, refused: z.boolean().optional() }).optional().describe('A take-back asked for, waiting for the other player (or refused)'),
+  present: z.array(PlayerSchema).optional().describe('In a game between two accounts: the players who have it open now'),
 })
 export type GameView = z.infer<typeof GameViewSchema>

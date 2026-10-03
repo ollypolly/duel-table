@@ -26,6 +26,10 @@ import type { Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { AccountSchema, MeSchema, NewAccountSchema, type Account } from '../src/api/accounts'
 import { acting, type AccountService } from './accounts'
+import { inPlay, InviteService, OPEN_IN_PLAY, seatOf } from './invites'
+import { redactFor } from './redact'
+import type { SessionView } from './sessions'
+import type { Player } from '../src/engine'
 import type { RemoveRepoFile, WriteRepoFile } from './files'
 import { SessionError, type SessionService } from './sessions'
 import type { FetchResult } from './ygoprodeck'
@@ -85,6 +89,7 @@ type AppDeps = {
   ideas?: IdeaStore // the scratch pad in the header (kept in memory without one)
   accounts?: AccountService // without them, anyone can change anything
   deckOwner?: (id: string) => string | undefined // the account a deck belongs to (undefined: the repo's, so the admin's)
+  invites?: InviteService // games against a friend (kept in memory without one)
 }
 
 export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
@@ -101,8 +106,10 @@ const fail = (status: ConstructorParameters<typeof SessionError>[0], message: st
 const KEY_COOKIE = 'duel-key'
 // What can be done without signing in: making an account, and signing in or out.
 const OPEN = new Set(['/api/accounts', '/api/signin', '/api/signout'])
+// Joining a game can make the account as it joins.
+const isOpen = (path: string) => OPEN.has(path) || /^\/api\/invites\/[^/]+\/join$/.test(path)
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined, invites = new InviteService() }: AppDeps) {
   const app = new OpenAPIHono<{ Variables: { me?: Account } }>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -124,17 +131,43 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   // Who's asking. Reading is open to anyone; changing anything needs an
   // account, and a session's things need its owner (or the admin). Whatever
   // the request starts, a Claude run included, acts as that account.
+  //
+  // A game against a friend that's going is different: whoever asks (its
+  // owner and the admin too) only gets the table's own routes, and every
+  // view of it is redacted for them (see ./redact.ts). Its players can play
+  // it; only its owner can rename or delete it.
   app.use('*', async (c, next) => {
     const me = accounts?.byKey(getCookie(c, KEY_COOKIE))
     c.set('me', me)
-    if (accounts && c.req.method !== 'GET' && !OPEN.has(c.req.path)) {
+    const [, kind, id, rest = ''] = c.req.path.match(/^\/api\/(sessions|home|ideas|decks)\/([^/]+)(\/.*)?$/) ?? []
+    const duel = kind === 'sessions' && sessions.has(id) ? sessions.export(id).duel : undefined
+    const hiding = inPlay(duel)
+    const seated = !!duel?.seats
+    if (hiding && !OPEN_IN_PLAY.test(rest)) return c.json({ error: 'not while a game against a friend is going' }, 403)
+    if (accounts && c.req.method !== 'GET' && !isOpen(c.req.path)) {
       if (!me) return c.json({ error: 'sign in first' }, 401)
-      const [, kind, id, rest] = c.req.path.match(/^\/api\/(sessions|home|ideas|decks)\/([^/]+)(\/.*)?$/) ?? []
+      const playing = !!seatOf(duel, me.id) && rest !== ''
       // Anyone can fork a session: the fork is theirs.
-      if (kind && rest !== '/fork' && !owns(me, ownerOf(kind, id))) return c.json({ error: "that's not yours to change" }, 403)
+      if (kind && rest !== '/fork' && !playing && !owns(me, ownerOf(kind, id))) return c.json({ error: "that's not yours to change" }, 403)
     }
-    return me ? acting.run(me.id, next) : next()
+    await (me ? acting.run(me.id, next) : next())
+    if (seated && c.res.headers.get('content-type')?.includes('application/json')) {
+      const body = (await c.res.clone().json()) as Partial<SessionView>
+      if (body.file && body.state) c.res = new Response(JSON.stringify(viewFor(body as SessionView, me)), { status: c.res.status, headers: c.res.headers })
+    }
   })
+
+  // Who has a game against a friend open, by session and account.
+  const present = new Map<string, Map<string, number>>()
+  const viewFor = (v: SessionView, me?: Account): SessionView => {
+    const seats = v.file.duel?.seats
+    if (!seats) return v
+    const here = present.get(v.id)
+    const seat = seatOf(v.file.duel, me?.id)
+    const game = v.game && { ...v.game, present: (['p1', 'p2'] as const).filter((p) => here?.get(seats[p])), ...(seat && v.game.responds?.[seat] && { respond: v.game.responds[seat] }) }
+    return redactFor({ ...v, ...(game && { game }) }, seat, ctx(), inPlay(v.file.duel))
+  }
+  const seat = (c: Context, id: string): Player | undefined => seatOf(sessions.export(id).duel, (c.get('me') as Account | undefined)?.id)
 
   // What owns a thing (missing: the admin, or nothing like it, so there's nothing to check).
   const ownerOf = (kind: string, id: string): string | null | undefined => {
@@ -326,6 +359,107 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     (c) => {
       const found = card(c.req.valid('param').id)
       return found ? c.json(found, 200) : c.json({ error: `no card ${c.req.valid('param').id}` }, 404)
+    },
+  )
+
+  // Games against a friend -----------------------------------------------------
+
+  const InviteSchema = z.object({
+    code: z.string(),
+    from: AccountSchema,
+    deck: z.object({ id: z.string(), name: z.string() }),
+    session: z.string().optional().openapi({ description: 'The game, once someone has joined' }),
+    yours: z.boolean().openapi({ description: 'You sent it' }),
+    playing: z.boolean().openapi({ description: "You're in the game" }),
+  })
+  const inviteView = (code: string, me?: Account) => {
+    const i = invites.get(code)
+    const raw = ctx().decks[i.deck] as { name?: string } | undefined
+    const from = accounts?.byId(i.owner) ?? { id: i.owner, username: 'someone', name: 'Someone' }
+    const playing = !!i.session && sessions.has(i.session) && !!seatOf(sessions.export(i.session).duel, me?.id)
+    return { code, from, deck: { id: i.deck, name: raw?.name ?? i.deck }, ...(i.session && { session: i.session }), yours: i.owner === me?.id, playing }
+  }
+  const inviteResponse = { 200: json(InviteSchema, 'The invite'), ...errors }
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/invites',
+      summary: 'Invite a friend to a game: a code for a link to send',
+      request: body(z.object({ deck: z.string(), respond: RespondSchema.optional() }).strict()),
+      responses: { 201: json(InviteSchema, 'The invite'), ...errors },
+    }),
+    (c) => {
+      const me = meOr401(c)
+      const { deck, respond } = c.req.valid('json')
+      if (!ctx().decks[deck]) fail(404, `no deck "${deck}"`)
+      return c.json(inviteView(invites.create(me.id, deck, respond).code, me), 201)
+    },
+  )
+
+  app.openapi(createRoute({ method: 'get', path: '/invites/{code}', summary: 'An invite: who from, their deck, and the game once joined', request: { params: z.object({ code: z.string().openapi({ param: { name: 'code', in: 'path' } }) }) }, responses: inviteResponse }), (c) =>
+    c.json(inviteView(c.req.valid('param').code, c.get('me')), 200),
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'delete',
+      path: '/invites/{code}',
+      summary: 'Cancel an invite nobody has joined',
+      request: { params: z.object({ code: z.string().openapi({ param: { name: 'code', in: 'path' } }) }) },
+      responses: { 200: json(z.object({ deleted: z.string() }), 'Cancelled'), ...errors },
+    }),
+    (c) => {
+      const { code } = c.req.valid('param')
+      if (!owns(c.get('me'), invites.get(code).owner)) fail(403, "that's not yours to cancel")
+      invites.remove(code)
+      return c.json({ deleted: code }, 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/invites/{code}/join',
+      summary: 'Join a game you were invited to, with a deck (making your account first, if you have none)',
+      description: 'A coin flip decides who goes first (p1). The game belongs to whoever sent the invite; both players can play it.',
+      request: {
+        params: z.object({ code: z.string().openapi({ param: { name: 'code', in: 'path' } }) }),
+        ...body(z.object({ deck: z.string(), respond: RespondSchema.optional(), account: NewAccountSchema.optional() }).strict()),
+      },
+      responses: { 200: json(InviteSchema, 'The invite, with its game'), 409: json(ErrorSchema, 'Someone else has joined'), ...errors },
+    }),
+    async (c) => {
+      const { code } = c.req.valid('param')
+      const { deck, respond, account } = c.req.valid('json')
+      const invite = invites.get(code)
+      let me = c.get('me')
+      if (invite.session) {
+        if (inviteView(code, me).playing) return c.json(inviteView(code, me), 200)
+        fail(409, 'someone has already joined that game')
+      }
+      if (!ctx().decks[deck]) fail(404, `no deck "${deck}"`)
+      if (!games) fail(400, 'the rules engine is not set up here')
+      if (!me && account && accounts) {
+        const made = accounts.create(account)
+        signIn(c, made.key)
+        me = made.account
+      }
+      if (!me) fail(401, 'sign in first')
+      if (me!.id === invite.owner) fail(409, "that's your own invite: send the link to a friend")
+      const host = accounts?.byId(invite.owner)
+      const hostFirst = Math.random() < 0.5
+      const [p1, p2] = hostFirst ? [invite.owner, me!.id] : [me!.id, invite.owner]
+      const name = (id: string) => (id === me!.id ? me!.name : (host?.name ?? 'Friend'))
+      const deckOf = (id: string) => (id === me!.id ? deck : invite.deck)
+      const respondOf = (id: string) => (id === me!.id ? respond : invite.respond)
+      const responds = Object.fromEntries((['p1', 'p2'] as const).flatMap((p) => (respondOf(p === 'p1' ? p1 : p2) ? [[p, respondOf(p === 'p1' ? p1 : p2)]] : [])))
+      // The game is the host's.
+      const view = await acting.run(invite.owner, () =>
+        games!.create({ deck: deckOf(p1), opponentDeck: deckOf(p2), bots: [], seats: { p1, p2 }, names: { p1: name(p1), p2: name(p2) }, responds, title: `${host?.name ?? 'Friend'} vs ${me!.name}` }),
+      )
+      invites.joined(code, view.id)
+      return c.json(inviteView(code, me), 200)
     },
   )
 
@@ -1087,7 +1221,8 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.answer(c.req.valid('param').id, undefined, c.req.valid('json')), 200)
+      const { id } = c.req.valid('param')
+      return c.json(await games.answer(id, undefined, c.req.valid('json'), seat(c, id)), 200)
     },
   )
 
@@ -1102,7 +1237,8 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.forfeit(c.req.valid('param').id), 200)
+      const { id } = c.req.valid('param')
+      return c.json(await games.forfeit(id, seat(c, id)), 200)
     },
   )
 
@@ -1118,7 +1254,27 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.undo(c.req.valid('param').id), 200)
+      const { id } = c.req.valid('param')
+      const mine = seat(c, id)
+      // Against a friend, the other player is asked first.
+      return c.json(await (mine ? games.askTakeback(id, mine) : games.undo(id)), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/game/takeback',
+      summary: "Answer the other player's request to take back their move",
+      description: 'In a game against a friend: accept takes their last move back (and what followed it); otherwise they are told no.',
+      request: { params: IdParam, ...body(z.object({ accept: z.boolean() }).strict()) },
+      responses: { 200: json(SessionSchema, 'The game'), 409: json(ErrorSchema, 'Nothing to answer'), 501: json(ErrorSchema, 'No rules engine'), ...errors },
+    }),
+    async (c) => {
+      if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
+      const { id } = c.req.valid('param')
+      const mine = seat(c, id) ?? fail(403, "you're not playing this game")
+      return c.json(await games.answerTakeback(id, mine, c.req.valid('json').accept), 200)
     },
   )
 
@@ -1149,7 +1305,8 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     }),
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
-      return c.json(await games.setRespond(c.req.valid('param').id, c.req.valid('json').respond), 200)
+      const { id } = c.req.valid('param')
+      return c.json(await games.setRespond(id, c.req.valid('json').respond, seat(c, id)), 200)
     },
   )
 
@@ -1238,9 +1395,16 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   app.get('/sessions/:id/events', (c) => {
     const id = c.req.param('id')
     sessions.export(id) // a 404 before the stream starts
+    const me = c.get('me')
     return streamSSE(c, async (stream) => {
       let n = 0
-      const send = (v: unknown) => stream.writeSSE({ event: 'session', data: JSON.stringify(v), id: String(n++) })
+      const send = (v: SessionView) => stream.writeSSE({ event: 'session', data: JSON.stringify(viewFor(v, me)), id: String(n++) })
+      // A player at the table: the other one sees they're here.
+      const here = me && seatOf(sessions.export(id).duel, me.id) ? (present.get(id) ?? present.set(id, new Map()).get(id)!) : undefined
+      if (here) {
+        here.set(me!.id, (here.get(me!.id) ?? 0) + 1)
+        setTimeout(() => sessions.has(id) && sessions.touch(id))
+      }
       // Listen before the first view: a game that isn't loaded yet starts
       // loading when it's viewed, and says so when it's ready.
       const off = sessions.subscribe(id, (v) => void send(v))
@@ -1249,6 +1413,10 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       stream.onAbort(() => {
         open = false
         off()
+        if (here) {
+          here.set(me!.id, here.get(me!.id)! - 1)
+          if (sessions.has(id)) sessions.touch(id)
+        }
       })
       // Keep the connection alive until the client goes away.
       while (open) {
