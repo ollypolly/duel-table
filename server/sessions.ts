@@ -13,6 +13,7 @@ import type { DeckFile, ScenarioFile } from '../src/scenarios/schema'
 import type { Answer, LessonView, Prompt, Reveal } from '../src/api/lesson'
 import { SessionError } from './errors'
 import { acting } from './accounts'
+import type { TableView } from '../src/api/table'
 import { Lesson, type AnswerEvent } from './lesson'
 import type { GameView } from '../src/api/game'
 import type { Moment, ReviewView } from '../src/api/review'
@@ -65,7 +66,7 @@ export type SessionSummary = {
 // scanned: Claude has finished looking for the key moments, counted by kind.
 // busy: Claude is working on it now.
 export type ReviewSummary = { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> }
-export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView; review?: ReviewView }
+export type SessionView = SessionSummary & { file: ScenarioFile; state: BoardState; lesson: LessonView; game?: GameView; review?: ReviewView; table?: TableView }
 type Duel = NonNullable<ScenarioFile['duel']>
 export type ApplyResult = { ok: true; state: BoardState; events: EngineEvent[]; issues: Issue[]; position: number; revealed: number } | { ok: false; issues: Issue[] }
 

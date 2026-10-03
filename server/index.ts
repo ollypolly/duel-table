@@ -19,6 +19,7 @@ import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
 import { acting, AccountService, diskAccounts } from './accounts'
 import { diskInvites, InviteService } from './invites'
+import { diskTables, TableService } from './table'
 import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
@@ -172,6 +173,8 @@ const app = createApp({
   accounts,
   deckOwner: deckOwner(),
   invites: new InviteService(diskInvites(join(ROOT, 'sessions', 'invites.json'))),
+  table: new TableService(diskTables(join(ROOT, 'sessions', 'table'))),
+  quick: sdkQuick,
   ideas,
   sessions,
   ctx,

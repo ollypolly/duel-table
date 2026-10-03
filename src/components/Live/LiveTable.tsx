@@ -22,6 +22,9 @@ import { ScenarioErrors } from '../ScenarioErrors/ScenarioErrors'
 import { Table } from '../Table/Table'
 import { scrollLogTo } from '../Game/chatScroll'
 import { ClaudeChat, ClaudeInput } from '../Game/ClaudePanel'
+import { TableChatInput, TableChatLog } from '../Friends/TableChat'
+import { TableFun } from '../Friends/TableFun'
+import { useAccountStore } from '../../store/accountStore'
 import { TopBar } from '../TopBar/TopBar'
 import { PICK_KINDS } from '../../api/game'
 import { GamePanel, type GameChoice } from '../Game/GamePanel'
@@ -46,6 +49,9 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   const [rejected, setRejected] = useState('')
   const [picking, setPicking] = useState<GameChoice & { for?: number }>({ picked: [] })
   const [busy, setBusy] = useState(false)
+  const me = useAccountStore((s) => s.me?.id)
+  // An emoji picked to stick on a card, waiting for the card to be tapped.
+  const [sticking, setSticking] = useState<string>()
   const { openSession, goTo } = usePlayerStore()
   const inspect = useUiStore((s) => s.inspect)
   const position = usePlayerStore((s) => s.position)
@@ -378,7 +384,8 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
         )}
       </>
     )
-  const chatting = !!(review || game?.claude)
+  const friendTable = !!game?.seats && session?.table
+  const chatting = !!(review || game?.claude || friendTable)
   // The chat follows the question as it changes, as it does a new message.
   const dockKey = [lesson?.queued, lesson?.prompt?.id, game?.prompt?.id, game?.winner, away].join()
 
@@ -415,12 +422,28 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
     return (
       <>
       {spotlight}
+      {friendTable && (
+        <TableFun
+          table={friendTable}
+          state={result.scenario.timeline.at(-1)!.state}
+          sticking={sticking}
+          onStick={(card) => {
+            report(api.tableFun(id, { emoji: sticking, card }))
+            setSticking(undefined)
+          }}
+          onCancel={() => setSticking(undefined)}
+        />
+      )}
       <Table
         scenario={pointed(result.scenario, marked ?? {}, markedAt)}
         circled={(review ? position !== markedAt : strayed) ? undefined : marked?.zones}
         nav={liveNav}
         chat={
           reviewChat ||
+          (friendTable && {
+            log: <TableChatLog table={friendTable} me={me} footer={dock} footerKey={dockKey} />,
+            input: <TableChatInput id={id} onSticker={setSticking} report={report} />,
+          }) ||
           (game?.claude && {
             log: (
               <ClaudeChat

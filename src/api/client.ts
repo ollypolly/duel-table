@@ -1,6 +1,7 @@
 // Typed fetch client for the local API, plus the SSE subscription live mode
 // uses. Everything is optional: playback works without the server.
 import type { CardData } from '../data/cardDb'
+import type { TableFun, TableView } from './table'
 import type { Issue, Player, Step } from '../engine'
 import type { ScenarioFile } from '../scenarios/schema'
 import type { ClaudeSettings, GameAnswer, GameView, ModelChoice, Respond } from './game'
@@ -30,7 +31,7 @@ export type SessionSummary = {
   owner?: string // the account that made it; missing means the admin's
   seats?: Record<Player, string> // a game against a friend: the account in each seat
 }
-export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
+export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView; table?: TableView }
 
 export type Invite = { code: string; from: Account; deck: { id: string; name: string }; session?: string; yours: boolean; playing: boolean }
 
@@ -84,6 +85,9 @@ export const api = {
   joinInvite: (code: string, j: { deck: string; respond?: Respond; account?: { username: string; name: string } }) => call<Invite>('POST', `/invites/${code}/join`, j),
   cancelInvite: (code: string) => call<{ deleted: string }>('DELETE', `/invites/${code}`),
   takeback: (id: string, accept: boolean) => call<SessionSummary>('POST', `/sessions/${id}/game/takeback`, { accept }),
+  // Around a game against a friend. hidden: for Claude only, who answers you alone.
+  tableChat: (id: string, text: string, hidden?: boolean) => call<SessionSummary>('POST', `/sessions/${id}/table/chat`, { text, ...(hidden && { hidden }) }),
+  tableFun: (id: string, f: Pick<TableFun, 'sound' | 'emoji' | 'card'>) => call<SessionSummary>('POST', `/sessions/${id}/table/fun`, f),
   decks: () => call<DeckSummary[]>('GET', '/decks'),
   deck: (id: string) => call<Deck>('GET', `/decks/${id}`),
   // Either a pasted decklist or the cards. Unknown names fail with 422 and suggestions (ApiError.body.unknown).

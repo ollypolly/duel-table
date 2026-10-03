@@ -26,7 +26,7 @@ const mapStrings = <T>(value: T, fn: (s: string) => string): T => {
 }
 
 // The cards of player's that the other side can't see.
-const hiddenOf = (state: BoardState, player: Player): Set<Iid> => {
+export const hiddenOf = (state: BoardState, player: Player): Set<Iid> => {
   const hidden = new Set<Iid>()
   for (const [zone, iids] of Object.entries(state.players[player].zones)) for (const iid of iids as (Iid | null)[]) if (iid && (zone === 'hand' || !state.cards[iid].faceUp)) hidden.add(iid)
   for (const iid of state.extraMonster) if (iid && state.cards[iid].owner === player && !state.cards[iid].faceUp) hidden.add(iid)

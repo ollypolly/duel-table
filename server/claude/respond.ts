@@ -11,15 +11,15 @@ import { cardText, describeQuestion, describeTable, publicLabel } from './view'
 const MODEL = 'claude-sonnet-5-5'
 
 // One prompt in, the model's text out.
-export type Quick = (system: string, message: string) => Promise<string>
+export type Quick = (system: string, message: string, limitMs?: number) => Promise<string>
 
 // Thinking is off and the call is cut short: an answer that takes longer than
 // simply asking the person is worth less than asking them.
 const LIMIT_MS = 10_000
 
-export const sdkQuick: Quick = async (system, message) => {
+export const sdkQuick: Quick = async (system, message, limitMs = LIMIT_MS) => {
   const abortController = new AbortController()
-  const timer = setTimeout(() => abortController.abort(), LIMIT_MS)
+  const timer = setTimeout(() => abortController.abort(), limitMs)
   const q = query({
     prompt: message,
     options: { model: MODEL, systemPrompt: system, tools: [], settingSources: [], maxTurns: 1, maxThinkingTokens: 0, persistSession: false, abortController },

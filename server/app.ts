@@ -27,7 +27,10 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { AccountSchema, MeSchema, NewAccountSchema, type Account } from '../src/api/accounts'
 import { acting, type AccountService } from './accounts'
 import { inPlay, InviteService, OPEN_IN_PLAY, seatOf } from './invites'
-import { redactFor, summaryFor } from './redact'
+import { hiddenOf, redactFor, summaryFor } from './redact'
+import { EMOJI, SOUNDS, TableService } from './table'
+import type { Quick } from './claude/respond'
+import { describeTable } from './claude/view'
 import type { SessionView } from './sessions'
 import type { Player } from '../src/engine'
 import type { RemoveRepoFile, WriteRepoFile } from './files'
@@ -92,6 +95,8 @@ type AppDeps = {
   accounts?: AccountService // without them, anyone can change anything
   deckOwner?: (id: string) => string | undefined // the account a deck belongs to (undefined: the repo's, so the admin's)
   invites?: InviteService // games against a friend (kept in memory without one)
+  table?: TableService // a friend game's chat and fun (kept in memory without one)
+  quick?: Quick // Claude answering in a friend game's chat; without it, it doesn't
 }
 
 export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
@@ -111,7 +116,7 @@ const OPEN = new Set(['/api/accounts', '/api/signin', '/api/signout'])
 // Joining a game can make the account as it joins.
 const isOpen = (path: string) => OPEN.has(path) || /^\/api\/invites\/[^/]+\/join$/.test(path)
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined, invites = new InviteService() }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined, invites = new InviteService(), table = new TableService(), quick }: AppDeps) {
   const app = new OpenAPIHono<{ Variables: { me?: Account } }>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -167,7 +172,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     const here = present.get(v.id)
     const seat = seatOf(v.file.duel, me?.id)
     const game = v.game && { ...v.game, present: (['p1', 'p2'] as const).filter((p) => here?.get(seats[p])), ...(seat && v.game.responds?.[seat] && { respond: v.game.responds[seat] }) }
-    return redactFor({ ...v, ...(game && { game }) }, seat, ctx(), inPlay(v.file.duel))
+    return redactFor({ ...v, ...(game && { game }), table: table.view(v.id, me?.id) }, seat, ctx(), inPlay(v.file.duel))
   }
   const seat = (c: Context, id: string): Player | undefined => seatOf(sessions.export(id).duel, (c.get('me') as Account | undefined)?.id)
 
@@ -1291,6 +1296,74 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { id } = c.req.valid('param')
       const mine = seat(c, id) ?? fail(403, "you're not playing this game")
       return c.json(await games.answerTakeback(id, mine, c.req.valid('json').accept), 200)
+    },
+  )
+
+  // Around a game against a friend: the chat, and the fun.
+  const atTable = (c: Context, id: string) => {
+    const me = meOr401(c)
+    return { me, seat: seat(c, id) ?? fail(403, "you're not playing this game") }
+  }
+  // Claude answers the table from what both players can see (neither hand),
+  // or one player privately, from their side.
+  const claudeAnswers = (id: string, asker: Account, only: Player | undefined) => {
+    const v = sessions.get(id)
+    const names = { p1: v.players.p1.name, p2: v.players.p2.name }
+    const board = only ? describeTable(v.state, only, ctx().db) : describeTable(v.state, 'p1', ctx().db, false, hiddenOf(v.state, 'p1'))
+    const sides = only
+      ? `You're advising ${names[only]} privately: nobody else sees this. "Your" side below is theirs.`
+      : `You're in the group chat of a game between ${names.p1} and ${names.p2}, and both read what you say. Below, "your" side is ${names.p1}'s and "your opponent's" is ${names.p2}'s. Neither player's hidden cards are shown to you, and you never guess at them.`
+    const system = `You're Claude, at the table of a Yu-Gi-Oh! game between two friends, answering in a chat. ${sides} Keep it short and friendly, a few sentences at most, plain text.`
+    const message = `The table now:\n${board}\n\nThe chat so far:\n${table.transcript(id, only && asker.id)}\n\nAnswer ${asker.name}'s last message.`
+    void table.answer(id, only && asker.id, () => quick!(system, message, 30_000), () => sessions.touch(id))
+  }
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/table/chat',
+      summary: 'Say something in a game against a friend',
+      description: 'Everyone at the table sees it. Mention @claude and Claude answers the table. hidden: only Claude sees it, and answers you alone (it can use your hand).',
+      request: { params: IdParam, ...body(z.object({ text: z.string().min(1).max(1000), hidden: z.boolean().optional() }).strict()) },
+      responses: { 200: json(SessionSchema, 'The game'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      const { me, seat } = atTable(c, id)
+      const { text, hidden } = c.req.valid('json')
+      table.say(id, me, text, hidden ? me.id : undefined)
+      if (quick && (hidden || /@claude\b/i.test(text))) claudeAnswers(id, me, hidden ? seat : undefined)
+      return c.json(sessions.touch(id), 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/table/fun',
+      summary: 'A sound on both screens, or an emoji on a card',
+      request: {
+        params: IdParam,
+        ...body(
+          z
+            .object({
+              sound: z.enum(SOUNDS).optional(),
+              emoji: z.enum(EMOJI).optional(),
+              card: z.object({ player: PlayerSchema, zone: z.string(), index: z.int().min(0) }).optional().openapi({ description: 'The slot the emoji goes on, from your side of the table' }),
+            })
+            .strict(),
+        ),
+      },
+      responses: { 200: json(SessionSchema, 'The game'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      const { me, seat } = atTable(c, id)
+      const f = c.req.valid('json')
+      // Your side of the table is p1 to you.
+      const card = f.card && seat === 'p2' ? { ...f.card, player: f.card.player === 'p1' ? ('p2' as const) : ('p1' as const) } : f.card
+      table.fun(id, me, { ...f, ...(card && { card }) })
+      return c.json(sessions.touch(id), 200)
     },
   )
 

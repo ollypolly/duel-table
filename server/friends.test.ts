@@ -11,12 +11,12 @@ import { SessionService } from './sessions'
 const hasData = existsSync(join(ROOT, ocgDataDir(), 'cards.cdb'))
 const ctx = repoContext()
 
-const setup = () => {
+const setup = (quick?: (system: string, message: string) => Promise<string>) => {
   const accounts = new AccountService(memoryAccounts())
   const olly = accounts.ensureAdmin('olly')!
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const app = createApp({ sessions, ctx, games, accounts })
+  const app = createApp({ sessions, ctx, games, accounts, quick })
   const call = async (key: string | undefined, method: string, path: string, body?: unknown) => {
     const res = await app.request(`/api${path}`, {
       method,
@@ -26,6 +26,10 @@ const setup = () => {
     return { status: res.status, json: (await res.json()) as any, cookie: res.headers.get('set-cookie') }
   }
   return { call, olly, sessions }
+}
+
+const until = async (done: () => boolean) => {
+  for (let i = 0; i < 50 && !done(); i++) await new Promise((r) => setTimeout(r, 10))
 }
 
 describe.skipIf(!hasData)('a game against a friend', () => {
@@ -122,5 +126,37 @@ describe.skipIf(!hasData)('a game against a friend', () => {
     expect((await call(otherKey, 'POST', `/sessions/${id}/game/takeback`, { accept: true })).status).toBe(200)
     expect(sessions.get(id).game!.takeback).toBeUndefined()
     expect(sessions.export(id).duel!.responses.length).toBeLessThan(answers)
+  }, 60_000)
+
+  it("has a chat: Claude answers the table without either hand, and a hidden message stays between you and Claude", async () => {
+    const asked: string[] = []
+    const { call, olly, sessions } = setup(async (_, message) => (asked.push(message), 'Claude here'))
+    const { code } = (await call(olly, 'POST', '/invites', { deck: 'chazz-armed-ojama' })).json
+    const joined = await call(undefined, 'POST', `/invites/${code}/join`, { deck: 'super-quant', account: { username: 'rob', name: 'Rob' } })
+    const rob = joined.cookie!.match(/duel-key=([^;]+)/)![1]
+    const id = joined.json.session
+    const real = sessions.get(id)
+    const robSeat = real.file.duel!.seats!.p1 === real.owner ? 'p2' : 'p1'
+    const hand = (p: 'p1' | 'p2') => real.state.players[p].zones.hand.map((i) => ctx().db.byId(real.state.cards[i].cardId!)!.name)
+
+    expect((await call(undefined, 'POST', `/sessions/${id}/table/chat`, { text: 'hi' })).status).toBe(401)
+    await call(olly, 'POST', `/sessions/${id}/table/chat`, { text: 'good luck @claude' })
+    await until(() => asked.length === 1)
+    await call(rob, 'POST', `/sessions/${id}/table/chat`, { text: 'what should I play?', hidden: true })
+    await until(() => asked.length === 2)
+    await new Promise((r) => setTimeout(r, 20)) // its answer is saved just after
+    // The table's question carries neither hand; Rob's private one has his own, not Olly's.
+    for (const name of [...hand('p1'), ...hand('p2')]) expect(asked[0]).not.toContain(`Hand (5): ${name}`)
+    expect(asked[0]).toContain('Hand (5): 5 hidden')
+    expect(asked[1]).toContain(hand(robSeat).join(', '))
+
+    const chat = async (key: string) => ((await call(key, 'GET', `/sessions/${id}`)).json.table.chat as { name: string; text: string }[]).map((m) => `${m.name}: ${m.text}`)
+    expect(await chat(olly)).toEqual(['Olly: good luck @claude', 'Claude: Claude here'])
+    expect(await chat(rob)).toEqual(['Olly: good luck @claude', 'Claude: Claude here', 'Rob: what should I play?', 'Claude: Claude here'])
+
+    // A sound and an emoji, on Rob's own monster zone from his side.
+    await call(rob, 'POST', `/sessions/${id}/table/fun`, { emoji: '🔥', card: { player: 'p1', zone: 'monster', index: 2 } })
+    expect((await call(rob, 'GET', `/sessions/${id}`)).json.table.fun[0].card.player).toBe('p1')
+    expect((await call(olly, 'GET', `/sessions/${id}`)).json.table.fun[0].card.player).toBe('p2')
   }, 60_000)
 })
