@@ -84,6 +84,11 @@ export const api = {
   makeInvite: (deck: string, respond?: Respond) => call<Invite>('POST', '/invites', { deck, ...(respond && { respond }) }),
   joinInvite: (code: string, j: { deck: string; respond?: Respond; account?: { username: string; name: string } }) => call<Invite>('POST', `/invites/${code}/join`, j),
   cancelInvite: (code: string) => call<{ deleted: string }>('DELETE', `/invites/${code}`),
+  // Notifications on this device; no key means they're off on this server.
+  pushKey: () => call<{ key?: string }>('GET', '/push').catch((): { key?: string } => ({})),
+  pushOn: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) => call<{ on: boolean }>('POST', '/push', sub),
+  pushOff: (endpoint: string) => call<{ on: boolean }>('POST', '/push/off', { endpoint }),
+  nudge: (id: string) => call<{ nudged: boolean }>('POST', `/sessions/${id}/table/nudge`),
   rematch: (id: string, accept = true) => call<SessionSummary>('POST', `/sessions/${id}/game/rematch`, { accept }),
   takeback: (id: string, accept: boolean) => call<SessionSummary>('POST', `/sessions/${id}/game/takeback`, { accept }),
   // Around a game against a friend. hidden: for Claude only, who answers you alone.

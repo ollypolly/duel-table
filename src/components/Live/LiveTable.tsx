@@ -383,6 +383,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
             rematch={session.file.duel?.rematch}
             onRematchAnswer={game.seats ? answerRematch : undefined}
             onOpen={(s) => openSession(s, Infinity)}
+            onNudge={game.seats ? { since: Date.parse(session.updatedAt), run: () => api.nudge(id) } : undefined}
             onTakeback={(accept) => {
               setBusy(true)
               report(api.takeback(id, accept).finally(() => setBusy(false)))

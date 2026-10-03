@@ -7,16 +7,17 @@ import { repoContext, ROOT } from './files'
 import { GameService } from './games'
 import { ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
+import { memoryPush, PushService, type Notice } from './push'
 
 const hasData = existsSync(join(ROOT, ocgDataDir(), 'cards.cdb'))
 const ctx = repoContext()
 
-const setup = (quick?: (system: string, message: string) => Promise<string>) => {
+const setup = (quick?: (system: string, message: string) => Promise<string>, push?: PushService) => {
   const accounts = new AccountService(memoryAccounts())
   const olly = accounts.ensureAdmin('olly')!
   const sessions = new SessionService(ctx)
   const games = new GameService(sessions, ctx)
-  const app = createApp({ sessions, ctx, games, accounts, quick })
+  const app = createApp({ sessions, ctx, games, accounts, quick, push })
   const call = async (key: string | undefined, method: string, path: string, body?: unknown) => {
     const res = await app.request(`/api${path}`, {
       method,
@@ -167,5 +168,57 @@ describe.skipIf(!hasData)('a game against a friend', () => {
     await call(rob, 'POST', `/sessions/${id}/table/fun`, { emoji: '🔥', card: { player: 'p1', zone: 'monster', index: 2 } })
     expect((await call(rob, 'GET', `/sessions/${id}`)).json.table.fun[0].card.player).toBe('p1')
     expect((await call(olly, 'GET', `/sessions/${id}`)).json.table.fun[0].card.player).toBe('p2')
+  }, 60_000)
+
+  it('tells you by notification: someone joined, your move, a mention, a nudge, a rematch', async () => {
+    const sent: { to: string; notice: Notice }[] = []
+    const push = new PushService(memoryPush(), {
+      key: 'k',
+      send: async (sub, notice) => {
+        if (sub.endpoint.endsWith('gone')) throw Object.assign(new Error('gone'), { statusCode: 410 })
+        sent.push({ to: sub.endpoint, notice })
+      },
+    })
+    const { call, olly, sessions } = setup(undefined, push)
+    expect((await call(undefined, 'GET', '/push')).json).toEqual({ key: 'k' })
+    const sub = (name: string) => ({ endpoint: `https://push.example/${name}`, keys: { p256dh: 'p', auth: 'a' } })
+    expect((await call(undefined, 'POST', '/push', sub('nobody'))).status).toBe(401)
+    await call(olly, 'POST', '/push', sub('olly-phone'))
+    await call(olly, 'POST', '/push', sub('olly-gone'))
+    const { code } = (await call(olly, 'POST', '/invites', { deck: 'chazz-armed-ojama' })).json
+    const joined = await call(undefined, 'POST', `/invites/${code}/join`, { deck: 'super-quant', account: { username: 'rob', name: 'Rob' } })
+    const rob = joined.cookie!.match(/duel-key=([^;]+)/)![1]
+    const id = joined.json.session
+    await call(rob, 'POST', '/push', sub('rob-phone'))
+    await until(() => sent.length === 1)
+    expect(sent[0]).toMatchObject({ to: 'https://push.example/olly-phone', notice: { title: 'Rob joined', url: `/?session=${id}` } })
+    sent.length = 0
+    const keyOf = (p: 'p1' | 'p2') => (sessions.export(id).duel!.seats![p] === sessions.get(id).owner ? olly : rob)
+
+    // Play until the move passes to the other player: they're told.
+    for (let i = 0; i < 40 && !sent.length; i++) {
+      const { prompt } = sessions.get(id).game!
+      await call(keyOf(prompt!.player), 'POST', `/sessions/${id}/game/answer`, { id: prompt!.id, choices: prompt!.options.length > prompt!.min ? [prompt!.options.length - 1].slice(0, Math.max(prompt!.min, 1)) : [...Array(prompt!.min).keys()] })
+      await new Promise((r) => setTimeout(r, 5))
+    }
+    const next = sessions.get(id).game!.prompt!.player
+    expect(sent).toEqual([{ to: `https://push.example/${keyOf(next) === olly ? 'olly' : 'rob'}-phone`, notice: expect.objectContaining({ title: 'Your move', tag: `move-${id}` }) }])
+
+    sent.length = 0
+    await call(olly, 'POST', `/sessions/${id}/table/chat`, { text: 'your go @rob' })
+    await call(rob, 'POST', `/sessions/${id}/table/chat`, { text: 'no mention here' })
+    expect((await call(olly, 'POST', `/sessions/${id}/table/nudge`)).json).toEqual({ nudged: true })
+    expect((await call(olly, 'POST', `/sessions/${id}/table/nudge`)).json).toEqual({ nudged: false })
+    await until(() => sent.length === 2)
+    expect(sent.map((s) => [s.to, s.notice.title])).toEqual([
+      ['https://push.example/rob-phone', 'Olly mentioned you'],
+      ['https://push.example/rob-phone', 'Olly nudges you'],
+    ])
+
+    sent.length = 0
+    await call(rob, 'POST', `/sessions/${id}/game/forfeit`)
+    await call(rob, 'POST', `/sessions/${id}/game/rematch`, {})
+    await until(() => sent.length === 1)
+    expect(sent[0]).toMatchObject({ to: 'https://push.example/olly-phone', notice: { title: 'Rematch?', body: 'Rob wants a rematch' } })
   }, 60_000)
 })

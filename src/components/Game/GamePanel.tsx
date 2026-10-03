@@ -7,6 +7,7 @@ import { PICK_KINDS, RESPOND_LEVELS, type GamePrompt, type GameView, type Respon
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
 import { FriendRematch, type Rematch } from '../Friends/Rematch'
+import { Nudge } from '../Friends/Nudge'
 import { cardFace, VIEWER } from '../../view/boardView'
 import { CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
@@ -31,6 +32,7 @@ type Props = {
   rematch?: Rematch // against a friend, once it's over: a rematch asked for
   onRematchAnswer?: (accept: boolean) => void // say yes or no to theirs (or ask, with true)
   onOpen?: (session: string) => void
+  onNudge?: { since: number; run: () => Promise<{ nudged: boolean }> } // against a friend, waiting on them
   lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
   onForfeit?: () => void // give the game up
   onFreePlay?: () => void // rules off: this board on a free-play table
@@ -42,7 +44,7 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, onTakeback, rematch, onRematchAnswer, onOpen, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, onTakeback, rematch, onRematchAnswer, onOpen, onNudge, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const [trying, setTrying] = useState(false)
   const name = (iid: Iid) => {
@@ -218,6 +220,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
           <p className="text-sm text-muted">
             {game.deciding ? 'Claude is weighing a response for you…' : waitingFor === VIEWER ? (lesson ? 'Claude is playing your side…' : 'Working out your side…') : waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}
           </p>
+          {onNudge && friend && waitingFor === 'p2' && <Nudge since={onNudge.since} onNudge={onNudge.run} />}
           {more}
         </div>
         {away}

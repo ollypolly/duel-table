@@ -6,6 +6,7 @@ import { api } from '../../api/client'
 import type { Account } from '../../api/accounts'
 import { accountError, useAccountStore } from '../../store/accountStore'
 import { AccountFields } from './Welcome'
+import { Notifications } from './Notifications'
 
 const linkFor = (key: string) => `${window.location.origin}/?signin=${key}`
 
@@ -162,6 +163,7 @@ export function AccountSettings() {
           </div>
         )}
       </section>
+      <Notifications />
       {me.admin && <Everyone me={me} />}
     </>
   )

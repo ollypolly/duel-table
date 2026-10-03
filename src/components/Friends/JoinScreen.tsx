@@ -9,6 +9,7 @@ import { AccountFields } from '../Accounts/Welcome'
 import { DeckCosmetics } from '../Cosmetics/Cosmetics'
 import { Logo } from '../Logo/Logo'
 import { InvitePanel } from './InvitePanel'
+import { askForPush, PUSH_NOTE, pushState, savePush, type PushState } from '../../push'
 
 export function JoinScreen({ code, onOpen, onLeave }: { code: string; onOpen: (session: string) => void; onLeave: () => void }) {
   const { me, everyone, load } = useAccountStore()
@@ -19,6 +20,10 @@ export function JoinScreen({ code, onOpen, onLeave }: { code: string; onOpen: (s
   const [fields, setFields] = useState({ name: '', username: '' })
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
+  // Notifications aren't on here yet: offered, ticked.
+  const [push, setPush] = useState<PushState>()
+  const [notify, setNotify] = useState(true)
+  useEffect(() => void pushState().then(setPush), [])
 
   useEffect(() => {
     api.invite(code).then(setInvite, (e: unknown) => setError(accountError(e)))
@@ -39,8 +44,11 @@ export function JoinScreen({ code, onOpen, onLeave }: { code: string; onOpen: (s
     setBusy(true)
     setError(undefined)
     try {
+      // Asked straight from the tap, saved once there's an account.
+      const sub = push === 'off' && notify ? await askForPush().catch(() => undefined) : undefined
       const joined = await api.joinInvite(code, { deck, respond, ...(!me && { account: fields }) })
       await load()
+      if (sub) await savePush(sub).catch(() => {})
       onOpen(joined.session!)
     } catch (err) {
       setError(accountError(err))
@@ -116,6 +124,13 @@ export function JoinScreen({ code, onOpen, onLeave }: { code: string; onOpen: (s
                 ))}
               </select>
             </label>
+            {push === 'off' && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+                Get told when it’s your move?
+              </label>
+            )}
+            {push === 'install' && <p className="text-xs text-muted">{PUSH_NOTE.install}</p>}
             {error && <p className="text-sm text-danger">{error}</p>}
             <button type="submit" className="btn btn-primary w-full py-2" disabled={busy || !deck || (!me && fields.username.length < 2)}>
               Join the game

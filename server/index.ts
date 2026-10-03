@@ -20,6 +20,7 @@ import { SessionService } from './sessions'
 import { acting, AccountService, diskAccounts } from './accounts'
 import { diskInvites, InviteService } from './invites'
 import { diskTables, TableService } from './table'
+import { diskPush, PushService, vapidSend } from './push'
 import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
@@ -175,6 +176,7 @@ const app = createApp({
   invites: new InviteService(diskInvites(join(ROOT, 'sessions', 'invites.json'))),
   table: new TableService(diskTables(join(ROOT, 'sessions', 'table'))),
   quick: sdkQuick,
+  push: new PushService(diskPush(join(ROOT, 'sessions', 'push.json')), vapidSend()),
   ideas,
   sessions,
   ctx,

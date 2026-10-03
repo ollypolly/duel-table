@@ -29,6 +29,7 @@ import { acting, type AccountService } from './accounts'
 import { inPlay, InviteService, OPEN_IN_PLAY, seatOf } from './invites'
 import { hiddenOf, redactFor, summaryFor } from './redact'
 import { EMOJI, SOUNDS, TableService } from './table'
+import { PushService, type Notice } from './push'
 import type { Quick } from './claude/respond'
 import { describeTable } from './claude/view'
 import type { SessionView } from './sessions'
@@ -97,6 +98,7 @@ type AppDeps = {
   invites?: InviteService // games against a friend (kept in memory without one)
   table?: TableService // a friend game's chat and fun (kept in memory without one)
   quick?: Quick // Claude answering in a friend game's chat; without it, it doesn't
+  push?: PushService // notifications with the app closed (kept in memory, and never sent, without one)
 }
 
 export type IdeaStore = { list(): Idea[]; save(ideas: Idea[]): void }
@@ -116,7 +118,7 @@ const OPEN = new Set(['/api/accounts', '/api/signin', '/api/signout'])
 // Joining a game can make the account as it joins.
 const isOpen = (path: string) => OPEN.has(path) || /^\/api\/invites\/[^/]+\/join$/.test(path)
 
-export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined, invites = new InviteService(), table = new TableService(), quick }: AppDeps) {
+export function createApp({ sessions, ctx, writeFile, removeFile, addCards, games, claude, tutor, review, home, ideas = memoryIdeas(), accounts, deckOwner = () => undefined, invites = new InviteService(), table = new TableService(), quick, push = new PushService() }: AppDeps) {
   const app = new OpenAPIHono<{ Variables: { me?: Account } }>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -166,6 +168,22 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
 
   // Who has a game against a friend open, by session and account.
   const present = new Map<string, Map<string, number>>()
+  // A notification to whoever's in seat, unless they have the game open.
+  const tell = (id: string, account: string | undefined, notice: (them: string) => Omit<Notice, 'url'>) => {
+    if (!account || present.get(id)?.get(account)) return
+    const v = sessions.get(id)
+    const seats = v.file.duel?.seats
+    const other = seats && (seats.p1 === account ? v.players.p2.name : v.players.p1.name)
+    void push.notify(account, { url: `/?session=${id}`, ...notice(other ?? 'your friend') })
+  }
+  // After a move: whoever is asked next, if it's not who just moved.
+  const tellMove = (id: string, mover: Player | undefined) => {
+    const { game, file } = sessions.get(id)
+    const next = game?.prompt?.player
+    if (!file.duel?.seats || !next || next === mover) return
+    tell(id, file.duel.seats[next], (them) => ({ title: 'Your move', body: `Your move against ${them}`, tag: `move-${id}` }))
+  }
+  const nudged = new Map<string, number>()
   const viewFor = (v: SessionView, me?: Account): SessionView => {
     const seats = v.file.duel?.seats
     if (!seats) return v
@@ -477,6 +495,7 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
         games!.create({ deck: deckOf(p1), opponentDeck: deckOf(p2), bots: [], seats: { p1, p2 }, names: { p1: name(p1), p2: name(p2) }, responds, title: `${host?.name ?? 'Friend'} vs ${me!.name}` }),
       )
       invites.joined(code, view.id)
+      void push.notify(invite.owner, { title: `${me!.name} joined`, body: `${me!.name} joined your game. ${hostFirst ? 'You go first' : 'They go first'}.`, url: `/?session=${view.id}`, tag: `move-${view.id}` })
       return c.json(inviteView(code, me), 200)
     },
   )
@@ -1243,7 +1262,10 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     async (c) => {
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       const { id } = c.req.valid('param')
-      return c.json(await games.answer(id, undefined, c.req.valid('json'), seat(c, id)), 200)
+      const mine = seat(c, id)
+      const view = await games.answer(id, undefined, c.req.valid('json'), mine)
+      tellMove(id, mine)
+      return c.json(view, 200)
     },
   )
 
@@ -1278,7 +1300,10 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { id } = c.req.valid('param')
       const mine = seat(c, id)
       // Against a friend, the other player is asked first.
-      return c.json(await (mine ? games.askTakeback(id, mine) : games.undo(id)), 200)
+      if (!mine) return c.json(await games.undo(id), 200)
+      const v = await games.askTakeback(id, mine)
+      tell(id, sessions.export(id).duel!.seats![mine === 'p1' ? 'p2' : 'p1'], (them) => ({ title: 'Take-back?', body: `${them} asks to take back their last move`, tag: `move-${id}` }))
+      return c.json(v, 200)
     },
   )
 
@@ -1295,7 +1320,9 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       if (!games) return c.json({ error: 'the rules engine is not set up here' }, 501)
       const { id } = c.req.valid('param')
       const mine = seat(c, id) ?? fail(403, "you're not playing this game")
-      return c.json(await games.answerTakeback(id, mine, c.req.valid('json').accept), 200)
+      const v = await games.answerTakeback(id, mine, c.req.valid('json').accept)
+      tellMove(id, mine)
+      return c.json(v, 200)
     },
   )
 
@@ -1325,7 +1352,9 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       }
       if (!asked || asked.refused || asked.by === mine) {
         if (asked?.by === mine && !asked.refused) fail(409, "you've asked: waiting for them")
-        return c.json(sessions.appendGame(id, [], { ...duel, rematch: { by: mine } }), 200)
+        const v = sessions.appendGame(id, [], { ...duel, rematch: { by: mine } })
+        tell(id, duel.seats![mine === 'p1' ? 'p2' : 'p1'], (them) => ({ title: 'Rematch?', body: `${them} wants a rematch`, tag: `rematch-${id}` }))
+        return c.json(v, 200)
       }
       // The same decks, and the other player goes first (p1 does).
       const seats = duel.seats!
@@ -1342,6 +1371,47 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
         }),
       )
       return c.json(sessions.appendGame(id, [], { ...duel, rematch: { ...asked, session: view.id } }), 200)
+    },
+  )
+
+  // Notifications, per device: the key to subscribe with (none: they're off here).
+  app.openapi(createRoute({ method: 'get', path: '/push', summary: "The server's key for notifications (none: they're off here)", responses: { 200: json(z.object({ key: z.string().optional() }), 'The key') } }), (c) =>
+    c.json({ ...(push.key && { key: push.key }) }, 200),
+  )
+  const PushSubscriptionSchema = z.object({ endpoint: z.url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) })
+  app.openapi(
+    createRoute({ method: 'post', path: '/push', summary: 'Turn on notifications for this device', request: body(PushSubscriptionSchema), responses: { 200: json(z.object({ on: z.boolean() }), 'On'), ...errors } }),
+    (c) => {
+      push.subscribe(meOr401(c).id, c.req.valid('json'))
+      return c.json({ on: true }, 200)
+    },
+  )
+  app.openapi(
+    createRoute({ method: 'post', path: '/push/off', summary: 'Turn off notifications for this device', request: body(z.object({ endpoint: z.string() })), responses: { 200: json(z.object({ on: z.boolean() }), 'Off'), ...errors } }),
+    (c) => {
+      push.unsubscribe(c.req.valid('json').endpoint)
+      return c.json({ on: false }, 200)
+    },
+  )
+
+  app.openapi(
+    createRoute({
+      method: 'post',
+      path: '/sessions/{id}/table/nudge',
+      summary: "Nudge the other player when it's their move",
+      description: 'A notification on their devices (at most one a minute).',
+      request: { params: IdParam },
+      responses: { 200: json(z.object({ nudged: z.boolean() }), 'Whether it was sent'), ...errors },
+    }),
+    (c) => {
+      const { id } = c.req.valid('param')
+      const { me, seat } = atTable(c, id)
+      const last = nudged.get(id) ?? 0
+      if (Date.now() - last < 60_000) return c.json({ nudged: false }, 200)
+      nudged.set(id, Date.now())
+      const them = sessions.export(id).duel!.seats![seat === 'p1' ? 'p2' : 'p1']
+      void push.notify(them, { title: `${me.name} nudges you`, body: `Your move against ${me.name}`, url: `/?session=${id}`, tag: `move-${id}` })
+      return c.json({ nudged: true }, 200)
     },
   )
 
@@ -1378,6 +1448,11 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
       const { me, seat } = atTable(c, id)
       const { text, hidden } = c.req.valid('json')
       table.say(id, me, text, hidden ? me.id : undefined)
+      // Mentioning the other player (@rob, or @Rob) tells them.
+      const them = sessions.export(id).duel!.seats![seat === 'p1' ? 'p2' : 'p1']
+      const other = accounts?.byId(them)
+      if (!hidden && other && new RegExp(`@(${other.username}|${other.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i').test(text))
+        tell(id, them, () => ({ title: `${me.name} mentioned you`, body: text.slice(0, 140), tag: `chat-${id}` }))
       if (quick && (hidden || /@claude\b/i.test(text))) claudeAnswers(id, me, hidden ? seat : undefined)
       return c.json(sessions.touch(id), 200)
     },
