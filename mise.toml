@@ -1,6 +1,11 @@
 [tasks.dev]
 description = "Vite on :5180 plus the API on :5181"
-run = "npm run dev"
+# Notifications need the VAPID keys (templated from the chezmoi data file).
+run = "set -a; [ -f ~/.config/duel-table/vapid.env ] && . ~/.config/duel-table/vapid.env; set +a; npm run dev"
+
+[tasks.deploy]
+description = "Deploy the live copy (~/dev/duel-table-live at origin/main) on :5190"
+run = "scripts/deploy.sh"
 
 # Where the trained bot is served (docker compose up -d ygo-agent). Without it
 # the trained bot isn't offered.
