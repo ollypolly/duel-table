@@ -16,8 +16,8 @@
     - **What the friend can reach.** nginx listens on servitor's own tailnet IP, so the friend needs servitor shared with them, which on its own would let them reach everything else listening there (Plex, Portainer). The tailnet policy can limit people a machine is shared with (`autogroup:shared`) to port 443 on it.
     - **The alternative** is a second Tailscale node just for the app, at `https://duel.tail59f26.ts.net`: a `tailscale/tailscale` container that serves the app and is shared on its own, with identity headers for free, but a `.ts.net` name.
   - **Sharing:** admin console → Machines → the machine's menu → Share, which makes an invite link (or sends one by email). The friend signs in to Tailscale with any account it supports (Google, Microsoft, GitHub, Apple and others), installs the app on their phone or laptop, and opens the link. They see only this machine, and it can't reach anything of theirs.
-- **Who you are: a name and a seat token, no accounts.** Going through nginx (above) there are no Tailscale identity headers, and for one friend there's no need: a player gives a name when they join, and holding a seat is a token in their browser (see The flow). Tailscale's `nginx-auth` helper can supply real logins later.
-- **The owner is the admin** by an admin token in their browsers, set once from a secret in the chezmoi data file: that's what Delete and settings check.
+- **Basic accounts: a name and a key in the browser.** A first visit asks for a name and makes an account; the browser keeps its key and sends it with every request. No passwords. Things have owners, and you can only change your own (see Accounts). Going through nginx (above) there are no Tailscale identity headers, so this is the app's own; Tailscale's `nginx-auth` helper could replace the key with real Tailscale logins later.
+- **You're the admin.** Your account is made by the backfill (see Accounts) and can change and delete anything.
 - **Claude runs on the owner's login for everyone.** It's one friend sending a few messages, so no API keys, spend limits or other infrastructure for now. Known trade-off: a Claude subscription's terms are for its holder's own use. If more people join, or usage grows, friends' runs move to an API key (see Later).
 
 ## What already works
@@ -36,18 +36,34 @@
   - **"Ask me to respond"**: how often the game stops to offer them a chain, as in a bot game, defaulting to the usual.
   
   Join seats them as p2 and the game starts. The first person to join takes the seat; anyone opening the link after that gets a "watch" button instead.
-- **Who holds a seat: a token, not an IP.** Joining hands the browser a random seat token (kept in the browser, sent with every request), and only requests with that seat's token can answer for it. Tailnet IPs are stable per device, but they'd tie a seat to one device, nginx would have to pass them on faithfully, and a phone and a laptop would be two different players. You get the same on your side when you create the game.
-- **Rejoining.** Same browser: the game is on their home page under On the go, and opening it puts them back in their seat. Another device, or cleared storage: the game's … menu has "Rejoin link" (the join link with the seat token in it) to send to yourself, and you can "Free the seat" from your side so they can join again with the plain link.
+- **Who holds a seat: their account, not an IP.** Joining puts their account on p2, and only requests from that account can answer for it. Tailnet IPs are stable, but they'd tie a seat to one device, so a phone and a laptop would be two different players.
+- **Rejoining.** The game is on their home page under On the go, on any device signed in to their account, and opening it puts them back in their seat. You can "Free the seat" from the game's … menu if they need to join again from scratch.
 - **Looking around.** They can leave the table, look at decks, lessons and anything else, and come back; the game waits. Their home page shows the game, so getting back is one tap.
 - **Decks.** Everyone uses the global decks and can edit them, as now. A game keeps its own copy of each list, so editing a deck mid-game changes nothing in it. Sleeves, deck boxes and playmats are kept per browser, so for the other player to see yours they'd go with the seat when you join.
 
 
 
+## Accounts
+
+Basic ones, so things have owners and a friend can only change their own.
+
+- **An account** is an id, a name and a key (a long random string). They're kept in `sessions/accounts.json` (gitignored), with the key stored hashed. Making one: a first visit with no key in the browser asks "What should we call you?" and makes one. The join screen does the same, so a friend's first click on your link makes their account and joins in one go.
+- **Signing in on another device.** Settings → "Use on another device" shows a link (and a QR code for a phone) with the key in it; opening it signs that browser in. Lose every device and the admin can make a new key for the account. No passwords or email.
+- **Owners.** Every session (game, lesson, free table, review), deck, Claude chat on the home page and idea gets `owner`: the account that made it. A game against a friend is also changeable by the account in the other seat, for the things a player does (moves, chat, rematch), but only its owner can rename or delete it.
+- **What owning means.** Rename, edit, delete and settings check the caller owns the thing or is the admin; the server refuses otherwise, and the UI hides what you can't do. Reading stays open to everyone. Using someone else's deck in a game is fine: the game keeps its own copy.
+- **Decks.** The repo's decks belong to you. A friend who wants to change one makes a copy ("Save as new…" already exists), which is theirs.
+- **The backfill.** One account, you, is made when the server first starts with accounts, named from config. Everything already on disk with no `owner` counts as yours: the server treats a missing owner as the admin, so no files need rewriting, and anything new gets an owner when it's made. Your browsers get your key with the same "Use on another device" link, opened once on each (the first one from a key printed in the server's log at that first start).
+- **Claude.** Anyone signed in can use it, on your login (see Decisions). An account's runs are tagged with it, so the costs per account are there if limits are ever wanted.
+
+## What it needs, in build order
+
 ### 1. A game against a friend (the first slice)
 
-- **Seats.** A game against a friend keeps, per seat, the player's name and a hash of their seat token. `POST /games` with `friend: true` leaves p2 open and returns a join code; `POST /games/join/{code}` with a name and deck takes p2 and returns its token. The browser keeps the tokens it holds and sends the right one with each request.
-- **Play a friend** in the New game dialog, the join screen, and Rejoin link / Free the seat in the game's … menu, as in The flow.
-- **Moves locked to your seat.** The game routes (answer, take back, forfeit) check that the request carries that seat's token. Spectating needs no seat.
+- **Accounts and owners**, as above, with the backfill.
+
+- **Seats.** A game against a friend keeps, per seat, the account playing it. `POST /games` with `friend: true` leaves p2 open and returns a join code; `POST /games/join/{code}` with a deck takes p2 for the caller's account.
+- **Play a friend** in the New game dialog, the join screen, and Free the seat in the game's … menu, as in The flow.
+- **Moves locked to your seat.** The game routes (answer, take back, forfeit) check that the caller's account holds the seat being answered for. Spectating needs no seat.
 - **Each player sees only their own hidden cards.** This is the important one. Today every browser is sent the whole game, including the other player's hand and the order of both Decks, and the board just doesn't draw them. A friend could read your hand from the network tab. The state sent over SSE has to be redacted per viewer: your hand and Set cards as they are, the other side's as face-down placeholders, both Decks as counts. The SSE stream becomes one per viewer rather than one per session. The step log (`duel.responses`, the narration) leaks the same way and needs the same treatment: a step's text can name a card the other player hasn't seen.
 - **Take-backs need agreement.** In a game against a friend, Take back asks the other player first.
 - **Someone drops out.** The game waits; their seat shows as away. A turn timer can come later.
@@ -91,8 +107,8 @@ Both need checking against the current Claude Code docs before relying on them. 
 
 ## Not thought about yet
 
-- **Everything is open to them.** With no accounts, a friend sees every game, lesson and Claude chat on the home page, and can rename or delete them, and edit or delete decks. Fine for one trusted mate; the cheap guard is hiding Delete on things that aren't theirs (they can't tell anyway without accounts, so: Delete needs the owner's browser, marked by an admin token set once).
-- **Spectators see no hidden cards.** A viewer without a seat token gets the public table only, including you opening your own game from another browser before you've got its token there.
+- **What a friend can see.** Accounts stop them changing your things, but they can still read everything, since games and decks are read through the same routes. Lists default to your own (Home's On the go and the Games page show yours and games you're in), with an "Everyone's" filter.
+- **Spectators see no hidden cards.** A viewer whose account holds no seat gets the public table only.
 - **Who goes first.** The engine already settles it from the seed; show it as a coin flip at the start. A rematch swaps it.
 - **Chances to respond.** "Ask me to respond" is one setting per game today (`respond` in `server/games.ts`); against a person it's one per seat. Auto-passing also mustn't give away timing, e.g. never pause on a chance you can't use.
 - **The dev server.** The app runs as `mise run dev`: saving a server file restarts the API and a page reload follows. Games are saved and survive it, but a game in progress gets a hiccup each time. While a friend is on, either don't work on the app, or run a built copy for them on its own port and keep the dev one for yourself.
