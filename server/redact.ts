@@ -11,7 +11,7 @@ import { iidFor } from '../src/engine/setup'
 import { isExtraDeckCard } from '../src/data/cardDb'
 import { resolveScenario, type ResolveContext } from '../src/scenarios/resolve'
 import type { ScenarioFile } from '../src/scenarios/schema'
-import type { SessionView } from './sessions'
+import type { SessionSummary, SessionView } from './sessions'
 
 const HIDDEN = { name: 'Hidden card', text: '' }
 const HIDDEN_EXTRA = { name: 'Extra Deck card', text: '', kind: 'extra' as const }
@@ -94,3 +94,9 @@ export function redactFor(view: SessionView, seat: Player | undefined, ctx: Reso
   if (!resolved.ok) throw new Error(`the game doesn't replay with its hidden cards: ${resolved.errors.slice(0, 3).join('; ')}`)
   return { ...out, state: resolved.scenario.timeline.at(-1)!.state }
 }
+
+// A game in the list, from the side of the table its viewer sits on.
+export const summaryFor = (s: SessionSummary, me: string | undefined): SessionSummary =>
+  !me || !s.seats || s.seats.p2 !== me
+    ? s
+    : { ...s, players: { p1: s.players.p2, p2: s.players.p1 }, seats: { p1: s.seats.p2, p2: s.seats.p1 }, ...(s.winner && { winner: other(s.winner) }) }

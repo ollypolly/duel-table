@@ -36,6 +36,10 @@ export class InviteService {
     return invite
   }
 
+  list(): Invite[] {
+    return this.store.load()
+  }
+
   get(code: string): Invite {
     return this.store.load().find((i) => i.code === code) ?? fail(404, 'that invite has gone (it may have been cancelled)')
   }

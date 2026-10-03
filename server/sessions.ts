@@ -60,6 +60,7 @@ export type SessionSummary = {
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: ReviewSummary // it has a review with Claude, open or not
   owner?: string // the account that made it; missing means the admin's
+  seats?: Record<Player, string> // a game against a friend: the account in each seat
 }
 // scanned: Claude has finished looking for the key moments, counted by kind.
 // busy: Claude is working on it now.
@@ -371,6 +372,7 @@ export class SessionService {
       ...(file.duel && !file.duel.lesson && (file.duel.claude === 'p2' ? { opponent: 'claude' as const } : file.duel.bots?.includes('p2') && { opponent: file.duel.bot === 'agent' ? ('trained' as const) : ('bot' as const) })),
       ...(reviewed && { reviewed }),
       ...(file.owner && { owner: file.owner }),
+      ...(file.duel?.seats && { seats: file.duel.seats }),
     }
   }
 

@@ -26,12 +26,21 @@ import { useBranchStore } from "./store/branchStore";
 import { usePlayerStore, type Page } from "./store/playerStore";
 import { useAccountStore } from "./store/accountStore";
 import { Welcome } from "./components/Accounts/Welcome";
+import { JoinScreen } from "./components/Friends/JoinScreen";
 
 const PAGE_ICON: Record<Page, LucideIcon> = { games: Swords, lessons: GraduationCap, free: Shapes };
 
 export default function App() {
   const { scenarioId, sessionId, chatId, page, open, openSession, openPage, goHome } = usePlayerStore();
   const account = useAccountStore();
+  // An invite link (?join=code), until it's joined or put aside.
+  const [joinCode, setJoinCode] = useState(() => new URLSearchParams(window.location.search).get("join") ?? undefined);
+  const leaveJoin = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("join");
+    window.history.replaceState(null, "", url);
+    setJoinCode(undefined);
+  };
   const [liveSessions, setLiveSessions] = useState<SessionSummary[]>();
   const [newGameOpen, setNewGameOpen] = useState(false);
   const [newGameDeck, setNewGameDeck] = useState<string>();
@@ -159,6 +168,17 @@ export default function App() {
     </>
   );
 
+  if (joinCode && account.loaded)
+    return (
+      <JoinScreen
+        code={joinCode}
+        onLeave={leaveJoin}
+        onOpen={(id) => {
+          leaveJoin();
+          openSession(id, Infinity);
+        }}
+      />
+    );
   // A first visit asks who you are (a join link does that as it joins).
   if (account.on && account.loaded && !account.me) return <Welcome />;
 

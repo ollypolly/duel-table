@@ -18,6 +18,7 @@ import { GameService } from './games'
 import { loadOcg, ocgDataDir } from './ocg/lib'
 import { SessionService } from './sessions'
 import { acting, AccountService, diskAccounts } from './accounts'
+import { diskInvites, InviteService } from './invites'
 import { addCards, getJson, trim, type ApiCard } from './ygoprodeck'
 
 const port = Number(process.env.API_PORT ?? 5181)
@@ -170,6 +171,7 @@ if (adminKey) console.log(`Made the admin account. Sign in by opening ${PUBLIC_U
 const app = createApp({
   accounts,
   deckOwner: deckOwner(),
+  invites: new InviteService(diskInvites(join(ROOT, 'sessions', 'invites.json'))),
   ideas,
   sessions,
   ctx,

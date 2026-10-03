@@ -28,8 +28,11 @@ export type SessionSummary = {
   opponent?: 'bot' | 'trained' | 'claude' // who answers for p2 in a game, if not a person
   reviewed?: { scanned: boolean; busy: boolean; moments: Partial<Record<Moment['kind'], number>> } // it has a review with Claude
   owner?: string // the account that made it; missing means the admin's
+  seats?: Record<Player, string> // a game against a friend: the account in each seat
 }
 export type SessionUpdate = SessionSummary & { file: ScenarioFile; lesson: LessonView; game?: GameView; review?: ReviewView }
+
+export type Invite = { code: string; from: Account; deck: { id: string; name: string }; session?: string; yours: boolean; playing: boolean }
 
 export type DeckSummary = { id: string; name?: string; size?: { main: number; extra: number }; usedBy: string[]; errors?: string[]; owner?: string }
 export type DeckEntry = { name: string; count: number }
@@ -74,6 +77,13 @@ export const api = {
   newKey: (account?: string) => call<{ key: string }>('POST', account ? `/accounts/${account}/keys` : '/me/keys'),
   changeAccount: (id: string, a: { username?: string; name?: string }) => call<Account>('PATCH', `/accounts/${id}`, a),
   removeAccount: (id: string) => call<{ deleted: string }>('DELETE', `/accounts/${id}`),
+  // Games against a friend: an invite to send, joined with a deck (making an account on the way, if need be).
+  invites: () => call<Invite[]>('GET', '/invites').catch((): Invite[] => []),
+  invite: (code: string) => call<Invite>('GET', `/invites/${code}`),
+  makeInvite: (deck: string, respond?: Respond) => call<Invite>('POST', '/invites', { deck, ...(respond && { respond }) }),
+  joinInvite: (code: string, j: { deck: string; respond?: Respond; account?: { username: string; name: string } }) => call<Invite>('POST', `/invites/${code}/join`, j),
+  cancelInvite: (code: string) => call<{ deleted: string }>('DELETE', `/invites/${code}`),
+  takeback: (id: string, accept: boolean) => call<SessionSummary>('POST', `/sessions/${id}/game/takeback`, { accept }),
   decks: () => call<DeckSummary[]>('GET', '/decks'),
   deck: (id: string) => call<Deck>('GET', `/decks/${id}`),
   // Either a pasted decklist or the cards. Unknown names fail with 422 and suggestions (ApiError.body.unknown).

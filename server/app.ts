@@ -27,7 +27,7 @@ import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { AccountSchema, MeSchema, NewAccountSchema, type Account } from '../src/api/accounts'
 import { acting, type AccountService } from './accounts'
 import { inPlay, InviteService, OPEN_IN_PLAY, seatOf } from './invites'
-import { redactFor } from './redact'
+import { redactFor, summaryFor } from './redact'
 import type { SessionView } from './sessions'
 import type { Player } from '../src/engine'
 import type { RemoveRepoFile, WriteRepoFile } from './files'
@@ -56,6 +56,8 @@ const SummarySchema = z.object({
     .object({ scanned: z.boolean(), busy: z.boolean(), moments: z.partialRecord(z.enum(MOMENT_KINDS), z.int()) })
     .optional()
     .openapi({ description: 'It has a review with Claude: whether the first look is done, and the key moments by kind' }),
+  owner: z.string().optional().openapi({ description: "The account that made it; missing means the admin's" }),
+  seats: z.object({ p1: z.string(), p2: z.string() }).optional().openapi({ description: 'A game against a friend: the account in each seat (yours is p1)' }),
 })
 const SessionSchema = SummarySchema.extend({
   file: z.unknown().openapi({ description: 'The session as a scenario file' }),
@@ -397,6 +399,17 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
     },
   )
 
+  app.openapi(createRoute({ method: 'get', path: '/invites', summary: 'Your invites nobody has joined yet', responses: { 200: json(z.array(InviteSchema), 'Invites') } }), (c) => {
+    const me = c.get('me')
+    return c.json(
+      invites
+        .list()
+        .filter((i) => !i.session && (accounts ? i.owner === me?.id : true))
+        .map((i) => inviteView(i.code, me)),
+      200,
+    )
+  })
+
   app.openapi(createRoute({ method: 'get', path: '/invites/{code}', summary: 'An invite: who from, their deck, and the game once joined', request: { params: z.object({ code: z.string().openapi({ param: { name: 'code', in: 'path' } }) }) }, responses: inviteResponse }), (c) =>
     c.json(inviteView(c.req.valid('param').code, c.get('me')), 200),
   )
@@ -648,7 +661,10 @@ export function createApp({ sessions, ctx, writeFile, removeFile, addCards, game
   )
 
   app.openapi(createRoute({ method: 'get', path: '/sessions', summary: 'List sessions', responses: { 200: json(z.array(SummarySchema), 'Sessions') } }), (c) =>
-    c.json(sessions.list(), 200),
+    c.json(
+      sessions.list().map((s) => summaryFor(s, (c.get('me') as Account | undefined)?.id)),
+      200,
+    ),
   )
 
   app.openapi(

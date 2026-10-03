@@ -195,7 +195,7 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
   // A lesson Claude runs: no rematch, hints, coaching or sharing (it sees everything).
   const claudeLesson = !!claude?.holds
   const rematch =
-    players?.p1.deck && players.p2.deck && !claudeLesson && !claude?.attempt
+    players?.p1.deck && players.p2.deck && !claudeLesson && !claude?.attempt && !game?.seats
       ? () =>
           report(
             api
@@ -361,8 +361,12 @@ export function LiveTable({ id, nav }: { id: string; nav: ReactNode }) {
               setBusy(true)
               report(api.undoGame(id).finally(() => setBusy(false)))
             }}
+            onTakeback={(accept) => {
+              setBusy(true)
+              report(api.takeback(id, accept).finally(() => setBusy(false)))
+            }}
             onForfeit={claudeLesson ? undefined : () => report(api.forfeitGame(id))}
-            onFreePlay={claudeLesson || session?.fromTable ? undefined : () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity)))}
+            onFreePlay={claudeLesson || session?.fromTable || game.seats ? undefined : () => report(api.rules(id, false).then((s) => openSession(s.id, Infinity)))}
             onRespond={(respond) => report(api.gameSettings(id, { respond }))}
             onReopen={(at) => {
               setBusy(true)

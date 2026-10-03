@@ -3,20 +3,12 @@
 // narrows the options to it (or picks it, when picking cards is the question).
 import { Check, Lightbulb, MoreHorizontal, Search, Swords, TriangleAlert, Undo2 } from 'lucide-react'
 import { useState } from 'react'
-import { PICK_KINDS, type GamePrompt, type GameView, type Respond } from '../../api/game'
+import { PICK_KINDS, RESPOND_LEVELS, type GamePrompt, type GameView, type Respond } from '../../api/game'
 import { cardDb } from '../../data/cards'
 import type { BoardState, Iid } from '../../engine'
 import { cardFace, VIEWER } from '../../view/boardView'
 import { CardText } from '../CardLink/CardLink'
 import { Menu, MenuItem, MenuLabel } from '../Menu/Menu'
-
-// When you're asked to respond, from most often to never.
-const RESPOND_LEVELS: [Respond, string, string][] = [
-  ['all', 'Every chance', 'Asked whenever you could activate something'],
-  ['auto', 'Auto', "Not asked when nothing happened, or after your own move"],
-  ['advise', "Auto, with Claude's view", 'Claude says whether it would respond, and why'],
-  ['claude', 'Claude passes for me', 'Claude passes the ones not worth it, and says why'],
-]
 
 export type GameChoice = {
   focused?: Iid // single-choice prompts: the card whose options are shown
@@ -33,7 +25,8 @@ type Props = {
   onReview?: () => void // go through the finished game with Claude
   onAttempt?: (tries: number) => void // a game you lost: Claude plays your side to see if it could be won
   onHint?: () => void // ask Claude, showing it your cards
-  onUndo?: () => void // take back your last move
+  onUndo?: () => void // take back your last move (against a friend: ask to)
+  onTakeback?: (accept: boolean) => void // against a friend: agree to their take-back, or not
   lesson?: boolean // a lesson: take-backs aren't counted, and the button sits by the question
   onForfeit?: () => void // give the game up
   onFreePlay?: () => void // rules off: this board on a free-play table
@@ -45,7 +38,7 @@ type Props = {
   busy: boolean
 }
 
-export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
+export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, onReview, onAttempt, onHint, onUndo, onTakeback, lesson, onForfeit, onFreePlay, onRespond, onReopen, claudeOn, normalUsed, onHover, busy }: Props) {
   const [forfeiting, setForfeiting] = useState(false)
   const [trying, setTrying] = useState(false)
   const name = (iid: Iid) => {
@@ -54,7 +47,11 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
     return f.visible || f.owner === VIEWER ? f.name : 'Face-down card'
   }
   const { prompt, winner, waitingFor } = game
-  const undo = onUndo && !!game.undos && (
+  // Against a friend, a take-back is asked for rather than counted.
+  const friend = !!game.seats
+  const canUndo = onUndo && (friend ? !game.takeback || game.takeback.refused : !!game.undos)
+  const them = state.players.p2.name
+  const undo = canUndo && (
     <button type="button" className="btn flex items-center gap-1.5 text-xs" disabled={busy} onClick={onUndo} title="Go back to before your last move">
       <Undo2 size={14} aria-hidden />
       {lesson ? 'Take back' : `Take back (${game.undos} left)`}
@@ -133,7 +130,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       </button>
     </span>
   ) : (
-    lesson ? undo : (onForfeit || onFreePlay || (onUndo && !!game.undos) || (onRespond && game.respond)) && (
+    lesson ? undo : (onForfeit || onFreePlay || canUndo || (onRespond && game.respond)) && (
       <Menu label={<MoreHorizontal size={14} />} title="More" side="top" className="btn text-xs">
         {onRespond && game.respond && (
           <>
@@ -148,9 +145,9 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
             ))}
           </>
         )}
-        {onUndo && !!game.undos && (
-          <MenuItem disabled={busy} onClick={onUndo} title="Go back to before your last move">
-            Take back ({game.undos} left)
+        {canUndo && (
+          <MenuItem disabled={busy} onClick={onUndo} title={friend ? `Ask ${them} to let you go back to before your last move` : 'Go back to before your last move'}>
+            {friend ? 'Ask to take back' : `Take back (${game.undos} left)`}
           </MenuItem>
         )}
         {onFreePlay && (
@@ -183,15 +180,42 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
       )}
     </div>
   )
+  // Against a friend: a take-back either of you asked for, and whether they have the game open.
+  const takeback = game.takeback && (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold/40 bg-gold/10 px-2 py-1.5 text-sm" data-testid="takeback">
+      {game.takeback.by === VIEWER ? (
+        <p>{game.takeback.refused ? `${them} said no to the take-back.` : `Asked ${them} to let you take back your last move…`}</p>
+      ) : game.takeback.refused ? (
+        <p>You said no to {them}’s take-back.</p>
+      ) : (
+        <>
+          <p>{them} asks to take back their last move.</p>
+          {onTakeback && (
+            <span className="flex gap-2">
+              <button type="button" className="btn btn-primary text-xs" disabled={busy} onClick={() => onTakeback(true)}>
+                Let them
+              </button>
+              <button type="button" className="btn text-xs" disabled={busy} onClick={() => onTakeback(false)}>
+                No
+              </button>
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  )
+  const away = friend && game.present && !game.present.includes('p2') && <p className="text-xs text-faint">{them} is away. They’ll see your move when they’re back.</p>
   if (!prompt) {
     return (
       <div className="space-y-2">
+        {takeback}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted">
             {game.deciding ? 'Claude is weighing a response for you…' : waitingFor === VIEWER ? (lesson ? 'Claude is playing your side…' : 'Working out your side…') : waitingFor ? `${state.players[waitingFor].name} is thinking…` : 'Waiting for the rules engine…'}
           </p>
           {more}
         </div>
+        {away}
       </div>
     )
   }
@@ -204,6 +228,7 @@ export function GamePanel({ game, state, choice, onChoice, onAnswer, onRematch, 
 
   return (
     <div className="space-y-2.5" role="region" aria-label="Your move" data-testid="game-prompt">
+      {takeback}
       {/* Which effect is asking, then what it's asking. A pick that costs you the cards is marked. */}
       <div>
         {prompt.source && (

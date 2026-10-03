@@ -118,6 +118,14 @@ export const RESPOND = ['all', 'auto', 'advise', 'claude'] as const
 export const RespondSchema = z.enum(RESPOND)
 export type Respond = z.infer<typeof RespondSchema>
 
+// When you're asked to respond, from most often to never.
+export const RESPOND_LEVELS: [Respond, string, string][] = [
+  ['all', 'Every chance', 'Asked whenever you could activate something'],
+  ['auto', 'Auto', "Not asked when nothing happened, or after your own move"],
+  ['advise', "Auto, with Claude's view", 'Claude says whether it would respond, and why'],
+  ['claude', 'Claude passes for me', 'Claude passes the ones not worth it, and says why'],
+]
+
 export const SkippedSchema = z.object({
   at: z.int().describe('The answer it was passed at: reopen it with /game/reopen'),
   cards: z.array(z.string()).describe('What you could have activated'),

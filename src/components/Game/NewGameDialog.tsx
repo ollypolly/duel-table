@@ -1,4 +1,5 @@
-// Start a game on the rules engine. You pick who you're up against: the simple
+// Start a game on the rules engine. You pick who you're up against: a friend
+// (an invite link to send; they pick their own deck as they join), the simple
 // bot (random legal moves, any deck), the trained bot (ygo-agent, which plays
 // only the decks it was trained on) or Claude (needs a Claude login), which
 // plays as the anime character its deck belongs to. Against a bot, Claude sits
@@ -7,19 +8,22 @@
 // Games against the simple bot or Claude, and lessons, can start from a
 // scenario's setup instead of opening hands.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { api, type ClaudeStatus, type Opponents } from '../../api/client'
+import { api, type ClaudeStatus, type DeckSummary, type Invite, type Opponents } from '../../api/client'
+import { InvitePanel } from '../Friends/InvitePanel'
+import { useAccountStore, useMine } from '../../store/accountStore'
 import { MODELS, type ModelChoice } from '../../api/game'
 import { rawDecks, rawScenarios } from '../../scenarios/load'
 import type { DeckFile, ScenarioFile } from '../../scenarios/schema'
 
-const decks = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id, character: (raw as DeckFile).character?.name }))
+const repoDecks = Object.entries(rawDecks).map(([id, raw]) => ({ id, name: (raw as { name?: string }).name ?? id, character: (raw as DeckFile).character?.name }))
 const RANDOM = 'random'
 const positions = Object.values(rawScenarios as Record<string, ScenarioFile>).filter((s) => s.setup)
 const OPENING = 'opening-hands'
 const anyOf = <T,>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)]
 
-type Opponent = 'bot' | 'trained' | 'claude'
+type Opponent = 'friend' | 'bot' | 'trained' | 'claude'
 const OPPONENTS: Record<Opponent, { name: string; about: string }> = {
+  friend: { name: 'A friend', about: 'You get a link to send. Whoever opens it picks their deck and joins, and a coin flip says who goes first.' },
   bot: { name: 'Simple bot', about: 'Makes random legal moves with any deck. Free and instant: good for trying a combo.' },
   trained: { name: 'Trained bot', about: 'A neural network that plays its own decks well. Free and quick, but it only knows the decks it was trained on.' },
   claude: { name: 'Claude', about: 'Plays to win as the character its deck belongs to, chats, and can coach you. Uses your Claude plan.' },
@@ -61,7 +65,15 @@ type Props = { open: boolean; deck?: string; lesson?: boolean; onClose: () => vo
 
 export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose, onStarted }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [deck, setDeck] = useState(initialDeck ?? decks[0]?.id ?? '')
+  // Every deck the server has (a friend's own too), yours first, else the repo's.
+  const [served, setServed] = useState<DeckSummary[]>()
+  const mine = useMine()
+  const accountsOn = useAccountStore((s) => s.on)
+  const decks = served
+    ? [...served.filter((d) => mine(d.owner)), ...served.filter((d) => !mine(d.owner))].map((d) => ({ id: d.id, name: d.name ?? d.id, character: repoDecks.find((r) => r.id === d.id)?.character }))
+    : repoDecks
+  const [invite, setInvite] = useState<Invite>()
+  const [deck, setDeck] = useState(initialDeck ?? repoDecks[0]?.id ?? '')
   const [opponentDeck, setOpponentDeck] = useState(RANDOM)
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
@@ -79,6 +91,10 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
     let live = true
     void api.claude().then((s) => live && setStatus(s))
     void api.opponents().then((o) => live && setBots(o))
+    void api.decks().then(
+      (d) => live && setServed(d),
+      () => {},
+    )
     return () => {
       live = false
     }
@@ -86,11 +102,13 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
 
   // Why an opponent can't be picked, if it can't.
   const unavailable: Record<Opponent, string | undefined> = {
+    friend: accountsOn ? undefined : 'Turn accounts on to play a friend.',
     bot: undefined,
     trained: !bots ? 'Checking…' : bots.agent.available ? (bots.agent.decks.length ? undefined : 'None of the decks here are ones it knows.') : bots.agent.reason,
     claude: !status ? 'Checking for a Claude login…' : status.available ? undefined : 'Log in to Claude Code on this machine (run `claude`) to play Claude.',
   }
   const opponent: Opponent = unavailable[picked] ? 'bot' : picked
+  const friend = !lesson && opponent === 'friend'
   const claudeOn = !!status?.available
   const claude = lesson || opponent === 'claude'
   // The decks the opponent can play; a random pick is from the characters'
@@ -99,12 +117,13 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
   const randomFrom = opponent === 'trained' && !lesson ? theirDecks : theirDecks.filter((d) => d.character)
   const theirs = theirDecks.some((d) => d.id === opponentDeck) ? opponentDeck : randomFrom.length ? RANDOM : (theirDecks[0]?.id ?? '')
   // The trained bot only plays a whole game, from opening hands.
-  const start = opponent === 'trained' && !lesson ? OPENING : from
+  const start = (opponent === 'trained' || opponent === 'friend') && !lesson ? OPENING : from
 
   const begin = async () => {
     setStarting(true)
     setError('')
     try {
+      if (friend) return setInvite(await api.makeInvite(deck))
       const opponentDeck = theirs === RANDOM ? anyOf(randomFrom).id : theirs
       const opts = start === OPENING ? { deck, opponentDeck } : { scenario: start }
       const who = lesson
@@ -154,7 +173,15 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
         >
           <h2 className="border-b border-line px-5 py-3.5 font-display text-lg font-semibold">{lesson ? 'New lesson with Claude' : 'New game'}</h2>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
-            {lesson ? (
+            {invite ? (
+              <InvitePanel
+                invite={invite}
+                onJoined={(id) => {
+                  ref.current?.close()
+                  onStarted(id)
+                }}
+              />
+            ) : lesson ? (
               <Section title="Lesson">
                 <p className="text-xs text-muted">
                   {!status
@@ -195,48 +222,52 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
                 ))}
               </Section>
             )}
-            <Section title="Decks">
-              {start === OPENING && (
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  {deckPicker(lesson ? 'Deck to learn' : 'Your deck', deck, setDeck)}
-                  {deckPicker(their, theirs, setOpponentDeck, theirDecks, randomFrom.length ? (opponent === 'trained' && !lesson ? 'Random' : 'Random character') : undefined)}
-                </div>
-              )}
-              {positions.length > 0 && (opponent !== 'trained' || lesson) && (
-                <Field label="Start from">
-                  <select aria-label="Start from" className={SELECT} value={from} onChange={(e) => setFrom(e.target.value)}>
-                    <option value={OPENING}>Opening hands</option>
-                    {positions.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </Section>
-            {claudeOn && (
-              <Section title={claude ? 'Claude' : 'Claude, beside you'}>
-                {!claude && <p className="text-xs text-muted">Ask Claude what to play or why something happened as you go. It sees your side of the table, and costs nothing until you ask.</p>}
-                <Field label="Model">
-                  <select aria-label="Model" className={SELECT} value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
-                    {MODELS.map(([m, label]) => (
-                      <option key={m} value={m}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {!lesson && opponent === 'claude' && <Toggle label="Coach me" about="Claude points out misplays and explains its own." checked={coach} onChange={setCoach} />}
-                {!claude && (
-                  <Toggle
-                    label="Claude knows the bot's deck"
-                    about="It can look at the bot's decklist to warn you what's coming. Never its hand or face-down cards."
-                    checked={knowsDeck}
-                    onChange={setKnowsDeck}
-                  />
+            {!invite && (
+              <>
+                <Section title="Decks">
+                  {start === OPENING && (
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {deckPicker(lesson ? 'Deck to learn' : 'Your deck', deck, setDeck)}
+                      {!friend && deckPicker(their, theirs, setOpponentDeck, theirDecks, randomFrom.length ? (opponent === 'trained' && !lesson ? 'Random' : 'Random character') : undefined)}
+                    </div>
+                  )}
+                  {positions.length > 0 && ((opponent !== 'trained' && opponent !== 'friend') || lesson) && (
+                    <Field label="Start from">
+                      <select aria-label="Start from" className={SELECT} value={from} onChange={(e) => setFrom(e.target.value)}>
+                        <option value={OPENING}>Opening hands</option>
+                        {positions.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                </Section>
+                {claudeOn && !friend && (
+                  <Section title={claude ? 'Claude' : 'Claude, beside you'}>
+                    {!claude && <p className="text-xs text-muted">Ask Claude what to play or why something happened as you go. It sees your side of the table, and costs nothing until you ask.</p>}
+                    <Field label="Model">
+                      <select aria-label="Model" className={SELECT} value={model} onChange={(e) => setModel(e.target.value as ModelChoice)}>
+                        {MODELS.map(([m, label]) => (
+                          <option key={m} value={m}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {!lesson && opponent === 'claude' && <Toggle label="Coach me" about="Claude points out misplays and explains its own." checked={coach} onChange={setCoach} />}
+                    {!claude && (
+                      <Toggle
+                        label="Claude knows the bot's deck"
+                        about="It can look at the bot's decklist to warn you what's coming. Never its hand or face-down cards."
+                        checked={knowsDeck}
+                        onChange={setKnowsDeck}
+                      />
+                    )}
+                  </Section>
                 )}
-              </Section>
+              </>
             )}
             {error && (
               <p role="alert" className="text-xs text-danger">
@@ -246,11 +277,13 @@ export function NewGameDialog({ open, deck: initialDeck, lesson = false, onClose
           </div>
           <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
             <button type="button" className="btn" onClick={() => ref.current?.close()}>
-              Cancel
+              {invite ? 'Close' : 'Cancel'}
             </button>
-            <button type="submit" className="btn btn-primary" disabled={starting || (start === OPENING && (!deck || !theirs)) || (lesson && !claudeOn)}>
-              {starting ? 'Starting…' : lesson ? 'Start lesson' : 'Start game'}
-            </button>
+            {!invite && (
+              <button type="submit" className="btn btn-primary" disabled={starting || (start === OPENING && (!deck || (!friend && !theirs))) || (lesson && !claudeOn)}>
+                {starting ? 'Starting…' : lesson ? 'Start lesson' : friend ? 'Create invite' : 'Start game'}
+              </button>
+            )}
           </div>
         </form>
       )}
