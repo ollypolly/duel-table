@@ -28,11 +28,13 @@
 - **Take-backs need agreement.** In a game against a friend, Take back asks the other player first.
 - **Someone drops out.** The game waits; their seat shows as away. A turn timer can come later.
 
-### 2. Chat: a group chat, and private messages to Claude
+### 2. Chat: one group chat, with @claude and hidden messages
 
-- **The table chat is a group chat.** Both players (and anyone watching) talk in it, and Claude is in it too, answering whoever asks. Messages show who sent them. Today a game's chat is one person talking to Claude; it becomes several people, each message tagged with its sender's Tailscale name, and Claude is told who said what.
-- **It only knows what's public.** Since everyone reads Claude's answers there, it never sees anyone's hidden cards, or it would give a hand away. "Send Claude my hidden cards" doesn't apply in it.
-- **Private messages to Claude** for advice ("what should I play here?"): each player can open their own chat with Claude, sent only to them, which knows their own hidden cards and nobody else's. Today a game has one Claude seat; this makes one more per player, each its own conversation, and the SSE stream sends each viewer only the chats they're in.
+- **One chat at the table.** Both players (and anyone watching) talk in it. Messages show who sent them, by Tailscale name.
+- **Claude answers when it's called.** A message with `@claude` in it goes to Claude, along with what's been said since it last spoke, and it's told who said what. Anything else is just players talking, and costs nothing. The input's placeholder gives the hint ("Message the table, @claude to ask Claude"), and typing `@` offers it.
+- **Hide this message.** A toggle by the input sends a message only to Claude: the other player doesn't see it, or Claude's reply to it. A hidden `@claude` can know your own hidden cards ("what should I play here?"); nothing hidden ever reaches the other player. A hidden message and its reply show to you with a "only you" mark.
+- **What Claude knows.** For a message everyone sees, only what's public, since everyone reads its answer and it would otherwise give a hand away. For a hidden one, the public table plus the sender's own hand and Set cards. Today a game's Claude keeps one conversation that knows one side's cards; this needs each answer built from what that message's audience may see, and Claude told plainly what's private ("only Alex sees this, don't mention it in the open chat"). Its memory of one player's hidden messages mustn't come out in a later open answer: simplest is a separate conversation per player for hidden messages, and one for the open chat.
+- **Sending.** The SSE stream sends each viewer the open messages plus their own hidden ones.
 - Reviews of a finished game can see everything, since the game's over.
 
 ### Later
