@@ -38,6 +38,20 @@
 - **Sending.** The SSE stream sends each viewer the open messages plus their own hidden ones.
 - Reviews of a finished game can see everything, since the game's over.
 
+### 3. Fun at the table
+
+The things you'd do across a real table, so it feels like playing a mate and not a form. All of it goes out over the session's stream like any other change, so both screens show it at once. The board already has sound effects for summons, attacks, damage and so on (`src/view/sounds.ts`, Kenney sounds in `public/sounds/`); these are the social ones on top.
+
+- **Reactions.** A small tray by the chat with quick ones: a laugh, "nice", "no way", "hurry up", a drum roll, a sad trombone. Each plays a short sound on both screens and floats up over the sender's side of the board. A cooldown so it can't be spammed into noise.
+- **Call-outs on big moments.** Optional voice lines on the moments the anime would shout: "I activate my trap card!", a summon of a boss monster, a hand trap stopping a combo, "it's time to duel" at the start. A setting turns them off.
+- **React on a card.** Long-press (or right-click) any card on the table to stick an emoji on it for a few seconds: 😂 on an Ojama, 💀 on the monster that just got negated.
+- **Slam it down.** A heavier landing, with a little screen shake and a thud, for a card played with a hold instead of a tap. For when it's earned.
+- **Claude as the commentator.** `@claude` can be asked to commentate, and the group chat's Claude can be told to hype big moments in a line, like an announcer, without being asked each time. Off by default, since it costs a call per moment.
+- **Thinking.** "Alex is thinking…" while the other player has a question open and hasn't answered for a while, and a nudge button that plays a tap sound on their screen.
+- **The result.** A proper win screen for the winner and a sad one for the loser, with a rematch button right there.
+
+Sounds come from a free pack (Kenney's, as now, or similar) or a few short clips recorded for fun; voice lines need checking for licensing rather than lifting from the anime.
+
 ### Later
 
 - Friends' Claude on an API key instead of the owner's login, with a daily spend per friend (each run already reports its cost) and a hard monthly cap in the Anthropic Console. The Agent SDK takes `env` per run, so a friend's run can be given `ANTHROPIC_API_KEY` while the owner's falls back to the Claude Code login.
